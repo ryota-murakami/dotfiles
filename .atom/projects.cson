@@ -1,0 +1,15 @@
+blog:
+  title: "blog"
+  paths: [
+    "/Users/tokyorefrain/aws-develop/blog"
+  ]
+"react-testing":
+  title: "react-testing"
+  paths: [
+    "/Users/tokyorefrain/repository/react-testing"
+  ]
+"tweet-pick":
+  title: "tweet-pick"
+  paths: [
+    "/Users/tokyorefrain/vagrant/CentOS/tweet-pick"
+  ]
