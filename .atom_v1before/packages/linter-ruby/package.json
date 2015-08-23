@@ -1,0 +1,40 @@
+{
+  "name": "linter-ruby",
+  "linter-package": true,
+  "main": "./lib/init",
+  "version": "0.1.6",
+  "description": "Lint Ruby on the fly, using ruby -wc",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AtomLinter/linter-ruby"
+  },
+  "license": "MIT",
+  "engines": {
+    "atom": ">0.180.0"
+  },
+  "dependencies": {},
+  "readme": "linter-ruby\n=========================\n\nThis linter plugin for [Linter](https://github.com/AtomLinter/Linter) provides an interface to Ruby's builtin syntax analysis. It will be used with files that have the `Ruby` syntax.\n\n## Installation\nLinter package must be installed in order to use this plugin. If Linter is not installed, please follow the instructions [here](https://github.com/AtomLinter/Linter).\n\n### Plugin installation\n```\n$ apm install linter-ruby\n```\n\n## Settings\nYou can configure linter-ruby by editing ~/.atom/config.cson (choose Open Your Config in Atom menu):\n```\n'linter-ruby':\n  'rubyExecutablePath': null #ruby path. run 'which ruby' to find the path.\n```\n\n## Contributing\nIf you would like to contribute enhancements or fixes, please do the following:\n\n1. Fork the plugin repository.\n1. Hack on a separate topic branch created from the latest `master`.\n1. Commit and push the topic branch.\n1. Make a pull request.\n1. welcome to the club\n\nPlease note that modifications should follow these coding guidelines:\n\n- Indent is 2 spaces.\n- Code should pass coffeelint linter.\n- Vertical whitespace helps readability, don’t be afraid to use it.\n\nThank you for helping out!\n\n## Donation\n[![Share the love!](https://chewbacco-stuff.s3.amazonaws.com/donate.png)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=KXUYS4ARNHCN8)\n",
+  "readmeFilename": "README.md",
+  "bugs": {
+    "url": "https://github.com/AtomLinter/linter-ruby/issues"
+  },
+  "homepage": "https://github.com/AtomLinter/linter-ruby",
+  "_id": "linter-ruby@0.1.6",
+  "_shasum": "cde2b85b92056ee21837bb66574ab6efb2b69260",
+  "_resolved": "file:../d-115622-70904-axdidl/package.tgz",
+  "_from": "../d-115622-70904-axdidl/package.tgz",
+  "_atomModuleCache": {
+    "version": 1,
+    "dependencies": [],
+    "extensions": {
+      ".coffee": [
+        "lib/init.coffee",
+        "lib/linter-ruby.coffee"
+      ],
+      ".json": [
+        "package.json"
+      ]
+    },
+    "folders": []
+  }
+}

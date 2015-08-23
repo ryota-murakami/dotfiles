@@ -1,0 +1,35 @@
+{
+  "name": "php-twig",
+  "version": "4.0.0",
+  "private": true,
+  "description": "Twig support for Atom.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/reesef/php-twig"
+  },
+  "license": "MIT",
+  "engines": {
+    "atom": ">0.10.0"
+  },
+  "dependencies": {},
+  "readme": "# PHP-twig for atom\n\nTwig syntax highlighting for atom.\n\nLanguages supported :\n* HTML\n* CSS\n* Javascript\n* JSON\n* XML\n\n\nOriginally converted from https://github.com/Anomareh/PHP-Twig.tmbundle\n",
+  "readmeFilename": "README.md",
+  "bugs": {
+    "url": "https://github.com/reesef/php-twig/issues"
+  },
+  "homepage": "https://github.com/reesef/php-twig",
+  "_id": "php-twig@4.0.0",
+  "_shasum": "9d746076201b60d979c9f6ac19782cec349ffedf",
+  "_resolved": "file:../d-115527-9421-1mlgj8i/package.tgz",
+  "_from": "../d-115527-9421-1mlgj8i/package.tgz",
+  "_atomModuleCache": {
+    "version": 1,
+    "dependencies": [],
+    "extensions": {
+      ".json": [
+        "package.json"
+      ]
+    },
+    "folders": []
+  }
+}
