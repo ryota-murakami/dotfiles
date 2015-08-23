@@ -1,13 +1,4 @@
 .android/
-.atom/.apm/atom-linter/
-.atom/.apm/linter-php/
-.atom/.apm/linter-phpcs/
-.atom/.apm/registry.npmjs.org/atom-linter/
-.atom/.apm/registry.npmjs.org/tmp/
-.atom/.apm/tmp/
-.atom/packages/linter-php/
-.atom/packages/linter-phpcs/
-.atom_v1before/
 .bash_history
 .composer/
 .ctags
