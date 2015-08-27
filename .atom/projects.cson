@@ -8,8 +8,18 @@ blog:
   paths: [
     "/Users/tokyorefrain/repository/react-testing"
   ]
+"rails-4-1-rspec-3-0":
+  title: "rails-4-1-rspec-3-0"
+  paths: [
+    "/Users/tokyorefrain/repository/rails-4-1-rspec-3-0"
+  ]
 "tweet-pick":
   title: "tweet-pick"
   paths: [
-    "/Users/tokyorefrain/vagrant/CentOS/tweet-pick"
+    "/Applications/xampp/htdocs/tweet-pick"
+  ]
+"Symfony2-CRUD-Sample":
+  title: "Symfony2-CRUD-Sample"
+  paths: [
+    "/Applications/xampp/htdocs/Symfony2-CRUD-Sample"
   ]
