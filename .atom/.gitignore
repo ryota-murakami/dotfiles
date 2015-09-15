@@ -3,3 +3,4 @@
 packages/
 compile-cache/
 storage/
+projects.cson
