@@ -1,5 +1,4 @@
 alias ll="ls -l"
-alias htd='cd /Applications/xampp/htdocs'
 alias d='cd ~/repository'
 alias c='clear'
 export PATH="$HOME/node_modules/.bin:$HOME/.composer/vendor/bin:$HOME/.rbenv/bin:$HOME/.rbenv/versions/2.2.0/bin:$PATH"
