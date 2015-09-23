@@ -5,6 +5,9 @@
     showOnStartup: false
   core:
     excludeVcsIgnoredPaths: false
+    disabledPackages: [
+      "linter-eslint"
+    ]
   editor:
     invisibles: {}
   react: {}
@@ -12,6 +15,14 @@
   "linter-jsxhint": {}
   "git-plus": {}
   "gist-it": {}
-  "linter-phpcs": {}
+  "linter-phpcs":
+    executablePath: "/usr/local/bin/phpcs"
   "remote-sync": {}
   "tree-view": {}
+  linter: {}
+  jshint: {}
+  "linter-scss-lint":
+    executablePath: "/Users/tokyorefrain/.rbenv/shims/scss-lint"
+    additionalArguments: "--exclude-linter ImportantRule"
+  "linter-eslint":
+    useGlobalEslint: true
