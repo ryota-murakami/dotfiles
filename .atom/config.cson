@@ -7,12 +7,15 @@
     excludeVcsIgnoredPaths: false
     disabledPackages: [
       "linter-eslint"
+      "jshint"
     ]
   editor:
     invisibles: {}
-  react: {}
+  react:
+    enabledForAllJavascriptFiles: true
   "highlight-selected": {}
-  "linter-jsxhint": {}
+  "linter-jsxhint":
+    harmony: true
   "git-plus": {}
   "gist-it": {}
   "linter-phpcs":
@@ -23,6 +26,6 @@
   jshint: {}
   "linter-scss-lint":
     executablePath: "/Users/tokyorefrain/.rbenv/shims/scss-lint"
-    additionalArguments: "--exclude-linter ImportantRule"
+    additionalArguments: "--exclude-linter ImportantRule,IdSelector"
   "linter-eslint":
     useGlobalEslint: true
