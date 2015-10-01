@@ -5,7 +5,7 @@ do
     [[ "$f" == ".git" ]] && continue
     [[ "$f" == ".DS_Store" ]] && continue
 
-    ln -s ./$f $HOME/$f
+    ln -s ./dotfiles/$f $HOME/$f
 
     echo "${f} is already setup!!"
 done
