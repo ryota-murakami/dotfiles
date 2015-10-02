@@ -2,6 +2,7 @@ alias ll="ls -l"
 alias d='cd ~/repository'
 alias c='clear'
 export PATH="$HOME/node_modules/.bin:$HOME/.composer/vendor/bin:$HOME/.rbenv/bin:$HOME/.rbenv/versions/2.2.0/bin:$PATH"
+export PATH="/usr/local/bin:$PATH"
 eval "$(rbenv init -)"
 export DOCKER_CERT_PATH=/Users/tokyorefrain/.boot2docker/certs/boot2docker-vm
 export DOCKER_TLS_VERIFY=1
