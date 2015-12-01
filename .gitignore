@@ -1,6 +1,7 @@
 .android/
 .bash_history
-.composer/
+.composer/*
+!composer.json
 .ctags
 .cups/
 .eclipse/
