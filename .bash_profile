@@ -18,14 +18,20 @@ eval "$(rbenv init -)"
 source /usr/local/etc/bash_completion.d/git-prompt.sh
 source /usr/local/etc/bash_completion.d/git-completion.bash
 
-genpasswd() { pwgen -Bsy $1 1 |pbcopy |pbpaste; echo “Has been copied to clipboard”
+
+
+### 関数定義
+# パスワードのランダム生成
+genpasswd() { 
+  pwgen -Bsy $1 1 |pbcopy |pbpaste; echo “Has been copied to clipboard”
 }
 
+# ssh wrapper
 ssh () {
-        if [ -d ~/.ssh/config.d ]
-        then
-                cat ~/.ssh/config.d/*.conf > ~/.ssh/config
-                chmod 600 ~/.ssh/config
-        fi
-        command ssh $@
+  if [ -d ~/.ssh/config.d ]
+  then
+    cat ~/.ssh/config.d/*.conf > ~/.ssh/config
+    chmod 600 ~/.ssh/config
+  fi
+  command ssh $@
 }
