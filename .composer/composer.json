@@ -1,6 +1,7 @@
 {
     "require": {
         "squizlabs/php_codesniffer": "*",
-        "phpunit/phpunit": "4.8.*"
+        "phpunit/phpunit": "4.8.*",
+        "fabpot/php-cs-fixer": "^1.11"
     }
 }
