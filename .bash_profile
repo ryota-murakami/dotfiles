@@ -35,3 +35,6 @@ ssh () {
   fi
   command ssh $@
 }
+
+# bashrcを読み込み
+test -r ~/.bashrc && . ~/.bashrc
