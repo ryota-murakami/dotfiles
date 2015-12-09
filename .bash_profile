@@ -4,8 +4,8 @@ alias d='cd ~/repository'
 alias c='clear'
 
 # 環境依存のショートカット
-if [ -f ~/.local_alias.sh ]; then
-  source ./local_alias.sh
+if [ -f ~/.local_config.sh ]; then
+  source ./.local_config.sh
 fi
 
 # path
