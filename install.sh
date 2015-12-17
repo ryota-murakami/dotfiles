@@ -5,15 +5,17 @@ do
     [[ "$f" =~ ^[^\.].* ]] && continue
     [[ "$f" == ".git" ]] && continue
     [[ "$f" == ".DS_Store" ]] && continue
+    cd ~
+    [[ -e "$f" ]] && echo "${f} already exists." && continue
 
     ln -s ./dotfiles/$f $HOME/$f
 
-    echo "${f} is already setup!!"
+    echo "${f} setup successfully!!"
 done
 
 sleep 0.5s
 
 echo -e "\n"
-echo "Complete dotfiles setup!!"
+echo "Completed dotfiles setup!!"
 echo -e "\n"
 
