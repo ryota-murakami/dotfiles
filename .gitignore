@@ -32,3 +32,4 @@
 .wapi/
 .local_alias.sh
 .atom/
+Gemfile.lock
