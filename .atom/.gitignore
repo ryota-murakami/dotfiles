@@ -1,7 +1,0 @@
-.apm/
-.node-gyp/
-packages/
-compile-cache/
-storage/
-projects.cson
-config.cson
