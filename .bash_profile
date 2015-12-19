@@ -1,5 +1,5 @@
 # ショーカット
-alias ll="ls -l"
+alias ll="ls -lG"
 alias d='cd ~/repository'
 alias c='clear'
 
@@ -7,6 +7,9 @@ alias c='clear'
 if [ -f ~/.local_config.sh ]; then
   source ./.local_config.sh
 fi
+
+# lsコマンドのカラー
+export LSCOLORS="gxfxcxdxbxegedabagacad"
 
 # path
 export PATH="$HOME/node_modules/.bin:$HOME/.composer/vendor/bin:$HOME/.rbenv/bin:$HOME/.rbenv/versions/2.2.0/bin:$PATH"
