@@ -9,12 +9,12 @@ do
 
     ln -s ./dotfiles/$f $HOME/$f
 
-    echo "${f} setup successfully!!"
+    echo "${f} setup successfully."
 done
 
 sleep 0.5s
 
 echo -e "\n"
-echo "Completed dotfiles setup!!"
+echo "Setup dotfiles is now complete!!"
 echo -e "\n"
 
