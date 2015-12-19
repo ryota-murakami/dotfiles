@@ -36,5 +36,12 @@ ssh () {
   command ssh $@
 }
 
+# Brewfile更新
+brewfile() {
+  [[ ! -f ~/dotfiles/Brewfile ]] && echo "Brewfile not found(◎-◎；)" && return 1
+
+  [[ $1 = "update" ]] && brew bundle dump --force --file=~/dotfiles/Brewfile && return 0
+}
+
 # bashrcを読み込み
 test -r ~/.bashrc && . ~/.bashrc
