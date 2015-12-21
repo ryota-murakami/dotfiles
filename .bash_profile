@@ -4,7 +4,7 @@ alias d='cd ~/repository'
 alias c='clear'
 
 # 環境依存のショートカット
-if [ -f ~/.local_config.sh ]; then
+if [ -r ~/.local_config.sh ]; then
   source ./.local_config.sh
 fi
 
@@ -41,7 +41,7 @@ ssh () {
 
 # Brewfile controller
 brewfile() {
-  [[ ! -f ~/dotfiles/Brewfile ]] && echo "Brewfile not found(◎-◎；)" && return 1
+  [[ ! -r ~/dotfiles/Brewfile ]] && echo "Brewfile not found(◎-◎；)" && return 1
 
   [[ $1 = "update" ]] && brew bundle dump --force --file=~/dotfiles/Brewfile && echo "Brewfile has been updated." && return 0
 }
