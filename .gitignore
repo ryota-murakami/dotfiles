@@ -33,3 +33,4 @@
 .local_alias.sh
 .atom/
 Gemfile.lock
+.DS_Store
