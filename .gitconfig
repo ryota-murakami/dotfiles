@@ -4,4 +4,4 @@
 	name = ryota-murakami
 	email = dojce1048@gmail.com
 [core]
-	excludesfile = /Users/tokyorefrain/.gitignore_global
+	excludesfile = ~/.gitignore_global
