@@ -1,3 +1,6 @@
+[color]
+	ui = auto
+
 [alias]
  	st = status
 	co = checkout
