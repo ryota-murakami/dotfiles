@@ -1,5 +1,11 @@
 [alias]
-       st = status
+ 	st = status
+	co = checkout
+	ci = commit -av
+	df = diff
+	br = branch
+	mg = merge
+	subup = submodule foreach git pull origin master --ff
 [user]
 	name = ryota-murakami
 	email = dojce1048@gmail.com
