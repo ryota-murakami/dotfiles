@@ -16,3 +16,5 @@
 	email = dojce1048@gmail.com
 [core]
 	excludesfile = ~/.gitignore_global
+[push]
+	default = current
