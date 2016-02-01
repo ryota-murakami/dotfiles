@@ -47,5 +47,10 @@ brewfile() {
   [[ $1 = "update" ]] && brew bundle dump --force --file=~/dotfiles/Brewfile && echo "Brewfile has been updated." && return 0
 }
 
+# .editorconfig生成
+geneditconf() {
+  cp ~/dotfiles/.editorconfig .
+}
+
 # bashrcを読み込み
 test -r ~/.bashrc && . ~/.bashrc
