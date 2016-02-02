@@ -1,10 +1,9 @@
 # Installation
 
-```
-$ cd ~
-$ git clone https://github.com/ryota-murakami/dotfiles.git
-$ cd dotfiles
-$ ./install.sh
-```
+1. cd ~
+1. git clone https://github.com/ryota-murakami/dotfiles.git
+1. cd dotfiles
+1. ./install.sh
+
 
 To the home directory will symbolic link is created.
