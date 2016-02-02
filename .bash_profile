@@ -51,6 +51,3 @@ brewfile() {
 geneditconf() {
   cp ~/dotfiles/.editorconfig .
 }
-
-# bashrcを読み込み
-test -r ~/.bashrc && . ~/.bashrc
