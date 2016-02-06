@@ -50,4 +50,5 @@ brewfile() {
 # .editorconfig生成
 geneditconf() {
   cp ~/dotfiles/.editorconfig .
+  ll .editorconfig 
 }
