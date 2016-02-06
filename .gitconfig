@@ -18,5 +18,6 @@
 	email = dojce1048@gmail.com
 [core]
 	excludesfile = ~/.gitignore_global
+	editor = vim
 [push]
 	default = current
