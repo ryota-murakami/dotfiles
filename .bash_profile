@@ -3,6 +3,7 @@ alias ll="ls -lG"
 alias d='cd ~/repository'
 alias c='clear'
 alias ga='git add --all && git commit'
+alias dm='docker-machine'
 
 # 環境依存のショートカット
 if [ -r ~/.local_config.sh ]; then
@@ -26,7 +27,7 @@ source /usr/local/etc/bash_completion.d/git-completion.bash
 
 ### 関数定義
 # パスワードのランダム生成
-genpasswd() { 
+genpasswd() {
   pwgen -Bsy $1 1 |pbcopy |pbpaste; echo “Has been copied to clipboard”
 }
 
@@ -50,5 +51,5 @@ brewfile() {
 # .editorconfig生成
 geneditconf() {
   cp ~/dotfiles/.editorconfig .
-  ll .editorconfig 
+  ll .editorconfig
 }
