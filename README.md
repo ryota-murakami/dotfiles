@@ -11,7 +11,7 @@ $ ./install.sh
 
 ## Brewfile
 
-<a href="https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile" target="_new">https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile</a>
+<a href="https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile" target="_new">dotfiles/Brewfile</a>
 
 homebrewで導入したパッケージを記録するファイル。  
 Gemfile,package.jsonのようなもの。
