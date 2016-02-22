@@ -15,3 +15,34 @@ Gemfile,package.jsonのようなもの。
 # Brewfileにあるパッケージをインストール
 $ sudo brew brewdle
 ```
+
+## .vimrc
+vimの設定と使っているパッケージが記載されている。  
+Vimプラグインのパッケージマネージャである**NeoBundle**を使用しており、  
+以下の手順でNeoBundleの導入とパッケージのインストールを行う。
+
+#### NeoBundleのインストール
+
+```sh
+$ mkdir -p ~/dotfiles/.vim/bundle
+$ git clone git://github.com/Shougo/neobundle.vim ~/dotfiles/.vim/bundle/neobundle.vim
+```
+
+#### プラグインのインストール
+
+`.vimrc`を開きコマンドモードの状態で以下を入力。  
+
+```sh
+:NeoBundleInstall
+```
+
+`.vimrc`の
+
+```vim
+call neobundle#begin(expand('~/.vim/bundle'))
+    NeoBundle 'editorconfig/editorconfig-vim'
+    ~
+call neobundle#end()
+```
+
+ブロックに記載されたパッケージがインストールされる。
