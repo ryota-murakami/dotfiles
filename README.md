@@ -7,7 +7,12 @@ $ cd dotfiles
 $ ./install.sh
 ```
 
+ホームディレクトリに`dotfiles`内の`.`から始まるファイルのシンボリックリンクが作成される
+
 ## Brewfile
+
+<a href="https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile" target="_new">https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile</a>
+
 homebrewで導入したパッケージを記録するファイル。  
 Gemfile,package.jsonのようなもの。
 
