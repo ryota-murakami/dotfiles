@@ -52,7 +52,7 @@ call neobundle#end()
 
 ブロックに記載されたパッケージがインストールされる。
 
-### .editorconfig
+## .editorconfig
 
 <a href="https://github.com/ryota-murakami/dotfiles/blob/master/.editorconfig" target="_new">dotfiles/.editorconfig</a>
 
