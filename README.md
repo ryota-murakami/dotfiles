@@ -51,3 +51,13 @@ call neobundle#end()
 ```
 
 ブロックに記載されたパッケージがインストールされる。
+
+### .editorconfig
+
+<a href="https://github.com/ryota-murakami/dotfiles/blob/master/.editorconfig" target="_new">dotfiles/.editorconfig</a>
+
+エディタのインデントスタイルや改行コードを統一するツールの設定ファイル。
+<a href="http://editorconfig.org/" target="_new">editorconfig</a>
+
+`.bash_profile`に定義している`geneditconf()`をプロジェクトルートで叩くと、  
+このリポジトリで管理している`.editorconfig`がプロジェクトルートにコピーされる
