@@ -21,6 +21,15 @@ Gemfile,package.jsonのようなもの。
 $ sudo brew brewdle
 ```
 
+## fish shell
+
+常用のshellはfish。  
+<a href="http://megane-blog.com/2014/12/15/1461" target="_blank">fishシェルがとても素晴らしかったので、お伝えします。</a>  
+
+インストールはbrewで、以下のスクリプトでデフォルトのshellに設定される。  
+
+- <a href="https://github.com/ryota-murakami/dotfiles/blob/master/scrips/fish_init.sh" target="_blank">dotfiles/scrips/fish_init.sh</a>
+
 ## .vimrc
 vimの設定と使っているパッケージが記載されている。  
 Vimプラグインのパッケージマネージャである**NeoBundle**を使用しており、  
