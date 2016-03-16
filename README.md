@@ -18,7 +18,7 @@ Gemfile,package.jsonのようなもの。
 
 ```sh
 # Brewfileにあるパッケージをインストール
-$ sudo brew brewdle
+$ brew brewdle
 ```
 
 ## fish shell
