@@ -47,6 +47,7 @@ brew 'tmux'
 brew 'docker-machine'
 brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
+brew 'nmap'
 cask 'atom'
 cask 'bathyscaphe'
 cask 'bettertouchtool'
