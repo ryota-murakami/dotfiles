@@ -3,14 +3,10 @@ root = true
 [*]
 end_of_line = lf
 charset = utf-8
-indent_style = tab
-tab_width = 4
+indent_style = space
+indent_size = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.sh]
-tab_width = 2
-
-[*.{php,py,yml,yaml}]
-indent_style = space
+[*.{sh,yml,yaml}]
 indent_size = 4
