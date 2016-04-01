@@ -1,17 +1,12 @@
 #!/bin/bash
 
-for f in .??*
-do
-    [[ "$f" =~ ^[^\.].* ]] && continue
-    [[ "$f" == ".git" ]] && continue
-    [[ "$f" == ".DS_Store" ]] && continue
-    [[ -e ~/${f} ]] && echo "${f} already exists." && continue
+# Main
+source "./scripts/directory_variables.sh"
 
-    ln -s ./dotfiles/$f $HOME/$f
+# Create Symlink
+[[ -f "$SCRIPTS_DIR/create_symlink.sh" ]] && source "$SCRIPTS_DIR/create_symlink.sh"
 
-    echo "${f} setup successfully."
-done
-
+# Finish
 sleep 0.5s
 
 echo -e "\n"
