@@ -38,8 +38,12 @@ Vimプラグインのパッケージマネージャである**NeoBundle**を使�
 #### NeoBundleのインストール
 
 ```sh
+# インストール
 $ mkdir -p ~/dotfiles/.vim/bundle
-$ git clone git://github.com/Shougo/neobundle.vim ~/dotfiles/.vim/bundle/neobundle.vim
+$ git submodule add git://github.com/Shougo/neobundle.vim ~/dotfiles/.vim/bundle/neobundle.vim
+
+# 更新
+$ git submodule update
 ```
 
 #### プラグインのインストール
