@@ -1,5 +1,8 @@
 ## Installation
 
+まずはパスワード無しでsudoを実行可能にする(install.sh内でsudoを使用するので)
+<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">Macのsudoコマンドをパスワードなしで実行する</a>
+
 ```sh
 $ cd ~
 $ git clone git@github.com:ryota-murakami/dotfiles.git
