@@ -30,8 +30,16 @@ else
 fi
 
 # Main
+[[ $DOTFILES_DIR == "" ]] && source "$HOME/dotfiles/scripts/directory_variables.sh"
+
 if [[ ! -x $(which brew) ]]; then
+    # Install Homebrew
     ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    # Enable brewdle
+    brew tap Homebrew/brewdler
+    # Install Brewfile contain packages
+    cd $DOTFILES_DIR
+    brew brewdle
 else
     echo "brew has been installd."
 fi

@@ -30,7 +30,7 @@ else
 fi
 
 # Main
-[[ $DOTFILES_DIR == "" ]] && source "directory_variables.sh"
+[[ $DOTFILES_DIR == "" ]] && source "$HOME/dotfiles/scripts/directory_variables.sh"
 cd $DOTFILES_DIR
 for f in .??*
 do
