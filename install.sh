@@ -15,9 +15,11 @@ source "./scripts/directory_variables.sh" && echo -e "\n\n"
 # Contain Submodules... {"neobundle.vim"}
 git submodule update
 
+sudo composer global install
+
 # Finish
 sleep 0.5s
 
 echo "Setup dotfiles is now complete!!"
 echo -e "\n\n"
-
+:

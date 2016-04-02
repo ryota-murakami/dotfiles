@@ -29,15 +29,6 @@ else
     exit 1
 fi
 
-# /etc/shellsの書き換え時、sudoを使うのでそのパスワードをターミナルで入力して取得する
-password(){
-    if ! ${password+:} false
-    then
-        printf "password: "
-        read -s password
-    fi
-}
-
 # Main
 # シェルの一覧ファイルにfishが無ければ行末に追記
 grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells
