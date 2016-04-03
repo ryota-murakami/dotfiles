@@ -5,7 +5,7 @@ cat <<_EOT_
 Usage:
     $0
 Description:
-    Setup buildin ruby to rbenv.
+    Switch builtin ruby to rbenv.
     This script depend 'rbenv' 'ruby-build'
 Options:
     There is no option.
@@ -31,7 +31,7 @@ else
 fi
 
 # Main
-eval "$(rbenv init -)"
 rbenv install 2.3.0
 rbenv global 2.3.0
+eval "$(rbenv init -)"
 ruby -v
