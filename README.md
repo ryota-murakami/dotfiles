@@ -42,8 +42,7 @@ Vimプラグインのパッケージマネージャである**NeoBundle**を使�
 
 ```sh
 # インストール
-$ mkdir -p ~/dotfiles/.vim/bundle
-$ git submodule add git://github.com/Shougo/neobundle.vim ~/dotfiles/.vim/bundle/neobundle.vim
+git submodule init
 
 # 更新
 $ git submodule update

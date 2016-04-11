@@ -13,6 +13,7 @@ source "./scripts/directory_variables.sh" && echo -e "\n\n"
 [[ -f "$SCRIPTS_DIR/fish_init.sh" ]] && source "$SCRIPTS_DIR/fish_init.sh" && echo -e "\n\n"
 
 # Contain Submodules... {"neobundle.vim"}
+git submodule init
 git submodule update
 
 sudo composer global install
