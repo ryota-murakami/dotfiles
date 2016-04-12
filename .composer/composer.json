@@ -3,6 +3,7 @@
         "squizlabs/php_codesniffer": "*",
         "phpunit/phpunit": "4.8.*",
         "fabpot/php-cs-fixer": "^1.11",
-        "hirak/prestissimo": "^0.1.10"
+        "hirak/prestissimo": "^0.1.10",
+        "phpmd/phpmd" : "*"
     }
 }
