@@ -2,6 +2,7 @@ if has('vim_starting')
     set runtimepath+=~/.vim/bundle/neobundle.vim
     call neobundle#begin(expand('~/.vim/bundle'))
         NeoBundle 'editorconfig/editorconfig-vim'
+        NeoBundle 'dag/vim-fish'
     call neobundle#end()
 endif
 
