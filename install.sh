@@ -12,6 +12,10 @@ source "./scripts/directory_variables.sh" && echo -e "\n\n"
 # Fishshell Setup
 [[ -f "$SCRIPTS_DIR/fish_init.sh" ]] && source "$SCRIPTS_DIR/fish_init.sh" && echo -e "\n\n"
 
+# Gem install
+sudo gem install bundle
+sudo bundle install
+
 # Contain Submodules... {"neobundle.vim"}
 git submodule init
 git submodule update
