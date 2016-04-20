@@ -11,3 +11,4 @@ syntax on
 set t_Co=256
 set backspace=2
 set hlsearch
+set number
