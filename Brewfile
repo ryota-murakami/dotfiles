@@ -48,6 +48,7 @@ brew 'docker-machine'
 brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
 brew 'nmap'
+brew 'packer'
 cask 'atom'
 cask 'bathyscaphe'
 cask 'bettertouchtool'
@@ -61,3 +62,4 @@ cask 'slack'
 cask 'vagrant'
 cask 'virtualbox'
 cask 'sequel-pro'
+
