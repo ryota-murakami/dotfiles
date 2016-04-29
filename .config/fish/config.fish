@@ -1,5 +1,6 @@
 alias vi="/usr/local/bin/vim"
 
+set -U fish_user_paths $fish_user_paths $HOME/.rbenv/shims
 set -U fish_user_paths $fish_user_paths /usr/local/bin
 set -U fish_user_paths $fish_user_paths $HOME/node_modules/.bin
 set -U fish_user_paths $fish_user_paths $HOME/.composer/vendor/bin
