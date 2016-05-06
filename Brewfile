@@ -49,6 +49,7 @@ brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
 brew 'nmap'
 brew 'packer'
+brew 'postgresql'
 cask 'atom'
 cask 'bathyscaphe'
 cask 'bettertouchtool'
