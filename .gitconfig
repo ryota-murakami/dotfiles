@@ -19,5 +19,6 @@
 [core]
 	excludesfile = ~/.gitignore_global
 	editor = vim
+	filemode = false
 [push]
 	default = current
