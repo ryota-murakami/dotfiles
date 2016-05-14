@@ -1,16 +1,39 @@
 #!/bin/bash
 
+function abort() {
+    echo "$@" 1>&2
+    exit 1
+}
+
 # Main
-source "./scripts/directory_variables.sh" && echo -e "\n\n"
+if [ -f "./scripts/directory_variables.sh" ]; then
+    source "./scripts/directory_variables.sh" && echo -e "\n\n"
+else
+    abort "no such directory_variables.sh"
+fi
 
 # Create Symlink
-[[ -f "$SCRIPTS_DIR/create_symlink.sh" ]] && source "$SCRIPTS_DIR/create_symlink.sh" && echo -e "\n\n"
+if [[ -f "$SCRIPTS_DIR/create_symlink.sh" ]]; then
+    source "$SCRIPTS_DIR/create_symlink.sh" && echo -e "\n\n"
+else
+    abort "no such create_symlink.sh"
+fi
 
 # Homebrew Install
-[[ -f "$SCRIPTS_DIR/brew_install.sh" ]] && source "$SCRIPTS_DIR/brew_install.sh" && echo -e "\n\n"
+if [[ -f "$SCRIPTS_DIR/brew_install.sh" ]]; then
+    source "$SCRIPTS_DIR/brew_install.sh" && echo -e "\n\n"
+else
+    abort "no such brew_install.sh"
+fi
 
 # Fishshell Setup
-[[ -f "$SCRIPTS_DIR/fish_init.sh" ]] && source "$SCRIPTS_DIR/fish_init.sh" && echo -e "\n\n"
+if [[ -f "$SCRIPTS_DIR/fish_init.sh" ]]; then
+    source "$SCRIPTS_DIR/fish_init.sh" && echo -e "\n\n"
+else
+    abort "no such fish_init.sh"
+fi
+
+# 本当はここでrbenvの設定処理を入れたいが、現状上手くshell scriptが動作しないﾐ(´┏ω┓｀)/
 
 # Gem install
 sudo gem install bundle
