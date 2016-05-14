@@ -41,7 +41,6 @@ brew 'wget'
 brew 'ag'
 brew 'hub'
 brew 'pwgen'
-brew 'tmux'
 brew 'docker-machine'
 brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
