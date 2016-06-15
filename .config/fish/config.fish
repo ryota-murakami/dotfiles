@@ -1,5 +1,6 @@
 alias vi="/usr/local/bin/vim"
 alias c="clear"
+alias cp="rsync -ah --progress"
 
 set -U fish_user_paths $fish_user_paths $HOME/.rbenv/shims
 set -U fish_user_paths $fish_user_paths /usr/local/bin
