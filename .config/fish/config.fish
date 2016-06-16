@@ -27,3 +27,13 @@ function geneditconf
   cp ~/dotfiles/.editorconfig .
   ll .editorconfig
 end
+
+function weather
+  if [ -z $argv ]
+    set locate tokyo
+  else
+    set locate $argv
+  end
+
+  curl wttr.in/$locate
+end
