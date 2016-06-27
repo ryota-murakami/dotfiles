@@ -3,7 +3,6 @@ alias ll="ls -lG"
 alias d='cd ~/repository'
 alias c='clear'
 alias ga='git add --all && git commit'
-alias dm='docker-machine'
 
 # 環境依存のショートカット
 if [ -r ~/.local_config.sh ]; then
