@@ -1,0 +1,45 @@
+"検索をファイルの先頭へ循環しない
+set nowrapscan
+
+"大文字小文字の区別なし
+set ignorecase
+
+"検索時に大文字を含んでいたら大/小を区別
+set smartcase
+
+"検索対象をハイライト
+"ハイライトを消す場合は:noh[l]
+set hlsearch
+
+"スクロール時に表示を10行確保
+set scrolloff=10
+
+"JIS 配列 C-[ で Esc
+inoremap <C-]> <Esc>
+
+"x キー削除でデフォルトレジスタに入れない
+nnoremap x "_x
+vnoremap x "_x
+
+"vv で行末まで選択
+vnoremap v ^$h
+
+"選択範囲のインデントを連続して変更
+vnoremap < <gv
+vnoremap > >gv
+
+"ノーマルモード中にEnterで改行
+noremap <CR> i<CR><Esc>
+
+"インサートモードで bash 風キーマップ
+inoremap <C-a> <C-o>^
+inoremap <C-e> <C-o>$<Right>
+inoremap <C-b> <Left>
+inoremap <C-f> <Right>
+inoremap <C-n> <Down>
+inoremap <C-p> <Up>
+inoremap <C-h> <BS>
+inoremap <C-d> <Del>
+inoremap <C-k> <C-o>D<Right>
+inoremap <C-u> <C-o>d^
+inoremap <C-w> <C-o>db
