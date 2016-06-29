@@ -3,6 +3,7 @@ if has('vim_starting')
     call neobundle#begin(expand('~/.vim/bundle'))
         NeoBundle 'editorconfig/editorconfig-vim'
         NeoBundle 'dag/vim-fish'
+        NeoBundle 'vim-scripts/grep.vim'
     call neobundle#end()
 endif
 
