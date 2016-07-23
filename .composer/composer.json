@@ -1,9 +1,9 @@
 {
     "require": {
         "squizlabs/php_codesniffer": "*",
-        "phpunit/phpunit": "5.0.*",
-        "fabpot/php-cs-fixer": "^1.11",
-        "hirak/prestissimo": "^0.1.10",
+        "phpunit/phpunit": "*",
+        "fabpot/php-cs-fixer": "*",
+        "hirak/prestissimo": "*",
         "phpmd/phpmd" : "*",
         "escapestudios/symfony2-coding-standard": "~2.0"
     }
