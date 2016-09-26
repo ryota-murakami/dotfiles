@@ -14,6 +14,9 @@ set hlsearch
 "スクロール時に表示を10行確保
 set scrolloff=10
 
+set visualbell
+set noerrorbells
+
 "JIS 配列 C-[ で Esc
 inoremap <C-]> <Esc>
 
