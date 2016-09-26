@@ -10,6 +10,8 @@ set -U fish_user_paths $fish_user_paths $HOME/.composer/vendor/bin
 # lsコマンドのカラー
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
+eval (direnv hook fish)
+
 # fish用のphpbrew初期化ファイル
 if [ -f ~/.phpbrew/phpbrew.fish ]
   source ~/.phpbrew/phpbrew.fish
