@@ -1,3 +1,6 @@
+"yankをクリップボードに格納"
+set clipboard+=unnamed
+
 "検索をファイルの先頭へ循環しない
 set nowrapscan
 
@@ -46,3 +49,17 @@ inoremap <C-d> <Del>
 inoremap <C-k> <C-o>D<Right>
 inoremap <C-u> <C-o>d^
 inoremap <C-w> <C-o>db
+
+"shift + 矢印キーでのテキスト選択を有効化"
+nmap <S-Up> v<Up>
+nmap <S-Down> v<Down>
+nmap <S-Left> v<Left>
+nmap <S-Right> v<Right>
+vmap <S-Up> <Up>
+vmap <S-Down> <Down>
+vmap <S-Left> <Left>
+vmap <S-Right> <Right>
+imap <S-Up> <Esc>v<Up>
+imap <S-Down> <Esc>v<Down>
+imap <S-Left> <Esc>v<Left>
+imap <S-Right> <Esc>v<Right>
