@@ -7,6 +7,8 @@ set -U fish_user_paths $fish_user_paths /usr/local/bin
 set -U fish_user_paths $fish_user_paths $HOME/node_modules/.bin
 set -U fish_user_paths $fish_user_paths $HOME/.composer/vendor/bin
 
+set -x NODE_PATH /usr/local/lib/node_modules
+
 # lsコマンドのカラー
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
