@@ -19,13 +19,6 @@ if [ -f ~/.phpbrew/phpbrew.fish ]
   source ~/.phpbrew/phpbrew.fish
 end
 
-# Brewfile controller
-function brewfile
-  [ ! -r ~/dotfiles/Brewfile ] and echo "Brewfile not found(◎-◎；)" and return 1
-
-  [ $1 = "update" ] and brew bundle dump --force --file=~/dotfiles/Brewfile and echo "Brewfile has been updated." and return 0
-end
-
 # .editorconfig生成
 function geneditconf
   cp ~/dotfiles/.editorconfig .

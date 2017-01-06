@@ -40,13 +40,6 @@ ssh () {
   command ssh $@
 }
 
-# Brewfile controller
-brewfile() {
-  [[ ! -r ~/dotfiles/Brewfile ]] && echo "Brewfile not found(◎-◎；)" && return 1
-
-  [[ $1 = "update" ]] && brew bundle dump --force --file=~/dotfiles/Brewfile && echo "Brewfile has been updated." && return 0
-}
-
 # .editorconfig生成
 geneditconf() {
   cp ~/dotfiles/.editorconfig .
