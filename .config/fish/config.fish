@@ -19,12 +19,6 @@ if [ -f ~/.phpbrew/phpbrew.fish ]
   source ~/.phpbrew/phpbrew.fish
 end
 
-# .editorconfig生成
-function geneditconf
-  cp ~/dotfiles/.editorconfig .
-  ll .editorconfig
-end
-
 function weather
   if [ -z $argv ]
     set locate tokyo
