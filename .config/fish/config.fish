@@ -16,17 +16,17 @@ eval (direnv hook fish)
 
 # fish用のphpbrew初期化ファイル
 if [ -f ~/.phpbrew/phpbrew.fish ]
-  source ~/.phpbrew/phpbrew.fish
+    source ~/.phpbrew/phpbrew.fish
 end
 
 function weather
-  if [ -z $argv ]
-    set locate tokyo
-  else
-    set locate $argv
-  end
+    if [ -z $argv ]
+        set locate tokyo
+    else
+        set locate $argv
+    end
 
-  curl wttr.in/$locate
+    curl wttr.in/$locate
 end
 
 function rh
