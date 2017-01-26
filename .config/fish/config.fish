@@ -28,3 +28,7 @@ function weather
 
   curl wttr.in/$locate
 end
+
+function rh
+    git rev-parse --short HEAD | pbcopy
+end
