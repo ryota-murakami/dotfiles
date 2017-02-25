@@ -2,11 +2,10 @@
     "minimum-stability": "dev",
     "require": {
         "phpunit/phpunit": "~5.7",
-        "fabpot/php-cs-fixer": "*",
         "hirak/prestissimo": "*",
         "phpmd/phpmd" : "*",
-        "mpyw/php-hyper-builtin-server": "^2.0",
-        "ryota-murakami/twitter-bearer-token-getter": "^1.0"
+        "ryota-murakami/twitter-bearer-token-getter": "^1.0",
+        "friendsofphp/php-cs-fixer": "^2.1"
     },
     "repositories": {
         "twitter-bearer-token-getter": {
