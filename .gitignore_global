@@ -5,3 +5,4 @@ bower_components/
 deployment-config.json
 .idea/
 .sass-cache
+yarn-error.log
