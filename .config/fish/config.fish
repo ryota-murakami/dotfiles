@@ -1,6 +1,7 @@
 alias vi="/usr/local/bin/vim"
 alias c="clear"
 alias cp="rsync -ah --progress"
+alias lf="perl -pe 's/\n/\n\n/g'"
 
 set -x PATH $PATH $HOME/.rbenv/shims
 set -x PATH $PATH /usr/local/bin
