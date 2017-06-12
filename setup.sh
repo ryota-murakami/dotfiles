@@ -1,8 +1,6 @@
 #!/bin/bash
 
 # Create Symlink
-
-# Main
 cd $HOME/dotfiles 
 for f in .??*
 do
@@ -30,9 +28,7 @@ else
 fi
 
 # Fishshell Setup
-# シェルの一覧ファイルにfishが無ければ行末に追記
-grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells
-
+grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # シェルの一覧ファイルにfishが無ければ行末に追記
 chsh -s /usr/local/bin/fish
 
 # Contain Submodules... {"neobundle.vim"}
