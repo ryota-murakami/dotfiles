@@ -85,7 +85,7 @@ call neobundle#end()
 
 ブロックに記載されたパッケージがインストールされる。
 
-## ATOM
+## Atom
 
 ATOMはBrewfileからインストールされるがPackageを手動で入れる必要がある。  
 お気に入りのPackageは<a href="https://atom.io/" target="_blank">https://atom.io/</a>からATOMアカウントに紐付けてスターを付けて管理する事が出来る。  
