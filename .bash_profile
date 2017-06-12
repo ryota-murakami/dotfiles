@@ -13,10 +13,8 @@ fi
 export LSCOLORS="gxfxcxdxbxegedabagacad"
 
 # path
-export PATH="$HOME/node_modules/.bin:$HOME/.composer/vendor/bin:$HOME/.rbenv/versions/2.2.0/bin:$PATH"
+export PATH="$HOME/node_modules/.bin:$HOME/.composer/vendor/bin"
 export PATH="/usr/local/bin:$PATH"
-export PATH="$(brew --prefix homebrew/php/php56)/bin:$PATH"
-eval "$(rbenv init -)"
 
 # gitコマンド補完
 source /usr/local/etc/bash_completion.d/git-prompt.sh

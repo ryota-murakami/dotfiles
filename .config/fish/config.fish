@@ -3,7 +3,6 @@ alias c="clear"
 alias cp="rsync -ah --progress"
 alias lf="perl -pe 's/\n/\n\n/g'"
 
-set -x PATH $PATH $HOME/.rbenv/shims
 set -x PATH $PATH /usr/local/bin
 set -x PATH $PATH $HOME/node_modules/.bin
 set -x PATH $PATH $HOME/.composer/vendor/bin
