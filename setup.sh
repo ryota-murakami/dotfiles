@@ -43,4 +43,3 @@ sleep 0.5s
 
 echo "Setup dotfiles is now complete!!"
 echo -e "\n\n"
-:
