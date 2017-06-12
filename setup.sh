@@ -35,6 +35,9 @@ chsh -s /usr/local/bin/fish
 git submodule init
 git submodule update
 
+# Install Bundler
+gem install bundler
+
 # Install Composer Global Package.(Installed Composer From brew)
 sudo composer global install
 
