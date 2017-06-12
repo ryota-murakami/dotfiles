@@ -33,16 +33,11 @@ else
     abort "no such fish_init.sh"
 fi
 
-# 本当はここでrbenvの設定処理を入れたいが、現状上手くshell scriptが動作しないﾐ(´┏ω┓｀)/
-
-# Gem install
-sudo gem install bundle
-sudo bundle install
-
 # Contain Submodules... {"neobundle.vim"}
 git submodule init
 git submodule update
 
+# Install Composer Global Package.(Installed Composer From brew)
 sudo composer global install
 
 # Finish
