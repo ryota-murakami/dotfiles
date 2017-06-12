@@ -3,10 +3,7 @@ alias c="clear"
 alias cp="rsync -ah --progress"
 alias lf="perl -pe 's/\n/\n\n/g'"
 
-set -x PATH $PATH /usr/local/bin
-set -x PATH $PATH $HOME/node_modules/.bin
-set -x PATH $PATH $HOME/.composer/vendor/bin
-
+set -x PATH /usr/local/Cellar/ruby/2.4.1_1/bin /usr/local/bin $HOME/node_modules/.bin $HOME/.composer/vendor/bin $PATH
 set -x NODE_PATH /usr/local/lib/node_modules
 
 # lsコマンドのカラー
