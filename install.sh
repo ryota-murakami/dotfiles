@@ -1,37 +1,39 @@
 #!/bin/bash
 
-function abort() {
-    echo "$@" 1>&2
-    exit 1
-}
+# Create Symlink
 
 # Main
-if [ -f "./scripts/directory_variables.sh" ]; then
-    source "./scripts/directory_variables.sh" && echo -e "\n\n"
-else
-    abort "no such directory_variables.sh"
-fi
+cd $HOME/dotfiles 
+for f in .??*
+do
+    [[ "$f" =~ ^[^\.].* ]] && continue
+    [[ "$f" == ".git" ]] && continue
+    [[ "$f" == ".DS_Store" ]] && continue
+    [[ -e $HOME/$f ]] && echo "${f} already exists." && continue
 
-# Create Symlink
-if [[ -f "$SCRIPTS_DIR/create_symlink.sh" ]]; then
-    source "$SCRIPTS_DIR/create_symlink.sh" && echo -e "\n\n"
-else
-    abort "no such create_symlink.sh"
-fi
+    ln -s $HOME/dotfiles/$f $HOME/$f
+
+    echo "${f} setup successfully."
+done
 
 # Homebrew Install
-if [[ -f "$SCRIPTS_DIR/brew_install.sh" ]]; then
-    source "$SCRIPTS_DIR/brew_install.sh" && echo -e "\n\n"
+if [[ ! -x $(which brew) ]]; then
+    # Install Homebrew
+    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+    # Enable brewdle
+    brew tap Homebrew/brewdler
+    # Install Brewfile contain packages
+    cd $HOME/dotfiles 
+    brew brewdle
 else
-    abort "no such brew_install.sh"
+    echo "brew has been installd."
 fi
 
 # Fishshell Setup
-if [[ -f "$SCRIPTS_DIR/fish_init.sh" ]]; then
-    source "$SCRIPTS_DIR/fish_init.sh" && echo -e "\n\n"
-else
-    abort "no such fish_init.sh"
-fi
+# シェルの一覧ファイルにfishが無ければ行末に追記
+grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells
+
+chsh -s /usr/local/bin/fish
 
 # Contain Submodules... {"neobundle.vim"}
 git submodule init
