@@ -1,6 +1,6 @@
 # at Clean Mac OS X
 
-1. パスワード無しでsudoを実行可能にする(install.sh内でsudoを使用するので)  
+1. パスワード無しでsudoを実行可能にする(setup.sh内でsudoを使用するので)  
 
 ```sh
 $ sudo visudo
