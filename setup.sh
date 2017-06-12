@@ -41,5 +41,5 @@ sudo composer global install
 # Finish
 sleep 0.5s
 
-echo "Setup dotfiles is now complete!!"
+echo "\e[32mSetup dotfiles is now complete!!"
 echo -e "\n\n"
