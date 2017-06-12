@@ -36,8 +36,8 @@ $ ./setup.sh
 - fish shellの初期化(ターミナルを再起動するとbashからfish shellに切り替わる)
 - git submoduleの初期化
   - 現状は<a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>をsubmoduleで管理している
-- グローバルで使用するphp packageをcomposerでインストール
-  - グローバルで使用するphp packageを<a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>で管理しており、`composer global install`で導入している
+- グローバルに使用するcomposer packageをインストール
+  - グローバルに使用するcomposer packageを<a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>で管理しており、`composer global install`でDownloadされる
 
 ## Brewfile
 
