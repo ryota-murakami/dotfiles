@@ -33,3 +33,7 @@ end
 function rh
     git rev-parse --short HEAD | pbcopy
 end
+
+function cpuinfo
+    system_profiler SPHardwareDataType
+end
