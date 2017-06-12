@@ -1,16 +1,7 @@
 {
     "minimum-stability": "dev",
     "require": {
-        "phpunit/phpunit": "~5.7",
         "hirak/prestissimo": "*",
-        "phpmd/phpmd" : "*",
-        "ryota-murakami/twitter-bearer-token-getter": "^1.0",
-        "friendsofphp/php-cs-fixer": "^2.1"
-    },
-    "repositories": {
-        "twitter-bearer-token-getter": {
-            "type": "vcs",
-            "url": "git@github.com:ryota-murakami/twitter-bearer-token-getter.git"
-        }
+        "ryota-murakami/twitter-bearer-token-getter": "^1.0"
     }
 }
