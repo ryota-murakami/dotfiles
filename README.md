@@ -49,7 +49,7 @@ cd dotfiles
 
 - generate dotfile symboliclinks at home directory.
 - brew install all `Brewfile` defined packages.
-- fish shellの初期化(ターミナルを再起動するとbashからfish shellに切り替わる)
+- initialize fish shell.(enable re-open terminal)
 - git submoduleの初期化
   - 現状は<a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>をsubmoduleで管理している
 - グローバルに使用するcomposer packageをインストール
