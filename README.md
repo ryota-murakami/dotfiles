@@ -45,8 +45,6 @@ cd dotfiles
 ./setup.sh
 ```
 
-# Infomation
-
 **what's doing in `setup.sh`**
 
 - ホームディレクトリ`~`に`~/dotfiles/`内の`.`から始まるファイルのシンボリックリンクを作成
