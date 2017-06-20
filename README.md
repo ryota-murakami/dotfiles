@@ -73,15 +73,3 @@ call neobundle#begin(expand('~/.vim/bundle'))
     ~
 call neobundle#end()
 ```
-
-## Atom
-
-AtomはBrewfileからインストールされるがPackageを手動で入れる必要がある。  
-お気に入りのPackageは<a href="https://atom.io/" target="_blank">https://atom.io/</a>からATOMアカウントに紐付けてスターを付けて管理する事が出来る。  
-
-- スターを付けたPackageをローカルにインストール
-
-```
-$ apm stars --install
-```
-> アカウントにログインするため、APIトークンの認証が発生する。メッセージに沿って対応すればOK。
