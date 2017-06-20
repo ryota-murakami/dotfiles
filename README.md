@@ -46,8 +46,6 @@ $ cd dotfiles
 $ ./setup.sh
 ```
 
-3. <a href="https://gist.github.com/ryota-murakami/3f20f65462be18bf757a" target="_blank">Manually Tasks</a>
-
 # Infomation
 
 **what's doing in `setup.sh`**
