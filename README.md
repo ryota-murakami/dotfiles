@@ -47,7 +47,7 @@ cd dotfiles
 
 **what's doing in `setup.sh`**
 
-- ホームディレクトリ`~`に`~/dotfiles/`内の`.`から始まるファイルのシンボリックリンクを作成
+- generate dotfile symboliclinks at home directory
 - `Brewfile`に書いてあるパッケージを全てインストール
 - fish shellの初期化(ターミナルを再起動するとbashからfish shellに切り替わる)
 - git submoduleの初期化
