@@ -15,6 +15,8 @@ myuser ALL=(ALL) NOPASSWD: ALL
 :wq
 ```
 
+> see:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">http://blog.bungu-do.jp/archives/2417</a>
+
 ## 2 privilege
 
 ```sh
@@ -32,8 +34,6 @@ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/
 ```sh
 git clone https://github.com/ryota-murakami/dotfiles.git
 ```
-
-> 参考:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">Macのsudoコマンドをパスワードなしで実行する</a>
 
 ## kick `setup.sh`
 
