@@ -65,7 +65,7 @@ open `.vimrc`, execute folllowing.
 :NeoBundleInstall
 ```
 
-`.vimrc`の
+defined installed pulugins at `.vimrc`.
 
 ```vim
 call neobundle#begin(expand('~/.vim/bundle'))
