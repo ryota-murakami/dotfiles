@@ -50,8 +50,8 @@ cd dotfiles
 - generate dotfile symboliclinks at home directory.
 - brew install all `Brewfile` defined packages.
 - initialize fish shell.(enable re-open terminal)
-- git submoduleの初期化
-  - 現状は<a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>をsubmoduleで管理している
+- initialize git submodule.
+  - in order to <a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>
 - グローバルに使用するcomposer packageをインストール
   - グローバルに使用するcomposer packageを<a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>で管理しており、`composer global install`でDownloadされる
 
