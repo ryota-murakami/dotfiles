@@ -74,8 +74,6 @@ call neobundle#begin(expand('~/.vim/bundle'))
 call neobundle#end()
 ```
 
-ブロックに記載されたパッケージがインストールされる。
-
 ## Atom
 
 AtomはBrewfileからインストールされるがPackageを手動で入れる必要がある。  
