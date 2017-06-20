@@ -53,7 +53,8 @@ cd dotfiles
   - enable re-open terminal.
 - initialize git submodule.
   - in order to <a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>.
-- グローバルに使用するcomposer packageをインストール
+
+## 6. Install composer blobal packages
   - グローバルに使用するcomposer packageを<a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>で管理しており、`composer global install`でDownloadされる
 
 ## Brewfile
