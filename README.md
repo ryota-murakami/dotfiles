@@ -1,7 +1,7 @@
 # at Clean Mac OS X
 fllowing, my initial setting manual.
 
-## 1. パスワード無しでsudoを実行可能にする(setup.sh内でsudoを使用するので)  
+## 1. Executable `sudo` without password.(using `sudo` into setup.sh)  
 
 ```sh
 $ sudo visudo
