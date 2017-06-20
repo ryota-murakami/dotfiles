@@ -81,6 +81,7 @@ call neobundle#end()
 - binding F1~F12 as function key.
 - system config > hidden dock.
 - system config > monitor mirroring -> invididualize.
+- system config > - to dark OS menu-bar & dock.
 - install betterTouchTool.
 - setting dark-theme of terminal.(font-size 12)
 - setting dark-theme of cotEditor.
