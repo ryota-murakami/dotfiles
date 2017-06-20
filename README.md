@@ -82,3 +82,4 @@ call neobundle#end()
 - system config > hidden dock.
 - system config > monitor mirroring -> invididualize.
 - install betterTouchTool.
+- setting dark-theme of terminal.
