@@ -50,7 +50,7 @@ $ ./setup.sh
 
 # Infomation
 
-**`setup.sh`でやっていること**
+**what's doing in `setup.sh`**
 
 - ホームディレクトリ`~`に`~/dotfiles/`内の`.`から始まるファイルのシンボリックリンクを作成
 - `Brewfile`に書いてあるパッケージを全てインストール
