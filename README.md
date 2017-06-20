@@ -16,7 +16,7 @@ myuser ALL=(ALL) NOPASSWD: ALL
 
 > 参考:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">Macのsudoコマンドをパスワードなしで実行する</a>
 
-2. kick `setup.sh`
+## 3. kick `setup.sh`
 
 ```sh
 $ cd ~
