@@ -85,3 +85,4 @@ call neobundle#end()
 - setting dark-theme of terminal.(font-size 12)
 - setting dark-theme of cotEditor.
 - install jetbrains all products pack.
+- install sketch.
