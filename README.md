@@ -38,7 +38,7 @@ cd ~
 git clone https://github.com/ryota-murakami/dotfiles.git
 ```
 
-## kick `setup.sh`
+## Kick `setup.sh`
 
 ```sh
 cd dotfiles
