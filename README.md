@@ -80,4 +80,4 @@ call neobundle#end()
 - change `¥` to `\` at OS X system config.
 - binding F1~F12 as function key.
 - system config > hidden dock.
-
+- system config > monitor mirroring -> invididualize.
