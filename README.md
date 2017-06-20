@@ -79,5 +79,5 @@ call neobundle#end()
 - change key repeat by karabiner 216 20.
 - change `¥` to `\` at OS X system config.
 - binding F1~F12 as function key.
-
+- system config > hidden dock.
 
