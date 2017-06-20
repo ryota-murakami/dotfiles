@@ -88,3 +88,4 @@ call neobundle#end()
 - install sketch.
 - install istat.
 - install gcp sdk.
+- install pomodoro.
