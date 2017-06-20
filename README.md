@@ -57,18 +57,6 @@ cd dotfiles
 ## 6. Install composer blobal packages
   - composer blobal packages are managed at <a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>, which will installed after `composer global install`.
 
-## Brewfile
-
-<a href="https://github.com/ryota-murakami/dotfiles/blob/master/Brewfile" target="_new">dotfiles/Brewfile</a>
-
-homebrewで導入したパッケージを記録するファイル。
-Gemfile,package.jsonのようなもの。
-
-```sh
-# Brewfileにあるパッケージをインストール
-$ brew brewdle
-```
-
 ## .vimrc
 vimの設定と使っているパッケージが記載されている。
 Vimプラグインのパッケージマネージャである**NeoBundle**を使用しており、
