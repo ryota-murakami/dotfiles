@@ -57,9 +57,9 @@ cd dotfiles
 ## 6. Install composer blobal packages
   - composer blobal packages are managed at <a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>, which will installed after `composer global install`.
 
-#### プラグインのインストール
+#### 7. Install Vim plugins
 
-`.vimrc`を開きコマンドモードの状態で以下を入力。
+open `.vimrc`, execute folllowing.
 
 ```sh
 :NeoBundleInstall
