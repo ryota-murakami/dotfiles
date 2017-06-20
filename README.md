@@ -1,4 +1,5 @@
 # at Clean Mac OS X
+fllowing, my initial setting manual.
 
 ## 1. パスワード無しでsudoを実行可能にする(setup.sh内でsudoを使用するので)  
 
