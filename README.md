@@ -77,5 +77,6 @@ call neobundle#end()
 ## 8. Any Manual Tasks
 
 - change key repeat by karabiner 216 20.
+- change ¥ to \ at OS X system config.
 
 
