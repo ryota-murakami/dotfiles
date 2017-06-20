@@ -87,3 +87,4 @@ call neobundle#end()
 - install jetbrains all products pack.
 - install sketch.
 - install istat.
+- install gcp sdk.
