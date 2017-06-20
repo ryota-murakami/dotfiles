@@ -20,7 +20,11 @@ myuser ALL=(ALL) NOPASSWD: ALL
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
+## 3. clone dotfiles
 
+```sh
+git clone https://github.com/ryota-murakami/dotfiles.git
+```
 
 > 参考:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">Macのsudoコマンドをパスワードなしで実行する</a>
 
