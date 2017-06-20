@@ -89,3 +89,5 @@ call neobundle#end()
 - install istat.
 - install gcp sdk.
 - install pomodoro.
+- import chrome setting.
+- install kindle.
