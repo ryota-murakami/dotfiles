@@ -57,21 +57,6 @@ cd dotfiles
 ## 6. Install composer blobal packages
   - composer blobal packages are managed at <a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>, which will installed after `composer global install`.
 
-## .vimrc
-vimの設定と使っているパッケージが記載されている。
-Vimプラグインのパッケージマネージャである**NeoBundle**を使用しており、
-以下の手順でNeoBundleの導入とパッケージのインストールを行う。
-
-#### NeoBundleのインストール
-
-```sh
-# インストール
-git submodule init
-
-# 更新
-$ git submodule update
-```
-
 #### プラグインのインストール
 
 `.vimrc`を開きコマンドモードの状態で以下を入力。
