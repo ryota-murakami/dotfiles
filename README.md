@@ -83,3 +83,4 @@ call neobundle#end()
 - system config > monitor mirroring -> invididualize.
 - install betterTouchTool.
 - setting dark-theme of terminal.(font-size 12)
+- setting dark-theme of cotEditor.
