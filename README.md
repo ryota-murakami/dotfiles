@@ -74,4 +74,6 @@ call neobundle#begin(expand('~/.vim/bundle'))
 call neobundle#end()
 ```
 
+## 8. Any Manual Tasks
+
 
