@@ -15,22 +15,22 @@ myuser ALL=(ALL) NOPASSWD: ALL
 :wq
 ```
 
-## 2. Install Homebrew
+## 2 privilege
+
+```sh
+sudo chown -R root /usr/local
+```
+
+## 3. Install Homebrew
 
 ```sh
 ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 ```
 
-## 3. clone dotfiles
+## 4. clone dotfiles
 
 ```sh
 git clone https://github.com/ryota-murakami/dotfiles.git
-```
-
-## 4 privilege
-
-```sh
-sudo chown -R root /usr/local
 ```
 
 > 参考:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">Macのsudoコマンドをパスワードなしで実行する</a>
