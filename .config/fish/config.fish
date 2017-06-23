@@ -6,7 +6,7 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 set -x PATH /usr/local/Cellar/ruby/2.4.1_1/bin /usr/local/bin $HOME/node_modules/.bin $HOME/.composer/vendor/bin $PATH
 set -x NODE_PATH /usr/local/lib/node_modules
 
-source $HOME/dotfiles/.config/fish/gce.fish
+set -x GCE_INI_PATH $HOME/repository/ansible/gce/gce.ini
 
 # lsコマンドのカラー
 set -U LSCOLORS gxfxcxdxbxegedabagacad
