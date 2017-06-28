@@ -36,5 +36,9 @@ function cpuinfo
     system_profiler SPHardwareDataType
 end
 
+function ssdinfo
+    du -hs * | gsort -hr
+end
+
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/ryota.murakami/google-cloud-sdk/path.fish.inc' ]; if type source > /dev/null; source '/Users/ryota.murakami/google-cloud-sdk/path.fish.inc'; else; . '/Users/ryota.murakami/google-cloud-sdk/path.fish.inc'; end; end
