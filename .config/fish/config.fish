@@ -37,7 +37,7 @@ function cpuinfo
 end
 
 function ssdinfo
-    du -hs * | gsort -hr
+    sudo du -hs * | gsort -hr
 end
 
 # The next line updates PATH for the Google Cloud SDK.
