@@ -1,4 +1,4 @@
-At Clean Mac OS X
+On Clean Mac OS X
 =====================
 
 fllowing, my initial setting manual.
