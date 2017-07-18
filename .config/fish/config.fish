@@ -3,7 +3,7 @@ alias c="clear"
 alias cp="rsync -ah --progress"
 alias lf="perl -pe 's/\n/\n\n/g'"
 
-set -x PATH /usr/local/Cellar/ruby/2.4.1_1/bin /usr/local/bin $HOME/.composer/vendor/bin $PATH
+set -x PATH /usr/local/Cellar/ruby/2.4.1_1/bin $HOME/anaconda/bin /usr/local/bin $HOME/.composer/vendor/bin $PATH
 set -x NODE_PATH /usr/local/lib/node_modules
 
 set -x GCE_INI_PATH $HOME/repository/ansible/gce/gce.ini
