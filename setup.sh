@@ -15,17 +15,9 @@ do
 done
 
 # Homebrew Install
-if [[ ! -x $(which brew) ]]; then
-    # Install Homebrew
-    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
-    # Enable brewdle
-    brew tap Homebrew/brewdler
-    # Install Brewfile contain packages
-    cd $HOME/dotfiles 
-    brew brewdle
-else
-    echo "brew has been installd."
-fi
+# manual task
+# brew tap Homebrew/brewdler
+# brew bundle
 
 # Fish Setup
 grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # シェルの一覧ファイルにfishが無ければ行末に追記
