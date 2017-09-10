@@ -1,6 +1,5 @@
 tap 'homebrew/brewdler'
 tap 'homebrew/dupes'
-tap 'homebrew/php'
 tap 'tkengo/highway'
 tap 'brona/iproute2mac'
 brew 'coreutils'
