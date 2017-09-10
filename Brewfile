@@ -36,5 +36,4 @@ brew 'pwgen'
 brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
 brew 'nmap'
-brew 'postgresql'
 brew 'direnv'
