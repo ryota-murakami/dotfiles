@@ -37,5 +37,4 @@ brew 'vim', args: ['with-lua', 'HEAD']
 brew 'fish'
 brew 'nmap'
 brew 'postgresql'
-brew 'phpbrew'
 brew 'direnv'
