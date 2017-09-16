@@ -1,8 +1,0 @@
-{
-    "minimum-stability": "dev",
-    "require": {
-        "hirak/prestissimo": "*",
-        "ryota-murakami/twitter-bearer-token-getter": "^1.0",
-        "laravel/installer": "dev-master"
-    }
-}
