@@ -30,7 +30,7 @@ brew 'tree'
 brew 'wget'
 brew 'ag'
 brew 'pwgen'
-brew 'vim', args: ['with-lua', 'HEAD']
+brew 'vim',
 brew 'fish'
 brew 'nmap'
 brew 'direnv'
