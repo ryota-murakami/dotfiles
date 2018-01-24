@@ -3,8 +3,9 @@ alias c="clear"
 alias cp="rsync -ah --progress"
 alias lf="perl -pe 's/\n/\n\n/g'"
 
-set -x PATH /usr/local/Cellar/ruby/2.4.1_1/bin /usr/local/bin $PATH
+set -x PATH /usr/local/opt/ruby/bin /usr/local/bin $PATH
 set -x NODE_PATH /usr/local/lib/node_modules
+set -x ANDROID_HOME /Users/ryota.murakami/Library/Android/sdk
 
 set -x GCE_INI_PATH $HOME/repository/ansible/gce/gce.ini
 
