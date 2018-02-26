@@ -2,3 +2,4 @@ hub
 configstore
 direnv/
 gcloud
+yarn
