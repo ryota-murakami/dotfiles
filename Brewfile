@@ -34,3 +34,4 @@ brew 'vim',
 brew 'fish'
 brew 'nmap'
 brew 'direnv'
+brew 'yarn'
