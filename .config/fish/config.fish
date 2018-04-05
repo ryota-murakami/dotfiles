@@ -15,11 +15,6 @@ set -U LSCOLORS gxfxcxdxbxegedabagacad
 eval (direnv hook fish)
 status --is-interactive; and . (pyenv init -|psub)
 
-# fish用のphpbrew初期化ファイル
-if [ -f ~/.phpbrew/phpbrew.fish ]
-    source ~/.phpbrew/phpbrew.fish
-end
-
 function weather
     if [ -z $argv ]
         set locate tokyo
