@@ -6,3 +6,4 @@ deployment-config.json
 .idea/
 .sass-cache
 yarn-error.log
+.envrc
