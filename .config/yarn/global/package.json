@@ -1,7 +1,0 @@
-{
-  "dependencies": {
-    "flow-typed": "^2.2.1",
-    "node-gyp": "^3.6.2",
-    "serve": "^6.4.1"
-  }
-}
