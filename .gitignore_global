@@ -7,3 +7,4 @@ deployment-config.json
 .sass-cache
 yarn-error.log
 .envrc
+dump.rdb
