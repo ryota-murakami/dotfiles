@@ -56,9 +56,6 @@ cd dotfiles
 - initialize git submodule.
   - in order to <a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>.
 
-## 6. Install composer blobal packages
-  - composer blobal packages are managed at <a href="https://github.com/ryota-murakami/dotfiles/blob/master/.composer/composer.json" target="_blank">dotfiles/.composer/composer.json</a>, which will installed after `composer global install`.
-
 ## 7. Install Vim plugins
 
 open `.vimrc`, execute folllowing.
