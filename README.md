@@ -37,7 +37,7 @@ ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/
 
 ```sh
 cd ~
-git clone https://github.com/ryota-murakami/dotfiles.git
+git@github.com:ryota-murakami/dotfiles.git
 ```
 
 ## 5. Kick `setup.sh`
