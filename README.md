@@ -96,3 +96,4 @@ call neobundle#end()
 - install pomodoro.
 - import chrome setting.
 - install kindle.
+- defaults write -g ApplePressAndHoldEnabled -bool false
