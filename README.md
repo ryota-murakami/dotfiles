@@ -80,19 +80,8 @@ call neobundle#end()
 
 - change key repeat by karabiner 216 20.
 - change `¥` to `\` at OS X system config.
-- binding F1~F12 as function key.
-- binding Kana-Alphabet to cmd.
+- karabiner-elements.
 - system config > hidden dock.
-- system config > monitor mirroring -> invididualize.
 - system config > - to dark OS menu-bar & dock.
-- install betterTouchTool.
-- setting dark-theme of terminal.(font-size 12)
 - setting dark-theme of cotEditor.
-- setting background image of Ghost in the Shell.
-- install jetbrains all products pack.
-- install sketch.
-- install istat.
-- install gcp sdk.
-- install pomodoro.
-- import chrome setting.
-- install kindle.
+- defaults write -g ApplePressAndHoldEnabled -bool false
