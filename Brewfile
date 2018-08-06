@@ -29,7 +29,7 @@ brew 'tree'
 brew 'wget'
 brew 'ag'
 brew 'pwgen'
-brew 'vim',
+brew 'vim'
 brew 'fish'
 brew 'nmap'
 brew 'direnv'
