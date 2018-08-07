@@ -22,7 +22,7 @@ myuser ALL=(ALL) NOPASSWD: ALL
 ## 2 privilege
 
 ```sh
-sudo chown -R root /usr/local
+sudo chown -R ryota.murakami /usr/local
 ```
 
 ## 3. Install Homebrew
