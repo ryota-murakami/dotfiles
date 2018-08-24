@@ -64,7 +64,7 @@ open `.vimrc`, execute folllowing.
 ```
 
 defined installed pulugins at `.vimrc`.
-git 
+git
 ```vim
 call neobundle#begin(expand('~/.vim/bundle'))
     NeoBundle 'editorconfig/editorconfig-vim'
