@@ -4,9 +4,6 @@ alias cp="rsync -ah --progress"
 alias lf="perl -pe 's/\n/\n\n/g'"
 
 set -x PATH $HOME/.nodebrew/current/bin /usr/local/opt/ruby/bin /usr/local/bin $PATH
-set -x ANDROID_HOME /Users/ryota.murakami/Library/Android/sdk
-
-set -x GCE_INI_PATH $HOME/repository/ansible/gce/gce.ini
 
 # lsコマンドのカラー
 set -U LSCOLORS gxfxcxdxbxegedabagacad

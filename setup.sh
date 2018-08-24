@@ -14,12 +14,7 @@ do
     echo "${f} setup successfully."
 done
 
-# Homebrew Install
-# manual task
-# brew tap Homebrew/brewdler
-# brew bundle
-
-# Fish Setup
+# Fish Setup(fish-shell)
 grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # シェルの一覧ファイルにfishが無ければ行末に追記
 chsh -s /usr/local/bin/fish
 
