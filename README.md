@@ -12,7 +12,7 @@ Password:
 # User privilege specification
 root    ALL=(ALL) ALL
 %admin  ALL=(ALL) ALL
-myuser ALL=(ALL) NOPASSWD: ALL
+ryota.murakami ALL=(ALL) NOPASSWD: ALL
 
 :wq
 ```
