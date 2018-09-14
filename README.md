@@ -77,7 +77,8 @@ call neobundle#begin(expand('~/.vim/bundle'))
 call neobundle#end()
 ```
 
-## Install Nodebrew
+## 8. Install Nodebrew
+nodebrew is not provided by homebrew, therefore you have to setup along to the README. 
 https://github.com/hokaccha/nodebrew
 
 
