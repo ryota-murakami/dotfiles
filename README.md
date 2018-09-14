@@ -40,7 +40,7 @@ cd ~
 git@github.com:ryota-murakami/dotfiles.git
 ```
 
-## 5. Kick `setup.sh`(`setup.sh` is depends on pakaages is written in Brewfile. Ensure ## 3. Install Homebrew)
+## 5. Kick `setup.sh`(Homebrew required)
 
 ```sh
 cd dotfiles
