@@ -1,7 +1,7 @@
 On Clean Mac OS X
 =====================
 
-fllowing, my initial setting manual.
+my OS X setup manual.
 
 ## 1. Executable `sudo` without password.(using `sudo` into setup.sh)  
 
