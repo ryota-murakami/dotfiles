@@ -3,6 +3,22 @@ On Clean Mac OS X
 
 My OS X setup manual.
 
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [1. Executable `sudo` without password.(using `sudo` into setup.sh)](#1-executable-sudo-without-passwordusing-sudo-into-setupsh)
+- [2 privilege](#2-privilege)
+- [3. Install Homebrew](#3-install-homebrew)
+- [4. clone dotfiles](#4-clone-dotfiles)
+- [5. Kick `setup.sh`(Homebrew required)](#5-kick-setupshhomebrew-required)
+- [6. Setup rbenv](#6-setup-rbenv)
+- [7. Install Vim plugins](#7-install-vim-plugins)
+- [8. Install Nodebrew](#8-install-nodebrew)
+- [Extra. Any Manual Tasks](#extra-any-manual-tasks)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## 1. Executable `sudo` without password.(using `sudo` into setup.sh)  
 
 ```sh
