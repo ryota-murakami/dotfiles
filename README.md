@@ -40,7 +40,7 @@ cd ~
 git@github.com:ryota-murakami/dotfiles.git
 ```
 
-## 5. Kick `setup.sh`(Homebrew required)
+## 5. Kick `setup.sh`([Homebrew](https://github.com/ryota-murakami/dotfiles/blob/master/README.md#3-install-homebrew) required)
 
 ```sh
 cd dotfiles
