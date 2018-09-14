@@ -50,10 +50,15 @@ cd dotfiles
 **what's doing in `setup.sh`**
 
 - generate dotfile symboliclinks at home directory.
+- install all homebrew packages in Brewfile.
 - setting fish-shell as a login shell.
-  - enable re-open terminal.
+  - re-open terminal to activation.
 - initialize git submodule.
   - in order to <a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>.
+
+## 6. Setup rbenv
+Setup rbenv along to README manual.
+https://github.com/rbenv/rbenv#homebrew-on-macos
 
 ## 7. Install Vim plugins
 
