@@ -104,4 +104,5 @@ https://github.com/hokaccha/nodebrew
 - karabiner-elements.
 - system config > hidden dock.
 - system config > - to dark OS menu-bar & dock.
-- defaults write -g ApplePressAndHoldEnabled -bool false
+- `defaults write -g ApplePressAndHoldEnabled -bool false`
+- terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
