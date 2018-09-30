@@ -100,9 +100,8 @@ https://github.com/hokaccha/nodebrew
 
 ## Extra. Any Manual Tasks
 
-- change `¥` to `\` at OS X system config.
-- karabiner-elements.
-- system config > hidden dock.
-- system config > - to dark OS menu-bar & dock.
-- `defaults write -g ApplePressAndHoldEnabled -bool false`
+- change `¥` to `\` at OS X system config
+- install karabiner-elements
+- system config > hidden dock
+- system config > - to dark OS menu-bar & dock
 - terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
