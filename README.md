@@ -8,7 +8,7 @@ My Mac OS X setup manual.
 
 
 - [1. Executable `sudo` without password.(using `sudo` into setup.sh)](#1-executable-sudo-without-passwordusing-sudo-into-setupsh)
-- [2 privilege](#2-privilege)
+- [2. privilege](#2-privilege)
 - [3. Install Homebrew](#3-install-homebrew)
 - [4. clone dotfiles](#4-clone-dotfiles)
 - [5. Kick `setup.sh`(Homebrew required)](#5-kick-setupshhomebrew-required)
