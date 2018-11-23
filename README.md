@@ -102,6 +102,7 @@ https://github.com/hokaccha/nodebrew
 
 - change `¥` to `\` at OS X system config
 - install karabiner-elements
-- system config > hidden dock
-- system config > - to dark OS menu-bar & dock
+- system prefefences > hidden dock
+- system prefefences > - to dark OS menu-bar & dock
 - terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
+- system prefefences > keybord > Shorcuts > MIsson Control > Show Notification Center `${F2}`
