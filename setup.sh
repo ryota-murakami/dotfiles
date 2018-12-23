@@ -45,6 +45,5 @@ gem install bundler
 #=========================================================
 sleep 0.5s
 
-
-echo -e "\e[1m\e[32m./setup.sh has just completed!!"
-echo -e "\n\n"
+echo -e "\n"
+echo -e "\033[32mSetup has just completed!!"
