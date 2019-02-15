@@ -33,7 +33,7 @@ function ssdinfo
     sudo du -hs * | gsort -hr
 end
 
-function dc
+function kill_all_docker_container
     docker rm (docker ps -a -q)
 end
 
