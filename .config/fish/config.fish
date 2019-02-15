@@ -37,6 +37,10 @@ function kill_all_docker_container
     docker rm (docker ps -a -q)
 end
 
+function remove_all_docker_images
+  docker rmi (docker images -q)
+end
+
 function collectDiscUsage
     sudo du -g -x -d 5 / | awk '$1 >= 5{print}'
 end
