@@ -1,3 +1,5 @@
+#!/usr/local/bin/fish
+
 alias vi="/usr/local/bin/vim"
 alias c="clear"
 alias lf="perl -pe 's/\n/\n\n/g'"
