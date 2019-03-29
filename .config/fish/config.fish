@@ -8,7 +8,7 @@ set -x PATH $HOME/.nodebrew/current/bin $HOME /usr/local/bin $PATH
 
 status --is-interactive; and source (rbenv init -|psub)
 
-# lsコマンドのカラー
+# Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
 eval (direnv hook fish)
