@@ -6,8 +6,6 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 
 set -x PATH $HOME/.nodebrew/current/bin $HOME /usr/local/bin $PATH
 
-status --is-interactive; and source (rbenv init -|psub)
-
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
