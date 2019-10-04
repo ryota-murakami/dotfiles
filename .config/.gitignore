@@ -3,3 +3,4 @@ configstore
 direnv/
 gcloud
 yarn
+gatsby/

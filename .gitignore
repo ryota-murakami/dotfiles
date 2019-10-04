@@ -12,7 +12,7 @@
 .gem/
 .hgignore_global
 .irbrc
-.keepassx/
+.:q!keepassx/
 .local/
 .mysql_history
 .netbeans-derby/
@@ -34,3 +34,4 @@
 .local_alias.sh
 Gemfile.lock
 .DS_Store
+.
