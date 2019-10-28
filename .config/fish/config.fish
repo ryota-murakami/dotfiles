@@ -45,7 +45,7 @@ function collectDiscUsage
     sudo du -g -x -d 5 / | awk '$1 >= 5{print}'
 end
 
-function eslintPresets
+function setupESLint
     yarn add -D @typescript-eslint/eslint-plugin babel-eslint eslint eslint-config-prettier eslint-config-react-app eslint-config-typescript eslint-plugin-flowtype eslint-plugin-import eslint-plugin-jsx-a11y eslint-plugin-prettier eslint-plugin-react eslint-plugin-react-hooks prettier @typescript-eslint/parser
+    cp ~/dotfiles/.eslintrc (dirname pwd)/
 end
-
