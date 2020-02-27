@@ -19,7 +19,7 @@ do
     [[ "$f" =~ ^[^\.].* ]] && continue
     [[ "$f" == ".git" ]] && continue
     [[ "$f" == ".DS_Store" ]] && continue
-    [[ -e $HOME/$f ]] && echo "${f} already exists." && continue
+    [[ -e $HOME/$f ]] && echo "${f} is already exists." && continue
 
     ln -s $HOME/dotfiles/$f $HOME/$f
 
