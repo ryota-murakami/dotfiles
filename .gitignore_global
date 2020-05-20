@@ -8,3 +8,4 @@ deployment-config.json
 yarn-error.log
 .envrc
 dump.rdb
+dockerfiles/resources/
