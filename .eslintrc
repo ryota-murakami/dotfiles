@@ -12,10 +12,10 @@
         "prettier"
     ],
     "globals": {
-      "context": "readonly",
-      "cy": "readonly",
-      "assert": "readonly",
-      "Cypress": "readonly"
+        "context": "readonly",
+        "cy": "readonly",
+        "assert": "readonly",
+        "Cypress": "readonly"
     },
     "rules": {
         "prettier/prettier": [
@@ -28,13 +28,16 @@
         "no-unused-vars": [
             "error"
         ],
+        "no-console": "warn",
+        "no-undef": "off",
         "jsx-a11y/href-no-hash": "off",
         "react-hooks/rules-of-hooks": "error",
         "react-hooks/exhaustive-deps": "warn",
+        "@typescript-eslint/no-unused-vars": "error",
         "@typescript-eslint/no-use-before-define": "off",
         "@typescript-eslint/explicit-function-return-type": "off",
         "@typescript-eslint/camelcase": "off",
         "@typescript-eslint/explicit-member-accessibility": "off",
-        "no-console": "error"
+        "@typescript-eslint/ban-ts-ignore": "off"
     }
 }
