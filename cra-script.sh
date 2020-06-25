@@ -16,3 +16,4 @@ cp $SCRIPT_DIR/.eslintrc .eslintrc
 cp $SCRIPT_DIR/.eslintignore .eslintignore
 cp $SCRIPT_DIR/.prettierrc .prettierrc
 cp $SCRIPT_DIR/.prettierignore .prettierignore
+cp $SCRIPT_DIR/.env .env
