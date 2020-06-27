@@ -22,6 +22,10 @@ function weather
     curl wttr.in/$locate
 end
 
+function chrome 
+  /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest
+end
+
 function rh
     git rev-parse --short HEAD | pbcopy
 end
