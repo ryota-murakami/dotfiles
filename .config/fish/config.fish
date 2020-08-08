@@ -26,6 +26,15 @@ function chrome
   /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest
 end
 
+function gh-actions
+  mkdir .github
+  cd .github
+  mkdir workflows
+  cd workflows
+  touch ci.yml
+  cd ../../
+end
+
 function copy_head_commit_hash
     git rev-parse --short HEAD | pbcopy
 end
