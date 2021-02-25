@@ -59,3 +59,7 @@ function collectDiscUsage
     sudo du -g -x -d 5 / | awk '$1 >= 5{print}'
 end
 
+function portUsage
+    sudo lsof -PiTCP -sTCP:LISTEN
+end
+
