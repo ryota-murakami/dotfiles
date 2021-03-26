@@ -63,3 +63,19 @@ function portUsage
     sudo lsof -PiTCP -sTCP:LISTEN
 end
 
+# ==> sqlite
+# sqlite is keg-only, which means it was not symlinked into /usr/local
+# because macOS already provides this software and installing another version in
+# parallel can cause all kinds of trouble.
+
+# If you need to have sqlite first in your PATH, run:
+#  echo 'set -g fish_user_paths "/usr/local/opt/sqlite/bin" $fish_user_paths' >> ~/.config/fish/config.fish
+
+#For compilers to find sqlite you may need to set:
+#  set -gx LDFLAGS "-L/usr/local/opt/sqlite/lib"
+#  set -gx CPPFLAGS "-I/usr/local/opt/sqlite/include"
+
+#For pkg-config to find sqlite you may need to set:
+#  set -gx PKG_CONFIG_PATH "/usr/local/opt/sqlite/lib/pkgconfig"
+set -g fish_user_paths "/usr/local/opt/sqlite/bin" $fish_user_paths
+
