@@ -79,3 +79,4 @@ end
 #  set -gx PKG_CONFIG_PATH "/usr/local/opt/sqlite/lib/pkgconfig"
 set -g fish_user_paths "/usr/local/opt/sqlite/bin" $fish_user_paths
 
+fish_add_path /usr/local/sbin
