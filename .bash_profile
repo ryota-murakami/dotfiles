@@ -43,3 +43,4 @@ geneditconf() {
   cp ~/dotfiles/.editorconfig .
   ll .editorconfig
 }
+. "$HOME/.cargo/env"
