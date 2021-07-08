@@ -21,7 +21,7 @@
   email = dojce1048@gmail.com
 [core]
   excludesfile = ~/.gitignore_global
-  editor = vim
+	editor = code --wait
   filemode = false
   ignorecase = false
 [push]
