@@ -106,3 +106,4 @@ https://github.com/hokaccha/nodebrew
 - system prefefences > - to dark OS menu-bar & dock
 - terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
 - system prefefences > keybord > Shorcuts > MIsson Control > Show Notification Center `${F2}`
+- System Preferences > Keybord > App Shortcut > Google Chrome.app > press + button of window bottom > type "Developer Tools" and set `^O` as a shortcut
