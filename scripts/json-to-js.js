@@ -2,4 +2,4 @@
 
 const json = process.argv[2]
 onsoele.log()
-console.log(Json.arse(json))
+console.log(Json.parse(json))
