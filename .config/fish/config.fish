@@ -46,11 +46,11 @@ function remove_all_docker_images
   docker rmi (docker images -q)
 end
 
-function collectDiscUsage
+function disc_usage
     sudo du -g -x -d 5 / | awk '$1 >= 5{print}'
 end
 
-function portUsage
+function port_usage
     sudo lsof -PiTCP -sTCP:LISTEN
 end
 
