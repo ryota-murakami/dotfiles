@@ -1,4 +1,4 @@
-#!/usr/bin/env nod
+#!/usr/bin/env node
 
 const json = process.argv[2]
 onsoele.log()
