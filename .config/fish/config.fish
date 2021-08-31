@@ -55,7 +55,7 @@ function port_usage
 end
 
 function eslint_diff
-    colordiff .eslintrc ~/dotfiles/scripts/setup-eslint/.eslintrc
+    colordiff .eslintrc ~/dotfiles/eslint/.eslintrc
 end
 
 # ==> sqlite
