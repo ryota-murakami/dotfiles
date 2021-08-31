@@ -54,6 +54,10 @@ function port_usage
     sudo lsof -PiTCP -sTCP:LISTEN
 end
 
+function eslint_diff
+    colordiff .eslintrc ~/dotfiles/scripts/setup-eslint/.eslintrc
+end
+
 # ==> sqlite
 # sqlite is keg-only, which means it was not symlinked into /usr/local
 # because macOS already provides this software and installing another version in
