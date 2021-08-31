@@ -5,7 +5,7 @@ alias c="clear"
 alias lf="perl -pe 's/\n/\n\n/g'"
 alias delete_all_vscode_settings="rm -rf ~/Library/Application\ Support/Code/"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
-
+alias wanip="curl https://ipinfo.io/ip"
 
 
 set -x PATH $HOME/.nodebrew/current/bin $HOME/.rbenv/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
