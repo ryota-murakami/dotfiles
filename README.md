@@ -107,3 +107,6 @@ https://github.com/hokaccha/nodebrew
 - terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
 - system prefefences > keybord > Shorcuts > MIsson Control > Show Notification Center `${F2}`
 - System Preferences > Keybord > App Shortcut > Google Chrome.app > press + button of window bottom > type "Developer Tools" and set `^O` as a shortcut
+- System Preferences > Keybord > App Shortcut > Others > type action "Log Out ryota..." > set `cmd + option + q` as shortcut
+  - OSX default shortcut `cmd + option + q` of "Log Out ryota..." is conflict my custom editor's "close project" shortcut 
+  - See: https://apple.stackexchange.com/questions/210517/disable-shift-cmd-q-for-logout
