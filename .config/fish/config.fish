@@ -58,6 +58,10 @@ function eslint_diff
     colordiff .eslintrc ~/dotfiles/eslint/.eslintrc
 end
 
+function get_pid_by_name
+  ps -e | grep -m1 $argv | awk '{print $1}'
+end
+
 # ==> sqlite
 # sqlite is keg-only, which means it was not symlinked into /usr/local
 # because macOS already provides this software and installing another version in
