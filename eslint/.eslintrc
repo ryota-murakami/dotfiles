@@ -1,8 +1,8 @@
 {
   "root": true,
   "extends": [
-    'eslint:recommended',
-    'plugin:@typescript-eslint/recommended',
+    "eslint:recommended",
+    "plugin:@typescript-eslint/recommended",
     "plugin:jsx-a11y/recommended",
     "plugin:react-hooks/recommended"
   ],
@@ -26,8 +26,8 @@
     "JSX": "readonly"
   },
   "settings": {
-    react: {
-      version: 'detect'
+    "react": {
+      "version": "detect"
     },
     "import/resolver": {
       "node": {
@@ -38,7 +38,7 @@
           ".tsx"
         ]
       },
-      typescript: {}
+      "typescript": {}
     }
   },
   "rules": {
@@ -46,27 +46,28 @@
     "no-console": "error",
     "prettier/prettier": [
       "warn",
-      {},
+      {
+      },
       {
         usePrettierrc: true
       }
     ],
-    'import/order': [
-      'warn',
+    "import/order": [
+      "warn",
       {
-        groups: [
-          'builtin',
-          'external',
-          'internal',
-          'parent',
-          'sibling',
-          'index',
-          'object'
+        "groups": [
+          "builtin",
+          "external",
+          "internal",
+          "parent",
+          "sibling",
+          "index",
+          "object"
         ],
-        'newlines-between': 'always',
-        alphabetize: {
-          order: 'asc',
-          caseInsensitive: true
+        "newlines-between": "always",
+        "alphabetize": {
+          "order": "asc",
+          "caseInsensitive": true
         }
       }
     ],
