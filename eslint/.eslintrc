@@ -1,7 +1,6 @@
 {
   "root": true,
   "extends": [
-    "eslint:recommended",
     "plugin:@typescript-eslint/recommended",
     "plugin:jsx-a11y/recommended",
     "plugin:react-hooks/recommended"
@@ -79,11 +78,12 @@
     "import/default": "error",
     "import/export": "error",
     "import/no-named-as-default": "warn",
-    "import/no-named-as-default-member": "warn",
     "import/no-duplicates": "error",
     "@typescript-eslint/consistent-type-imports": "warn",
     "@typescript-eslint/no-explicit-any": "off",
-    "@typescript-eslint/ban-ts-comment": "off"
+    "@typescript-eslint/ban-ts-comment": "off",
+    "@typescript-eslint/no-empty-function": "off",
+    "@import/no-named-as-default-member": "off"
   },
   "overrides": [
     {
