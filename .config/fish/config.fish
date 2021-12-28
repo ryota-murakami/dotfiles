@@ -14,8 +14,6 @@ status --is-interactive; and source (rbenv init -|psub)
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
-eval (direnv hook fish)
-
 function weather
     if [ -z $argv ]
         set locate tokyo
