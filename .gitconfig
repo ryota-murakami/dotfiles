@@ -20,7 +20,7 @@
   name = ryota-murakami
   email = dojce1048@gmail.com
 [core]
-	excludesfile = /Users/ryota.murakami/dotfiles/.gitignore_global
+  excludesfile = /Users/ryota.murakami/dotfiles/.gitignore_global
   editor = vim
   filemode = false
   ignorecase = false
@@ -35,4 +35,7 @@
   required = true
 
 [init]
-	defaultBranch = main
+  defaultBranch = main
+[gui]
+  fontui = -family .AppleSystemUIFont -size 16 -weight normal -slant roman -underline 0 -overstrike 0
+  fontdiff = -family Menlo -size 18 -weight normal -slant roman -underline 0 -overstrike 0
