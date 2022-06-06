@@ -110,4 +110,4 @@ https://github.com/hokaccha/nodebrew
 - System Preferences > Keybord > App Shortcut > Others > type action "Log Out ryota..." > set `cmd + option + q` as shortcut
   - OSX default shortcut `cmd + option + q` of "Log Out ryota..." is conflict my custom editor's "close project" shortcut 
   - See: https://apple.stackexchange.com/questions/210517/disable-shift-cmd-q-for-logout
-- Remove all option key combination https://superuser.com/questions/941286/disable-default-option-key-binding
+- Set `Unicode Hex Input` as a input soruce to remove all option key combination
