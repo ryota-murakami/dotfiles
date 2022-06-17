@@ -51,10 +51,6 @@ function port_usage
     sudo lsof -PiTCP -sTCP:LISTEN
 end
 
-function eslint_diff
-    colordiff .eslintrc ~/dotfiles/eslint/.eslintrc
-end
-
 function get_pid_by_name
   ps -e | grep -m1 $argv | awk '{print $1}'
 end
