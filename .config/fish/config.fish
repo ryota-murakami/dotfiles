@@ -8,8 +8,7 @@ alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --g
 alias wanip="curl https://ipinfo.io/ip"
 
 
-set -x PATH $HOME/.nodebrew/current/bin $HOME/.rbenv/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
-status --is-interactive; and source (rbenv init -|psub)
+set -x PATH $HOME/.nodebrew/current/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
