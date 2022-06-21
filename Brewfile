@@ -39,3 +39,5 @@ brew 'gh'
 brew 'gitgui'
 brew 'gitui'
 brew 'v8'
+brew 'direnv'
+

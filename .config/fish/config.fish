@@ -12,6 +12,7 @@ set -x PATH $HOME/.nodebrew/current/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/L
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
+direnv hook fish | source
 
 function weather
     if [ -z $argv ]
