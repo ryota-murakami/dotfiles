@@ -40,4 +40,5 @@ brew 'gitgui'
 brew 'gitui'
 brew 'v8'
 brew 'direnv'
+brew 'diff-so-fancy'
 
