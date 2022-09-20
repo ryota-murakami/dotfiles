@@ -10,6 +10,12 @@ defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Find
 #defaults write -g InitialKeyRepeat -int 10
 #defaults write -g KeyRepeat -int 1
 
+
+#=========================================================
+# Install essential tools from Brewfile
+#=========================================================
+brew bundle
+
 #=========================================================
 # Create Symlink
 #=========================================================
