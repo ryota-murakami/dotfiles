@@ -72,3 +72,5 @@ end
 set -g fish_user_paths "/usr/local/opt/sqlite/bin" $fish_user_paths
 
 fish_add_path /usr/local/sbin
+set -gx VOLTA_HOME "$HOME/.volta"
+set -gx PATH "$VOLTA_HOME/bin" $PATH
