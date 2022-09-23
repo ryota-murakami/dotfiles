@@ -7,9 +7,7 @@ alias delete_all_vscode_settings="rm -rf ~/Library/Application\ Support/Code/"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
 
-set -x VOLTA_HOME $HOME/.volta
-set -x PATH $VOLTA_HOME/bin $HOME/.nodebrew/current/bin $HOME/.volta/bin $HOME/.rbenv/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
-status --is-interactive; and source (rbenv init -|psub)
+set -x PATH $HOME/.nodebrew/current/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
