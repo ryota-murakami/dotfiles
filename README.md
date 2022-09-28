@@ -45,8 +45,6 @@ sudo chown -R ryota.murakami /usr/local
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew tap Homebrew/brewdler
-brew bundle (start install packages witch is written in Brewfile)
 ```
 
 ## 4. clone dotfiles
