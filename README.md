@@ -12,9 +12,8 @@ My Mac OS X setup manual.
 - [3. Install Homebrew](#3-install-homebrew)
 - [4. clone dotfiles](#4-clone-dotfiles)
 - [5. Kick `setup.sh`(Homebrew required)](#5-kick-setupshhomebrew-required)
-- [6. Setup rbenv](#6-setup-rbenv)
-- [7. Install Vim plugins](#7-install-vim-plugins)
-- [8. Install Nodebrew](#8-install-nodebrew)
+- [6. Install Vim plugins](#7-install-vim-plugins)
+- [7. Install Nodebrew](#8-install-nodebrew)
 - [Extra. Any Manual Tasks](#extra-any-manual-tasks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -69,10 +68,6 @@ cd dotfiles
   - re-open terminal to activation.
 - initialize git submodule.
   - in order to <a href="https://github.com/ryota-murakami/dotfiles/tree/master/.vim/bundle" target="_blank">neobundle.vim</a>.
-
-## 6. Setup rbenv
-Setup rbenv along to README manual.
-https://github.com/rbenv/rbenv#homebrew-on-macos
 
 ## 7. Install Vim plugins
 
