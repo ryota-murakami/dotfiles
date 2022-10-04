@@ -104,3 +104,4 @@ https://github.com/hokaccha/nodebrew
   - OSX default shortcut `cmd + option + q` of "Log Out ryota..." is conflict my custom editor's "close project" shortcut 
   - See: https://apple.stackexchange.com/questions/210517/disable-shift-cmd-q-for-logout
 - Set `Unicode Hex Input` as a input soruce to remove all option key combination
+- Remove `cmd + shift + r` shortcut from Be Focus Pro
