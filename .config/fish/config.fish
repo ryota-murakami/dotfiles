@@ -54,7 +54,7 @@ function get_pid_by_name
   ps -e | grep -m1 $argv | awk '{print $1}'
 end
 
-fish_add_path /usr/local/sbin
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
 fish_add_path /opt/homebrew/sbin
+fish_add_path /usr/local/sbin
