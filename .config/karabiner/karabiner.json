@@ -17,28 +17,6 @@
                 },
                 "rules": [
                     {
-                        "description": "Disable Cmd+H Hide",
-                        "manipulators": [
-                            {
-                                "description": "",
-                                "from": {
-                                    "key_code": "h",
-                                    "modifiers": {
-                                        "mandatory": [
-                                            "command"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "key_code": "VK_NONE"
-                                    }
-                                ],
-                                "type": "basic"
-                            }
-                        ]
-                    },
-                    {
                         "description": "Emacs key bindings [control+keys] (rev 10)",
                         "manipulators": [
                             {
@@ -777,6 +755,23 @@
                                         "key_code": "right_command"
                                     }
                                 ],
+                                "type": "basic"
+                            }
+                        ]
+                    },
+                    {
+                        "description": "Disable Cmd+H Hide (rev 2)",
+                        "manipulators": [
+                            {
+                                "description": "",
+                                "from": {
+                                    "key_code": "h",
+                                    "modifiers": {
+                                        "mandatory": [
+                                            "command"
+                                        ]
+                                    }
+                                },
                                 "type": "basic"
                             }
                         ]
