@@ -10,4 +10,5 @@ yarn-error.log
 dump.rdb
 dockerfiles/resources/
 .vscode/settings.json
+tmp/
 

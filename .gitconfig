@@ -20,7 +20,7 @@
   name = ryota-murakami
   email = dojce1048@gmail.com
 [core]
-  excludesfile = /Users/ryota.murakami/dotfiles/.gitignore_global
+	excludesFile = ~/.gitignore_global
   editor = vim
   filemode = false
   ignorecase = false
