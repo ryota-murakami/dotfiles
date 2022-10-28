@@ -3,10 +3,8 @@
 alias vi="/usr/bin/vim"
 alias c="clear"
 alias lf="perl -pe 's/\n/\n\n/g'"
-alias delete_all_vscode_settings="rm -rf ~/Library/Application\ Support/Code/"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
-alias vsc_keybindings="code ~/Library/Application\ Support/Code/User/keybindings.json"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
@@ -54,6 +52,12 @@ end
 function get_pid_by_name
   ps -e | grep -m1 $argv | awk '{print $1}'
 end
+
+alias remove_all_vscode_settings="rm -rf ~/Library/Application\ Support/Code/"
+alias edit_vsc_keybindings="code ~/Library/Application\ Support/Code/User/keybindings.json"
+alias show_vsc_keybindings="view ~/Library/Application\ Support/Code/User/keybindings.json"
+alias edit_vsc_settings="code ~/Library/Application\ Support/Code/User/settings.json"
+alias show_vsc_settings="view ~/Library/Application\ Support/Code/User/settings.json"
 
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
