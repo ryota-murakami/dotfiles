@@ -11,6 +11,15 @@ set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Pyt
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
+function ssh-swh
+    ssh-add -D
+    if [ -z $argv ]
+      return
+    else  
+      ssh-add $argv
+    end
+end
+
 function weather
     if [ -z $argv ]
         set locate tokyo
