@@ -11,6 +11,10 @@ set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Pyt
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
+function genpasswd 
+    pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo “Has been copied to clipboard”
+end
+
 function ssh-swh
     ssh-add -D
     if [ -z $argv ]
