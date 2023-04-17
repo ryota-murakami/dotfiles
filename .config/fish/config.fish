@@ -12,6 +12,8 @@ set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Pyt
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
+set -g __fish_git_prompt_shorten_branch_len 30
+
 function base64rand
     openssl rand -base64 32
 end
