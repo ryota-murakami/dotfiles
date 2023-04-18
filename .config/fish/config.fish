@@ -5,8 +5,9 @@ alias c="clear"
 alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
-alias desktopjs="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
+alias runv8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias wiki="code /Users/ryota.murakami/laststance/react-web-dev-wiki"
+alias cdwiki="cd /Users/ryota.murakami/laststance/react-web-dev-wiki"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
