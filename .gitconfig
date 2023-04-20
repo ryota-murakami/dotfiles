@@ -8,6 +8,7 @@
   df = diff
   br = branch
   mg = merge
+  c = commit
   up = "!f(){ git add --all && git commit -m 'up'; };f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
   subup = submodule foreach git pull origin master --ff
