@@ -9,6 +9,7 @@ alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-dev
 alias wiki="code /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias cdwiki="cd /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
+alias cutl="cd /Users/ryota.murakami/laststance/react-node-utils"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
