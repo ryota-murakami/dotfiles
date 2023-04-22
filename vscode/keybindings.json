@@ -1,0 +1,35 @@
+// Place your key bindings in this file to override the defaults
+[
+  {
+    "key": "cmd+k cmd+r",
+    "command": "-workbench.action.keybindingsReference"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-breadcrumbs.focusAndSelect",
+    "when": "breadcrumbsPossible && breadcrumbsVisible"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-editor.action.inPlaceReplace.down",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-breadcrumbs.toggleToOn",
+    "when": "!config.breadcrumbs.enabled"
+  },
+  {
+    "key": "cmd+k cmd+k",
+    "command": "-editor.action.defineKeybinding",
+    "when": "resource == 'vscode-userdata:/Users/ryota.murakami/Library/Application%20Support/Code/User/keybindings.json'"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "workbench.action.openGlobalKeybindings"
+  },
+  {
+    "key": "cmd+k cmd+s",
+    "command": "-workbench.action.openGlobalKeybindings"
+  }
+]
