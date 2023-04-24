@@ -1294,5 +1294,9 @@
     "key": "cmd+delete",
     "command": "-deleteAllRight",
     "when": "textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "alt+cmd+s",
+    "command": "-saveAll"
   }
 ]
