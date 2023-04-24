@@ -1298,5 +1298,10 @@
   {
     "key": "alt+cmd+s",
     "command": "-saveAll"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "-workbench.view.debug",
+    "when": "viewContainer.workbench.view.debug.enabled"
   }
 ]
