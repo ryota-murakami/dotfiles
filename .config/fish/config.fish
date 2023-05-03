@@ -10,8 +10,6 @@ alias wiki="code /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias cdwiki="cd /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
 alias ctil="cd /Users/ryota.murakami/laststance/react-node-utils"
-alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
-alias lastd="cd /Users/ryota.murakami/laststance"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
 
@@ -78,6 +76,9 @@ end
 function get_pid_by_name
   ps -e | grep -m1 $argv | awk '{print $1}'
 end
+
+alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
+alias lcd="cd /Users/ryota.murakami/laststance"
 
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
