@@ -998,19 +998,6 @@
     "when": "fileMatchOrFolderMatchWithResourceFocus"
   },
   {
-    "key": "ctrl+space",
-    "command": "editor.action.autoFix"
-  },
-  {
-    "key": "ctrl+space",
-    "command": "eslint.executeAutofix"
-  },
-  {
-    "key": "ctrl+space",
-    "command": "editor.action.quickFix",
-    "when": "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
-  },
-  {
     "key": "cmd+.",
     "command": "-editor.action.quickFix",
     "when": "editorHasCodeActionsProvider && editorTextFocus && !editorReadonly"
@@ -1352,5 +1339,9 @@
   {
     "key": "alt+cmd+t",
     "command": "-workbench.action.closeOtherEditors"
+  },
+  {
+    "key": "ctrl+space",
+    "command": "eslint.executeAutofix"
   }
 ]
