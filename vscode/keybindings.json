@@ -831,10 +831,6 @@
     "when": "textInputFocus && !editorReadonly"
   },
   {
-    "key": "ctrl+x o",
-    "command": "workbench.action.switchWindow"
-  },
-  {
     "key": "ctrl+w",
     "command": "-workbench.action.switchWindow"
   },
@@ -1095,16 +1091,8 @@
     "when": "editorTextFocus && !editorReadonly && !editorTabMovesFocus"
   },
   {
-    "key": "ctrl+x o",
-    "command": "workbench.action.moveEditorToNextGroup"
-  },
-  {
     "key": "ctrl+cmd+right",
     "command": "-workbench.action.moveEditorToNextGroup"
-  },
-  {
-    "key": "ctrl+x ctrl+o",
-    "command": "workbench.action.moveEditorToPreviousGroup"
   },
   {
     "key": "ctrl+cmd+left",
@@ -1343,5 +1331,22 @@
   {
     "key": "ctrl+space",
     "command": "eslint.executeAutofix"
+  },
+  {
+    "key": "shift+cmd+,",
+    "command": "-editor.action.inPlaceReplace.up",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "alt+z",
+    "command": "-editor.action.toggleWordWrap"
+  },
+  {
+    "key": "ctrl+x ctrl+o",
+    "command": "workbench.action.moveActiveEditorGroupLeft"
+  },
+  {
+    "key": "ctrl+x o",
+    "command": "workbench.action.moveActiveEditorGroupRight"
   }
 ]
