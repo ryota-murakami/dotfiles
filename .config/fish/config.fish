@@ -11,7 +11,7 @@ alias cdwiki="cd /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
 alias ctil="cd /Users/ryota.murakami/laststance/react-node-utils"
 
-set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $PATH
+set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
@@ -75,6 +75,16 @@ end
 
 function get_pid_by_name
   ps -e | grep -m1 $argv | awk '{print $1}'
+end
+
+function show_all_commands
+  for dir in (echo $PATH | string split " ")
+    if test $dir != "/Users/ryota.murakami/Library/pnpm"
+        echo $dir
+        tree -fiC --noreport $dir | grep -v '/$'
+        echo ""
+     end
+  end
 end
 
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
