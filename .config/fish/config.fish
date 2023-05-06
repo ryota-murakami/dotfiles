@@ -6,10 +6,9 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
 alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
-alias wiki="code /Users/ryota.murakami/laststance/react-web-dev-wiki"
-alias cdwiki="cd /Users/ryota.murakami/laststance/react-web-dev-wiki"
 alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
 alias ctil="cd /Users/ryota.murakami/laststance/react-node-utils"
+alias ds="du -sh"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
