@@ -44,7 +44,7 @@
     "when": "resource == 'vscode-userdata:/Users/ryota.murakami/Library/Application%20Support/Code/User/keybindings.json'"
   },
   {
-    "key": "shift+cmd+.",
+    "key": "shift+cmd+,",
     "command": "workbench.action.openGlobalKeybindings"
   },
   {
@@ -1348,5 +1348,72 @@
   {
     "key": "ctrl+x o",
     "command": "workbench.action.moveActiveEditorGroupRight"
+  },
+  {
+    "key": "shift+cmd+f3",
+    "command": "-editor.action.previousSelectionMatchFindAction",
+    "when": "editorFocus"
+  },
+  {
+    "key": "ctrl+shift+m",
+    "command": "-editor.action.toggleTabFocusMode"
+  },
+  {
+    "key": "ctrl+m",
+    "command": "editor.action.jumpToBracket"
+  },
+  {
+    "key": "cmd+t",
+    "command": "editor.action.goToTypeDefinition"
+  },
+  {
+    "key": "ctrl+u",
+    "command": "references-view.findReferences",
+    "when": "editorHasReferenceProvider"
+  },
+  {
+    "key": "shift+alt+f12",
+    "command": "-references-view.findReferences",
+    "when": "editorHasReferenceProvider"
+  },
+  {
+    "key": "shift+cmd+r",
+    "command": "-rerunSearchEditorSearch",
+    "when": "inSearchEditor"
+  },
+  {
+    "key": "shift+alt+h",
+    "command": "-references-view.showCallHierarchy",
+    "when": "editorHasCallHierarchyProvider"
+  },
+  {
+    "key": "alt+cmd+.",
+    "command": "-editor.action.autoFix",
+    "when": "textInputFocus && !editorReadonly && supportedCodeAction =~ /(\\s|^)quickfix\\b/"
+  },
+  {
+    "key": "ctrl+alt+t",
+    "command": "-io.orta.jest.editor.run-all-tests",
+    "when": "jest:run.interactive && editorLangId =~ /(javascript|javascriptreact|typescript|typescriptreact|vue)/"
+  },
+  {
+    "key": "cmd+; cmd+i",
+    "command": "-testing.toggleInlineTestOutput"
+  },
+  {
+    "key": "ctrl+m",
+    "command": "editor.emmet.action.matchTag"
+  },
+  {
+    "key": "cmd+g",
+    "command": "editor.action.nextSelectionMatchFindAction"
+  },
+  {
+    "key": "shift+cmd+g",
+    "command": "editor.action.previousSelectionMatchFindAction"
+  },
+  {
+    "key": "ctrl+m",
+    "command": "editor.action.goToMatchFindAction"
   }
 ]
