@@ -1545,5 +1545,10 @@
     "key": "cmd+; f",
     "command": "-testing.runCurrentFile",
     "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+o",
+    "command": "-lineBreakInsert",
+    "when": "textInputFocus && !editorReadonly"
   }
 ]
