@@ -753,16 +753,6 @@
     "command": "actions.find"
   },
   {
-    "key": "cmd+g",
-    "command": "editor.action.nextMatchFindAction",
-    "when": "editorFocus"
-  },
-  {
-    "key": "shift+cmd+g",
-    "command": "editor.action.previousMatchFindAction",
-    "when": "editorFocus"
-  },
-  {
     "key": "cmd+r",
     "command": "editor.action.startFindReplaceAction"
   },
@@ -862,7 +852,7 @@
     "command": "editor.action.duplicateSelection"
   },
   {
-    "key": "ctrl+x ]",
+    "key": "ctrl+x ctrl+]",
     "command": "editor.action.goToBottomHover",
     "when": "editorHoverFocused"
   },
@@ -1102,11 +1092,6 @@
     "key": "shift+f12",
     "command": "-editor.action.goToReferences",
     "when": "editorHasReferenceProvider && editorTextFocus && !inReferenceSearchEditor && !isInEmbeddedEditor"
-  },
-  {
-    "key": "ctrl+cmd+g",
-    "command": "editor.action.wordHighlight.prev",
-    "when": "editorTextFocus && hasWordHighlights"
   },
   {
     "key": "shift+f7",
@@ -1396,14 +1381,6 @@
     "command": "editor.emmet.action.matchTag"
   },
   {
-    "key": "cmd+g",
-    "command": "editor.action.nextSelectionMatchFindAction"
-  },
-  {
-    "key": "shift+cmd+g",
-    "command": "editor.action.previousSelectionMatchFindAction"
-  },
-  {
     "key": "ctrl+shift+cmd+right",
     "command": "-editor.action.smartSelect.expand",
     "when": "editorTextFocus"
@@ -1550,5 +1527,206 @@
     "key": "ctrl+o",
     "command": "-lineBreakInsert",
     "when": "textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "shift+alt+cmd+down",
+    "command": "-cursorColumnSelectDown",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+cmd+pagedown",
+    "command": "-cursorColumnSelectPageDown",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+pagedown",
+    "command": "-cursorColumnSelectPageDown",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "shift+alt+cmd+pageup",
+    "command": "-cursorColumnSelectPageUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+pageup",
+    "command": "-cursorColumnSelectPageUp",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "shift+alt+cmd+right",
+    "command": "-cursorColumnSelectRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorColumnSelectUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+cmd+up",
+    "command": "-cursorColumnSelectUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+n",
+    "command": "cursorDownSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+end",
+    "command": "-cursorEndSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+cmd+left",
+    "command": "-cursorHomeSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+home",
+    "command": "-cursorHomeSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+shift+e",
+    "command": "-cursorLineEndSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+shift+a",
+    "command": "-cursorLineStartSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+pagedown",
+    "command": "-cursorPageDownSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+pageup",
+    "command": "-cursorPageUpSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "f ctrl+alt",
+    "command": "cursorWordEndRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+right",
+    "command": "-cursorWordEndRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "pagedown",
+    "command": "-notebook.cell.cursorPageDown",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused"
+  },
+  {
+    "key": "shift+pagedown",
+    "command": "-notebook.cell.cursorPageDownSelect",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused"
+  },
+  {
+    "key": "pageup",
+    "command": "-notebook.cell.cursorPageUp",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused"
+  },
+  {
+    "key": "shift+pageup",
+    "command": "-notebook.cell.cursorPageUpSelect",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused"
+  },
+  {
+    "key": "shift+cmd+l",
+    "command": "-addCursorsAtSearchResults",
+    "when": "fileMatchOrMatchFocus && searchViewletVisible"
+  },
+  {
+    "key": "shift+cmd+]",
+    "command": "-workbench.action.debug.nextConsole",
+    "when": "inDebugRepl"
+  },
+  {
+    "key": "shift+cmd+[",
+    "command": "-workbench.action.debug.prevConsole",
+    "when": "inDebugRepl"
+  },
+  {
+    "key": "cmd+g",
+    "command": "-editor.action.nextMatchFindAction",
+    "when": "editorFocus"
+  },
+  {
+    "key": "shift+cmd+g",
+    "command": "-editor.action.previousMatchFindAction",
+    "when": "editorFocus"
+  },
+  {
+    "key": "shift+cmd+;",
+    "command": "-breadcrumbs.focus",
+    "when": "breadcrumbsPossible && breadcrumbsVisible"
+  },
+  {
+    "key": "cmd+up",
+    "command": "-interactiveSession.action.focus",
+    "when": "inInteractiveInput && textInputFocus"
+  },
+  {
+    "key": "ctrl+x ctrl+s",
+    "command": "workbench.action.gotoSymbol"
+  },
+  {
+    "key": "shift+cmd+o",
+    "command": "-workbench.action.gotoSymbol"
+  },
+  {
+    "key": "home",
+    "command": "-editor.action.goToTopHover",
+    "when": "editorHoverFocused"
+  },
+  {
+    "key": "shift+cmd+v",
+    "command": "-markdown.showPreview",
+    "when": "!notebookEditorFocused && editorLangId == 'markdown'"
+  },
+  {
+    "key": "ctrl+cmd+enter",
+    "command": "editor.action.insertLineBefore",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "shift+cmd+enter",
+    "command": "-editor.action.insertLineBefore",
+    "when": "editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "shift+f12",
+    "command": "-goToPreviousReference",
+    "when": "inReferenceSearchEditor || referenceSearchVisible"
+  },
+  {
+    "key": "shift+f4",
+    "command": "-goToPreviousReference",
+    "when": "inReferenceSearchEditor || referenceSearchVisible"
+  },
+  {
+    "key": "ctrl+x ctrl+[",
+    "command": "editor.action.goToTopHover",
+    "when": "editorHoverFocused"
+  },
+  {
+    "key": "cmd+g",
+    "command": "-workbench.action.terminal.goToRecentDirectory",
+    "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported"
+  },
+  {
+    "key": "cmd+g",
+    "command": "editor.action.wordHighlight.next"
+  },
+  {
+    "key": "shift+cmd+g",
+    "command": "editor.action.wordHighlight.prev"
   }
 ]
