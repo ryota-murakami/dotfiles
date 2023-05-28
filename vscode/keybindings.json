@@ -1609,7 +1609,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "f ctrl+alt",
+    "key": "shift+alt+f",
     "command": "cursorWordEndRightSelect",
     "when": "textInputFocus"
   },
@@ -1728,5 +1728,15 @@
   {
     "key": "shift+cmd+g",
     "command": "editor.action.wordHighlight.prev"
+  },
+  {
+    "key": "alt+f",
+    "command": "cursorWordEndRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+right",
+    "command": "cursorWordEndRightSelect",
+    "when": "textInputFocus"
   }
 ]
