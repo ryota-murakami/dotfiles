@@ -1,0 +1,108 @@
+{
+    "editor.stickyScroll.enabled": true,
+    "window.zoomLevel": 2,
+    "editor.inlineSuggest.enabled": true,
+    "editor.language.brackets":[
+        [
+            "[",
+            "]"
+        ],
+        [
+            "(",
+            ")"
+        ],
+        [
+            "{",
+            "}"
+        ]
+    ],
+    "editor.language.colorizedBracketPairs": [
+        [
+            "[",
+            "]"
+        ],
+        [
+            "(",
+            ")"
+        ],
+        [
+            "{",
+            "}"
+        ]
+    ],
+    "editor.guides.bracketPairs": "active",
+    "editor.autoClosingDelete": "always",
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.referencesCodeLens.showOnAllFunctions": true,
+    "typescript.reportStyleChecksAsWarnings": false,
+    "typescript.suggest.completeFunctionCalls": true,
+    "typescript.tsc.autoDetect": "off",
+    "typescript.tsdk": "./node_modules/typescript/lib",
+    "typescript.tsserver.maxTsServerMemory": 8048,
+    "prettier.prettierPath": "./node_modules/prettier",
+    "prettier.requireConfig": true,
+    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "workbench.colorCustomizations": {
+        "statusBar.background": "#0a0a0a",
+    },
+    "[jsonc]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "editor.fontSize": 15,
+    "explorer.fileNesting.expand": false,
+    "eslint.format.enable": true,
+    "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
+    "editor.scrollBeyondLastColumn": 1,
+    "files.autoSave": "afterDelay",
+    "prettier.bracketSpacing": false,
+    "editor.renderWhitespace": "all",
+    "editor.semanticTokenColorCustomizations": {
+        "enabled": false,
+        "rules": {}
+    },
+    "extensions.ignoreRecommendations": true,
+    "editor.inlayHints.enabled": "off",
+    "javascript.inlayHints.parameterNames.enabled": "all",
+    "css.lint.emptyRules": "ignore",
+    "less.lint.emptyRules": "ignore",
+    "scss.lint.emptyRules": "ignore",
+    "css.lint.unknownAtRules": "error",
+    "css.lint.unknownProperties": "error",
+    "css.lint.unknownVendorSpecificProperties": "error",
+    "css.lint.vendorPrefix": "ignore",
+    "less.lint.unknownAtRules": "ignore",
+    "less.lint.unknownProperties": "ignore",
+    "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
+    "prettier.configPath": ".prettierrc",
+    "editor.smoothScrolling": true,
+    "editor.defaultColorDecorators": true,
+    "typescript.preferGoToSourceDefinition": true,
+    "javascript.preferGoToSourceDefinition": true,
+    "editor.gotoLocation.multipleDefinitions": "goto",
+    "editor.gotoLocation.multipleTypeDefinitions": "goto",
+    "git.autofetch": true,
+    "editor.tabSize": 2,
+    "css.lint.propertyIgnoredDueToDisplay": "ignore",
+    "scss.lint.propertyIgnoredDueToDisplay": "ignore",
+    "prettier.withNodeModules": true,
+    "editor.autoIndent": "none",
+    "editor.codeActionsOnSave": {},
+    "editor.indentSize": "tabSize",
+    "workbench.list.fastScrollSensitivity": 1,
+    "[typescript]": {},
+    "typescript.format.indentSwitchCase": false,
+    "typescript.format.enable": false,
+    "typescript.inlayHints.variableTypes.enabled": true,
+    "typescript.locale": "en",
+    "typescript.npm": "./node_modules/.bin/tsc",
+    "eslint.packageManager": "yarn",
+    "javascript.suggestionActions.enabled": false,
+    "editor.acceptSuggestionOnCommitCharacter": false,
+    "redhat.telemetry.enabled": true,
+    "eslint.ignoreUntitled": true,
+    "eslint.trace.server": "verbose",
+    "git.openRepositoryInParentFolders": "never",
+    "editor.scrollbar.horizontalScrollbarSize": 10,
+    "editor.guides.bracketPairsHorizontal": true,
+    "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+}
