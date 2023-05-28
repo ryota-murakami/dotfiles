@@ -1748,5 +1748,20 @@
     "key": "alt+left",
     "command": "-cursorWordLeft",
     "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+shift+alt+left",
+    "command": "-cursorWordPartLeftSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+alt+left",
+    "command": "-cursorWordPartLeft",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+b",
+    "command": "cursorWordLeftSelect",
+    "when": "textInputFocus"
   }
 ]
