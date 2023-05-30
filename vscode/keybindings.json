@@ -1777,5 +1777,20 @@
     "key": "ctrl+x ctrl+m",
     "command": "editor.action.removeBrackets",
     "when": "editorTextFocus"
+  },
+  {
+    "key": "shift+alt+b",
+    "command": "-gitlens.toggleCodeLens",
+    "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
+  },
+  {
+    "key": "shift+alt+p",
+    "command": "block-travel.selectUp",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "shift+alt+n",
+    "command": "block-travel.selectDown",
+    "when": "editorTextFocus"
   }
 ]
