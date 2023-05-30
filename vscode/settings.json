@@ -96,7 +96,6 @@
     "typescript.npm": "./node_modules/.bin/tsc",
     "eslint.packageManager": "yarn",
     "javascript.suggestionActions.enabled": false,
-    "editor.acceptSuggestionOnCommitCharacter": false,
     "redhat.telemetry.enabled": true,
     "eslint.ignoreUntitled": true,
     "eslint.trace.server": "verbose",
@@ -108,5 +107,11 @@
     "gitlens.showWelcomeOnInstall": false,
     "emmet.includeLanguages": {
         "postcss": "css"
-    }
+    },
+    "editor.inlineSuggest.showToolbar": "always",
+    "editor.inlineSuggest.suppressSuggestions": true,
+    "editor.quickSuggestions": {
+        "strings": "on"
+    },
+    "editor.suggest.localityBonus": true
 }
