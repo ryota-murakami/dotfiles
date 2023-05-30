@@ -1,8 +1,7 @@
 {
     "editor.stickyScroll.enabled": true,
-    "window.zoomLevel": 2,
     "editor.inlineSuggest.enabled": true,
-    "editor.language.brackets":[
+    "editor.language.brackets": [
         [
             "[",
             "]"
@@ -105,4 +104,9 @@
     "editor.scrollbar.horizontalScrollbarSize": 10,
     "editor.guides.bracketPairsHorizontal": true,
     "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+    "window.zoomLevel": 2,
+    "gitlens.showWelcomeOnInstall": false,
+    "emmet.includeLanguages": {
+        "postcss": "css"
+    }
 }
