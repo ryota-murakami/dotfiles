@@ -711,7 +711,7 @@
     "command": "revealInExplorer"
   },
   {
-    "key": "cmd+n",
+    "key": "shift+cmd+n",
     "command": "explorer.newFile"
   },
   {
@@ -1792,5 +1792,21 @@
     "key": "shift+alt+n",
     "command": "block-travel.selectDown",
     "when": "editorTextFocus"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "-workbench.action.newWindow"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "welcome.showNewFileEntries"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "explorer.newFolder"
+  },
+  {
+    "key": "ctrl+x ctrl+r",
+    "command": "workbench.action.reloadWindow"
   }
 ]
