@@ -7,9 +7,8 @@ alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --g
 alias wanip="curl https://ipinfo.io/ip"
 alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
-alias ctil="cd /Users/ryota.murakami/laststance/react-node-utils"
 alias ds="du -sh"
-alias tmp="sudo du -hd3 ~ 2>&1 | sort -hr | head -n 20"
+alias strage="sudo du -hd3 ~ 2>&1 | sort -hr | head -n 20"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
