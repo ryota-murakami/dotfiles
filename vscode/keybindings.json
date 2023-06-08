@@ -496,10 +496,6 @@
     "when": "editorHasRenameProvider && editorTextFocus && !editorReadonly"
   },
   {
-    "key": "cmd+e",
-    "command": "workbench.action.openRecent"
-  },
-  {
     "key": "ctrl+r",
     "command": "-workbench.action.openRecent"
   },
@@ -1808,5 +1804,24 @@
   {
     "key": "ctrl+x ctrl+r",
     "command": "workbench.action.reloadWindow"
+  },
+  {
+    "key": "ctrl+tab",
+    "command": "-workbench.action.quickOpenPreviousRecentlyUsedEditorInGroup",
+    "when": "!activeEditorGroupEmpty"
+  },
+  {
+    "key": "ctrl+shift+tab",
+    "command": "-workbench.action.quickOpenLeastRecentlyUsedEditorInGroup",
+    "when": "!activeEditorGroupEmpty"
+  },
+  {
+    "key": "ctrl+shift+r",
+    "command": "-workbench.action.quickOpenNavigatePreviousInRecentFilesPicker",
+    "when": "inQuickOpen && inRecentFilesPicker"
+  },
+  {
+    "key": "cmd+e",
+    "command": "files.openTimeline"
   }
 ]
