@@ -117,5 +117,6 @@
     "terminal.integrated.env.osx": {
         "FIG_NEW_SESSION": "1"
     },
-    "editor.linkedEditing": true
+    "editor.linkedEditing": true,
+    "workbench.startupEditor": "none"
 }
