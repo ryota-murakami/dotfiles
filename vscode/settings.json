@@ -42,6 +42,7 @@
     "prettier.requireConfig": true,
     "editor.defaultFormatter": "dbaeumer.vscode-eslint",
     "workbench.colorCustomizations": {
+        
         "statusBar.background": "#0a0a0a",
     },
     "[jsonc]": {
@@ -84,7 +85,6 @@
     "css.lint.propertyIgnoredDueToDisplay": "ignore",
     "scss.lint.propertyIgnoredDueToDisplay": "ignore",
     "prettier.withNodeModules": true,
-    "editor.autoIndent": "none",
     "editor.codeActionsOnSave": {},
     "editor.indentSize": "tabSize",
     "workbench.list.fastScrollSensitivity": 1,
@@ -119,5 +119,9 @@
     },
     "editor.linkedEditing": true,
     "workbench.startupEditor": "none",
-    "gitlens.currentLine.enabled": false
+    "gitlens.currentLine.enabled": false,
+    "github.copilot.advanced": {
+        "chat.experimental.quickQuestion.enable": true
+    },
+    "search.actionsPosition": "auto"
 }
