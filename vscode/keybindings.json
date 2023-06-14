@@ -20,11 +20,6 @@
     "when": "editorFocus && viewContainer.workbench.view.explorer.enabled"
   },
   {
-    "key": "ctrl+x ctrl+c",
-    "command": "workbench.action.toggleSidebarVisibility",
-    "when": "!editorFocus"
-  },
-  {
     "key": "cmd+k cmd+r",
     "command": "-workbench.action.keybindingsReference"
   },
@@ -668,10 +663,6 @@
     "key": "f12",
     "command": "-editor.action.revealDefinition",
     "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
-  },
-  {
-    "key": "cmd+b",
-    "command": "-workbench.action.toggleSidebarVisibility"
   },
   {
     "key": "shift+cmd+e",
@@ -1823,5 +1814,14 @@
   {
     "key": "cmd+e",
     "command": "files.openTimeline"
+  },
+  {
+    "key": "shift+escape",
+    "command": "-closeParameterHints",
+    "when": "editorFocus && parameterHintsVisible"
+  },
+  {
+    "key": "ctrl+x ctrl+c",
+    "command": "workbench.action.closePanel"
   }
 ]
