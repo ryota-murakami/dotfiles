@@ -86,6 +86,16 @@ function show_all_commands
   end
 end
 
+function mov2gif
+  set out (echo $argv | sed 's/\.mov$/\.gif/')
+  set max_width "650"
+  set frames_per_second "20"
+  ffmpeg -i $argv -vf "scale=min(iw\,$max_width):-1" -r "$frames_per_second" -sws_flags lanczos -f image2pipe -vcodec ppm - \
+    | convert -delay 5 -layers Optimize -loop 0 - "$out" &&
+  echo (tput setaf 2)output file: $out(tput sgr 0) &&
+  open -a Google\ Chrome $out
+end
+
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
 alias lcd="cd /Users/ryota.murakami/laststance"
 
