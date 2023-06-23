@@ -123,5 +123,6 @@
     "github.copilot.advanced": {
         "chat.experimental.quickQuestion.enable": true
     },
-    "search.actionsPosition": "auto"
+    "search.actionsPosition": "auto",
+    "explorer.compactFolders": false
 }
