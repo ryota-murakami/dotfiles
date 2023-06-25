@@ -6,7 +6,6 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
 alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
-alias utils="webstorm /Users/ryota.murakami/laststance/react-node-utils"
 alias ds="du -sh"
 alias strage="sudo du -hd3 ~ 2>&1 | sort -hr | head -n 20"
 
@@ -97,7 +96,8 @@ function mov2gif
 end
 
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
-alias lcd="cd /Users/ryota.murakami/laststance"
+alias cdl="cd /Users/ryota.murakami/laststance"
+alias cdutils="cd /Users/ryota.murakami/laststance/react-node-utils"
 
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
