@@ -1823,5 +1823,14 @@
   {
     "key": "ctrl+x ctrl+c",
     "command": "workbench.action.closePanel"
+  },
+  {
+    "key": "shift+cmd+left",
+    "command": "-workbench.action.terminal.sendSequence",
+    "when": "terminalFocus && terminalShellType == 'pwsh'"
+  },
+  {
+    "key": "shift+cmd+left",
+    "command": "cursorLineStartSelect"
   }
 ]
