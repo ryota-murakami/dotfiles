@@ -95,6 +95,11 @@ function mov2gif
   open -a Google\ Chrome $out
 end
 
+function jsx_to_tsx
+    find ./src -name "*.jsx" -exec bash -c 'mv "$0" "${0%.jsx}.tsx"' {} \;
+end
+
+file
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
 alias cdl="cd /Users/ryota.murakami/laststance"
 alias cdutils="cd /Users/ryota.murakami/laststance/react-node-utils"
