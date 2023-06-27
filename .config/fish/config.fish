@@ -102,10 +102,12 @@ end
 function awsdir
     switch $argv[1]
         case "laststance"
-            ln -sf ~/asw-laststance ~/.aws
+            unlink ~/.aws
+            ln -s ~/asw-laststance ~/.aws
             echo "Linked to asw-laststance"
         case "customer"
-            ln -sf ~/aws-customer ~/.aws
+            unlink ~/.aws
+            ln -s ~/aws-customer ~/.aws
             echo "Linked to aws-customer"
         case "*"
             set linked_dir (readlink ~/.aws)
