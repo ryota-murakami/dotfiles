@@ -99,6 +99,27 @@ function jsx_to_tsx
     find ./src -name "*.jsx" -exec bash -c 'mv "$0" "${0%.jsx}.tsx"' {} \;
 end
 
+function awsdir
+    switch $argv[1]
+        case "laststance"
+            ln -sf ~/asw-laststance ~/.aws
+            echo "Linked to asw-laststance"
+        case "customer"
+            ln -sf ~/aws-customer ~/.aws
+            echo "Linked to aws-customer"
+        case "*"
+            set linked_dir (readlink ~/.aws)
+            switch $linked_dir
+                case "*asw-laststance*"
+                    echo "Currently linked to asw-laststance"
+                case "*aws-customer*"
+                    echo "Currently linked to aws-customer"
+                case "*"
+                    echo "Not linked to a valid directory: $linked_dir"
+            end
+    end
+end
+
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
 alias cdl="cd /Users/ryota.murakami/laststance"
 alias cdutils="cd /Users/ryota.murakami/laststance/react-node-utils"
