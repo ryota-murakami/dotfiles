@@ -60,7 +60,7 @@ function kill_all_docker_container
 end
 
 function remove_all_docker_images
-  docker rmi (docker images -q)
+    docker rmi (docker images -q)
 end
 
 function disc_usage
@@ -72,27 +72,27 @@ function port_usage
 end
 
 function get_pid_by_name
-  ps -e | grep -m1 $argv | awk '{print $1}'
+    ps -e | grep -m1 $argv | awk '{print $1}'
 end
 
 function show_all_commands
-  for dir in (echo $PATH | string split " ")
-    if test $dir != "/Users/ryota.murakami/Library/pnpm"
-        echo $dir
-        tree -fiC --noreport $dir | grep -v '/$'
-        echo ""
-     end
-  end
+    for dir in (echo $PATH | string split " ")
+        if test $dir != "/Users/ryota.murakami/Library/pnpm"
+            echo $dir
+            tree -fiC --noreport $dir | grep -v '/$'
+            echo ""
+        end
+    end
 end
 
 function mov2gif
-  set out (echo $argv | sed 's/\.mov$/\.gif/')
-  set max_width "650"
-  set frames_per_second "20"
-  ffmpeg -i $argv -vf "scale=min(iw\,$max_width):-1" -r "$frames_per_second" -sws_flags lanczos -f image2pipe -vcodec ppm - \
+    set out (echo $argv | sed 's/\.mov$/\.gif/')
+    set max_width "650"
+    set frames_per_second "20"
+    ffmpeg -i $argv -vf "scale=min(iw\,$max_width):-1" -r "$frames_per_second" -sws_flags lanczos -f image2pipe -vcodec ppm - \
     | convert -delay 5 -layers Optimize -loop 0 - "$out" &&
-  echo (tput setaf 2)output file: $out(tput sgr 0) &&
-  open -a Google\ Chrome $out
+    echo (tput setaf 2)output file: $out(tput sgr 0) &&
+    open -a Google\ Chrome $out
 end
 
 function jsx_to_tsx
