@@ -1330,11 +1330,6 @@
     "command": "editor.action.goToTypeDefinition"
   },
   {
-    "key": "ctrl+u",
-    "command": "references-view.findReferences",
-    "when": "editorHasReferenceProvider"
-  },
-  {
     "key": "shift+alt+f12",
     "command": "-references-view.findReferences",
     "when": "editorHasReferenceProvider"
@@ -1832,5 +1827,15 @@
   {
     "key": "shift+cmd+left",
     "command": "cursorLineStartSelect"
+  },
+  {
+    "key": "ctrl+d",
+    "command": "-deleteRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+u",
+    "command": "editor.action.moveLinesUpAction",
+    "when": "editorTextFocus && !editorReadonly"
   }
 ]

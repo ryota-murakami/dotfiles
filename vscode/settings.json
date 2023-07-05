@@ -1,6 +1,6 @@
 {
-    "editor.stickyScroll.enabled": true,
     "editor.inlineSuggest.enabled": true,
+    "editor.scrollBeyondLastLine": false,
     "editor.language.brackets": [
         [
             "[",
@@ -52,7 +52,7 @@
     "explorer.fileNesting.expand": false,
     "eslint.format.enable": true,
     "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
-    "editor.scrollBeyondLastColumn": 1,
+    "editor.scrollBeyondLastColumn": 10,
     "files.autoSave": "afterDelay",
     "prettier.bracketSpacing": false,
     "editor.renderWhitespace": "all",
@@ -74,7 +74,6 @@
     "less.lint.unknownProperties": "ignore",
     "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
     "prettier.configPath": ".prettierrc",
-    "editor.smoothScrolling": true,
     "editor.defaultColorDecorators": true,
     "typescript.preferGoToSourceDefinition": true,
     "javascript.preferGoToSourceDefinition": true,
@@ -124,5 +123,7 @@
         "chat.experimental.quickQuestion.enable": true
     },
     "search.actionsPosition": "auto",
-    "explorer.compactFolders": false
+    "explorer.compactFolders": false,
+    "editor.multiCursorModifier": "ctrlCmd",
+    "editor.mouseWheelScrollSensitivity": 0.7
 }
