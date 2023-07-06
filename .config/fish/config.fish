@@ -7,7 +7,6 @@ alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --g
 alias wanip="curl https://ipinfo.io/ip"
 alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias ds="du -sh"
-alias strage="sudo du -hd3 ~ 2>&1 | sort -hr | head -n 20"
 
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
@@ -120,6 +119,21 @@ function awsdir
                     echo "Not linked to a valid directory: $linked_dir"
             end
     end
+end
+
+function storage_usage --argument-names 'path'
+    if test -n $argv[1]
+        echo 'Expected delectory path as first argument.'
+        return 1
+    else
+        sudo du -hd3 $argv[1] 2>&1 | sort -hr | head -n 20
+    end
+end
+
+function print_argv
+    echo "\$argv: $argv"
+    echo "\$argv[1]: $argv[1]"
+    echo "\$argv[2]: $argv[2]"
 end
 
 alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
