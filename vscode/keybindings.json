@@ -1835,7 +1835,12 @@
   },
   {
     "key": "ctrl+u",
-    "command": "editor.action.moveLinesUpAction",
-    "when": "editorTextFocus && !editorReadonly"
+    "command": "scrollLineUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+d",
+    "command": "scrollLineDown",
+    "when": "textInputFocus"
   }
 ]
