@@ -121,8 +121,8 @@ function awsdir
     end
 end
 
-function storage_usage --argument-names 'path'
-    if test -n $argv[1]
+function storage_usage
+    if not test -n $argv[1]
         echo 'Expected delectory path as first argument.'
         return 1
     else
