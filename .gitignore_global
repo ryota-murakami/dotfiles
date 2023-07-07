@@ -11,4 +11,4 @@ dump.rdb
 dockerfiles/resources/
 .vscode/settings.json
 tmp/
-
+.env.production
