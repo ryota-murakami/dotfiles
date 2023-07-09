@@ -1130,33 +1130,13 @@
     "when": "canNavigateForward"
   },
   {
-    "key": "ctrl+g ctrl+/",
-    "command": "github.copilot.acceptCursorPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
     "key": "ctrl+/",
     "command": "-github.copilot.acceptCursorPanelSolution",
     "when": "github.copilot.activated && github.copilot.panelVisible"
   },
   {
-    "key": "ctrl+g ]",
-    "command": "github.copilot.nextPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
     "key": "alt+]",
     "command": "-github.copilot.nextPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
-    "key": "ctrl+g [",
-    "command": "github.copilot.previousPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
-    "key": "alt+[",
-    "command": "-github.copilot.previousPanelSolution",
     "when": "github.copilot.activated && github.copilot.panelVisible"
   },
   {
@@ -1842,5 +1822,29 @@
     "key": "ctrl+d",
     "command": "scrollLineDown",
     "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+;",
+    "command": "github.copilot.toggleCopilot"
+  },
+  {
+    "key": "ctrl+]",
+    "command": "github.copilot.nextPanelSolution",
+    "when": "github.copilot.activated && github.copilot.panelVisible"
+  },
+  {
+    "key": "ctrl+[",
+    "command": "github.copilot.previousPanelSolution",
+    "when": "github.copilot.activated && github.copilot.panelVisible"
+  },
+  {
+    "key": "alt+[",
+    "command": "-github.copilot.previousPanelSolution",
+    "when": "github.copilot.activated && github.copilot.panelVisible"
+  },
+  {
+    "key": "ctrl+shift+g",
+    "command": "-workbench.view.scm",
+    "when": "workbench.scm.active"
   }
 ]
