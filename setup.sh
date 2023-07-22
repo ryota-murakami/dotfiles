@@ -35,7 +35,7 @@ done
 #=========================================================
 # Setup fish-sell (fish-shell is contained in Brewfile)
 #=========================================================
-grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # シェルの一覧ファイルにfishが無ければ行末に追記
+grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # If there is no fish in the shell listing file, add it to the end of the line.
 chsh -s /usr/local/bin/fish
 
 #=========================================================
