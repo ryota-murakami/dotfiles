@@ -39,12 +39,6 @@ grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo t
 chsh -s /usr/local/bin/fish
 
 #=========================================================
-# Setup neobundle.vim
-#=========================================================
-git submodule init
-git submodule update
-
-#=========================================================
 # Install Bundler
 #=========================================================
 gem install bundler
