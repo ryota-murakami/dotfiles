@@ -8,6 +8,10 @@ alias wanip="curl https://ipinfo.io/ip"
 alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias ds="du -sh"
 
+# Set C locale
+set -x LC_ALL C
+set -x LC_CTYPE C
+
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
@@ -135,10 +139,6 @@ function print_argv
     echo "\$argv[1]: $argv[1]"
     echo "\$argv[2]: $argv[2]"
 end
-
-alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
-alias cdl="cd /Users/ryota.murakami/laststance"
-alias cdutils="cd /Users/ryota.murakami/laststance/react-node-utils"
 
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
