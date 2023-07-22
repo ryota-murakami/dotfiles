@@ -44,7 +44,6 @@
     "prettier.requireConfig": true,
     "editor.defaultFormatter": "dbaeumer.vscode-eslint",
     "workbench.colorCustomizations": {
-        
         "statusBar.background": "#0a0a0a",
     },
     "[jsonc]": {
@@ -86,9 +85,7 @@
     "css.lint.propertyIgnoredDueToDisplay": "ignore",
     "scss.lint.propertyIgnoredDueToDisplay": "ignore",
     "prettier.withNodeModules": true,
-    "editor.codeActionsOnSave": {
-
-    },
+    "editor.codeActionsOnSave": {},
     "editor.indentSize": "tabSize",
     "workbench.list.fastScrollSensitivity": 1,
     "[typescript]": {},
