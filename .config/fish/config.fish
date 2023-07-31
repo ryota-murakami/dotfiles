@@ -108,6 +108,10 @@ function awsdir
             test -L ~/.aws; and unlink ~/.aws
             ln -sf ~/aws-customer ~/.aws
             echo "Linked to aws-customer"
+        case "prod"
+            test -L ~/.aws; and unlink ~/.aws
+            ln -sf ~/aws-prod ~/.aws
+            echo "Linked to aws-prod"
         case "*"
             set linked_dir (readlink ~/.aws)
             switch $linked_dir
