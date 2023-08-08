@@ -149,8 +149,6 @@ set -gx PATH "$VOLTA_HOME/bin" $PATH
 fish_add_path /opt/homebrew/sbin
 fish_add_path /usr/local/sbin
 
-source /Users/ryota.murakami/.docker/init-fish.sh || true # Added by Docker Desktop
-
 # pnpm
 set -gx PNPM_HOME "/Users/ryota.murakami/Library/pnpm"
 if not string match -q -- $PNPM_HOME $PATH
