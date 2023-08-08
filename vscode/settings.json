@@ -152,5 +152,6 @@
     "js/ts.implicitProjectConfig.strictNullChecks": false,
     "git.suggestSmartCommit": false,
     "git.confirmSync": false,
-    "eslint.lintTask.enable": true
+    "eslint.lintTask.enable": true,
+    "copy-with-imports.space-between-braces": true
 }
