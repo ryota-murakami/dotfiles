@@ -1,6 +1,8 @@
 .apm/
 .atom/
+.amplify/
 .android/
+.aws/
 .bash_history
 .composer/*
 !composer.json
@@ -35,4 +37,5 @@
 .local_alias.sh
 Gemfile.lock
 .DS_Store
-.
+.yarn/
+.pnpm/
