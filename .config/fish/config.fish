@@ -155,3 +155,6 @@ if not string match -q -- $PNPM_HOME $PATH
   set -gx PATH "$PNPM_HOME" $PATH
 end
 # pnpm end
+
+# Created by `pipx` on 2023-08-09 12:25:13
+set PATH $PATH /Users/ryota.murakami/.local/bin
