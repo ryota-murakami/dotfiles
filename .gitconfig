@@ -4,25 +4,20 @@
 [alias]
   st = status
   co = checkout
-  ci = commit -av
-  df = diff
   br = branch
-  mg = merge
-  c = commit
   up = "!f(){ git add --all && git commit -m 'up'; };f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
-  subup = submodule foreach git pull origin master --ff
+  pull-submodle = submodule foreach git pull origin master --ff
   graph = log --graph --date-order --decorate --stat  -C -M
   showpr = "!f() { git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1; }; f"
-  openpr = "!f() { hub browse -- `git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1 | cut -f5 -d' ' | sed -e 's%#%pull/%'`; }; f"
-  llog = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
-	rm-untracked = "!git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf"
+  log-rev2 = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+  rm-untracked = "!git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf"
 
 [user]
   name = ryota-murakami
   email = dojce1048@gmail.com
 [core]
-	excludesFile = ~/.gitignore_global
+  excludesFile = ~/.gitignore_global
   editor = vim
   filemode = false
   ignorecase = false
