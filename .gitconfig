@@ -16,6 +16,7 @@
   showpr = "!f() { git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1; }; f"
   openpr = "!f() { hub browse -- `git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1 | cut -f5 -d' ' | sed -e 's%#%pull/%'`; }; f"
   llog = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
+	rm-untracked = "!git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf"
 
 [user]
   name = ryota-murakami
