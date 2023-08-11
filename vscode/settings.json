@@ -153,5 +153,6 @@
     "git.suggestSmartCommit": false,
     "git.confirmSync": false,
     "eslint.lintTask.enable": true,
-    "copy-with-imports.space-between-braces": true
+    "copy-with-imports.space-between-braces": true,
+    "javascript.updateImportsOnFileMove.enabled": "always"
 }
