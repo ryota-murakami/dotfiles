@@ -20,7 +20,7 @@ function base64rand
 end
 
 function genpasswd 
-    pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo “Has been copied to clipboard”
+    pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo "Has been copied to clipboard”
 end
 
 function ssh-swh
@@ -139,10 +139,6 @@ function print_argv
     echo "\$argv[1]: $argv[1]"
     echo "\$argv[2]: $argv[2]"
 end
-
-alias exbk="cd /Users/ryota.murakami/repository/excalidraw-backup && git up"
-alias cdl="cd /Users/ryota.murakami/laststance"
-alias cdutils="cd /Users/ryota.murakami/laststance/react-node-utils"
 
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
