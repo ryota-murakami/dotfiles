@@ -20,7 +20,7 @@ function base64rand
 end
 
 function genpasswd 
-    pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo "Has been copied to clipboard”
+    pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo "Has been copied to clipboard"
 end
 
 function ssh-swh
