@@ -88,7 +88,9 @@
     "editor.codeActionsOnSave": {},
     "editor.indentSize": "tabSize",
     "workbench.list.fastScrollSensitivity": 1,
-    "[typescript]": {},
+    "[typescript]": {
+        "editor.defaultFormatter": "denoland.vscode-deno"
+    },
     "typescript.format.indentSwitchCase": false,
     "typescript.format.enable": false,
     "typescript.inlayHints.variableTypes.enabled": true,
@@ -131,8 +133,8 @@
     "githubPullRequests.pullBranch": "never",
     "github.copilot.enable": {
         "*": true,
-        "plaintext": false,
-        "markdown": false,
+        "plaintext": true,
+        "markdown": true,
         "scminput": false,
         "typescript": true
     },
@@ -154,5 +156,26 @@
     "git.confirmSync": false,
     "eslint.lintTask.enable": true,
     "copy-with-imports.space-between-braces": true,
-    "javascript.updateImportsOnFileMove.enabled": "always"
+    "javascript.updateImportsOnFileMove.enabled": "always",
+    "codeium.enableConfig": {
+        "*": true,
+        "properties": true
+    },
+    "easycode.userEmail": "dojce1048@gmail.com",
+    "[json]": {
+        "editor.defaultFormatter": "vscode.json-language-features"
+    },
+    "easycode.codeLens": true,
+    "deno.cacheOnSave": true,
+    "deno.enablePaths": [],
+    "deno.codeLens.referencesAllFunctions": true,
+    "deno.codeLens.test": true,
+    "deno.codeLens.implementations": true,
+    "deno.codeLens.references": true,
+    "deno.config": "deno.json",
+    "deno.enable": true,
+    "json.schemas": [
+
+    ],
+    "explorer.confirmDelete": false
 }
