@@ -1846,5 +1846,20 @@
     "key": "ctrl+shift+g",
     "command": "-workbench.view.scm",
     "when": "workbench.scm.active"
+  },
+  {
+    "key": "ctrl+o",
+    "command": "deleteRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+delete",
+    "command": "-deleteRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "delete",
+    "command": "-deleteRight",
+    "when": "textInputFocus"
   }
 ]
