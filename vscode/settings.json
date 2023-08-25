@@ -40,9 +40,7 @@
     "typescript.tsserver.maxTsServerMemory": 10120,
     "typescript.preferences.renameMatchingJsxTags": true,
     "javascript.preferences.renameMatchingJsxTags": true,
-    "prettier.prettierPath": "./node_modules/prettier",
-    "prettier.requireConfig": true,
-    "editor.defaultFormatter": "GitHub.copilot",
+    "editor.defaultFormatter": "denoland.vscode-deno",
     "workbench.colorCustomizations": {
         "statusBar.background": "#0a0a0a",
     },
@@ -54,7 +52,6 @@
     "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
     "editor.scrollBeyondLastColumn": 10,
     "files.autoSave": "afterDelay",
-    "prettier.bracketSpacing": false,
     "editor.renderWhitespace": "all",
     "editor.semanticTokenColorCustomizations": {
         "enabled": false,
@@ -95,7 +92,6 @@
     "typescript.inlayHints.variableTypes.enabled": true,
     "typescript.locale": "en",
     "typescript.npm": "./node_modules/.bin/tsc",
-    "eslint.packageManager": "yarn",
     "javascript.suggestionActions.enabled": false,
     "redhat.telemetry.enabled": true,
     "eslint.ignoreUntitled": true,
@@ -128,7 +124,6 @@
     "editor.multiCursorModifier": "ctrlCmd",
     "editor.mouseWheelScrollSensitivity": 0.7,
     "typescript.updateImportsOnFileMove.enabled": "always",
-    "githubPullRequests.pullBranch": "never",
     "github.copilot.enable": {
         "*": true,
         "plaintext": true,
@@ -155,15 +150,9 @@
     "eslint.lintTask.enable": true,
     "copy-with-imports.space-between-braces": true,
     "javascript.updateImportsOnFileMove.enabled": "always",
-    "codeium.enableConfig": {
-        "*": true,
-        "properties": true
-    },
-    "easycode.userEmail": "dojce1048@gmail.com",
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "easycode.codeLens": true,
     "deno.cacheOnSave": true,
     "deno.enablePaths": [],
     "deno.codeLens.referencesAllFunctions": true,
@@ -172,7 +161,9 @@
     "deno.codeLens.references": true,
     "deno.config": "deno.jconc",
     "deno.enable": true,
-    "json.schemas": [],
+    "json.schemas": [
+    
+    ],
     "explorer.confirmDelete": false,
     "editor.accessibilitySupport": "off",
     "vitest.enable": true,
@@ -193,7 +184,6 @@
     "openapi.platformConformanceScanRuntime": "docker",
     "openapi.platformConformanceScanImage": "42crunch/scand-agent:v2.0.0",
     "explorer.confirmDragAndDrop": false,
-    "easycode.openAI ApiKey": "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",
     "explorer.fileNesting.expand": false,
     "explorer.compactFolders": false,
     "deno.cache": "/Users/ryota.murakami/Library/Caches/deno",
