@@ -698,7 +698,7 @@
     "command": "revealInExplorer"
   },
   {
-    "key": "shift+cmd+n",
+    "key": "cmd+n",
     "command": "explorer.newFile"
   },
   {
@@ -729,11 +729,6 @@
     "key": "cmd+]",
     "command": "workbench.action.navigateForward",
     "when": "canNavigateForward"
-  },
-  {
-    "key": "ctrl+c",
-    "command": "editor.action.clipboardCutAction",
-    "when": "editorTextFocus && !editorReadonly"
   },
   {
     "key": "cmd+f",
@@ -819,10 +814,6 @@
   {
     "key": "cmd+1",
     "command": "workbench.files.action.focusFilesExplorer"
-  },
-  {
-    "key": "ctrl+alt+cmd+n",
-    "command": "-welcome.showNewFileEntries"
   },
   {
     "key": "cmd+s",
@@ -1760,11 +1751,7 @@
     "command": "-workbench.action.newWindow"
   },
   {
-    "key": "shift+cmd+n",
-    "command": "welcome.showNewFileEntries"
-  },
-  {
-    "key": "shift+cmd+d",
+    "key": "ctrl+d",
     "command": "explorer.newFolder"
   },
   {
@@ -1861,5 +1848,17 @@
     "key": "delete",
     "command": "-deleteRight",
     "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+c",
+    "command": "aichat.close-sidebar"
+  },
+  {
+    "key": "cmd+\\",
+    "command": "aichat.open-ai-chat-side-pane"
+  },
+  {
+    "key": "alt+cmd+n",
+    "command": "-extension.advancedNewFile"
   }
 ]

@@ -42,7 +42,7 @@
     "javascript.preferences.renameMatchingJsxTags": true,
     "prettier.prettierPath": "./node_modules/prettier",
     "prettier.requireConfig": true,
-    "editor.defaultFormatter": "dbaeumer.vscode-eslint",
+    "editor.defaultFormatter": "GitHub.copilot",
     "workbench.colorCustomizations": {
         "statusBar.background": "#0a0a0a",
     },
@@ -50,7 +50,6 @@
         "editor.defaultFormatter": "vscode.json-language-features"
     },
     "editor.fontSize": 15,
-    "explorer.fileNesting.expand": false,
     "eslint.format.enable": true,
     "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
     "editor.scrollBeyondLastColumn": 10,
@@ -126,7 +125,6 @@
         "chat.experimental.quickQuestion.enable": true
     },
     "search.actionsPosition": "auto",
-    "explorer.compactFolders": false,
     "editor.multiCursorModifier": "ctrlCmd",
     "editor.mouseWheelScrollSensitivity": 0.7,
     "typescript.updateImportsOnFileMove.enabled": "always",
@@ -172,10 +170,33 @@
     "deno.codeLens.test": true,
     "deno.codeLens.implementations": true,
     "deno.codeLens.references": true,
-    "deno.config": "deno.json",
+    "deno.config": "deno.jconc",
     "deno.enable": true,
-    "json.schemas": [
-
-    ],
-    "explorer.confirmDelete": false
+    "json.schemas": [],
+    "explorer.confirmDelete": false,
+    "editor.accessibilitySupport": "off",
+    "vitest.enable": true,
+    "openapi.platformUrl": "https://platform.42crunch.com",
+    "openapi.platformServices": "",
+    "openapi.platformScandManager": {
+        "url": "",
+        "auth": "none",
+        "header": {
+            "name": "",
+            "value": ""
+        }
+    },
+    "openapi.docker": {
+        "replaceLocalhost": true,
+        "useHostNetwork": true
+    },
+    "openapi.platformConformanceScanRuntime": "docker",
+    "openapi.platformConformanceScanImage": "42crunch/scand-agent:v2.0.0",
+    "explorer.confirmDragAndDrop": false,
+    "easycode.openAI ApiKey": "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",
+    "explorer.fileNesting.expand": false,
+    "explorer.compactFolders": false,
+    "deno.cache": "/Users/ryota.murakami/Library/Caches/deno",
+    "deno.suggest.completeFunctionCalls": true,
+    "deno.path": "/Users/ryota.murakami/.deno/bin/deno"
 }
