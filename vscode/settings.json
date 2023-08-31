@@ -70,7 +70,6 @@
     "less.lint.unknownAtRules": "ignore",
     "less.lint.unknownProperties": "ignore",
     "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
-    "prettier.configPath": ".prettierrc",
     "editor.defaultColorDecorators": true,
     "typescript.preferGoToSourceDefinition": true,
     "javascript.preferGoToSourceDefinition": true,
