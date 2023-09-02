@@ -1850,7 +1850,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+c",
+    "key": "ctrl+cmd+\\",
     "command": "aichat.close-sidebar"
   },
   {
@@ -1860,5 +1860,18 @@
   {
     "key": "alt+cmd+n",
     "command": "-extension.advancedNewFile"
+  },
+  {
+    "key": "cmd+b",
+    "command": "-workbench.action.toggleSidebarVisibility"
+  },
+  {
+    "key": "cmd+escape",
+    "command": "workbench.action.closeSidebar"
+  },
+  {
+    "key": "shift+cmd+a",
+    "command": "-notification.acceptPrimaryAction",
+    "when": "notificationToastsVisible"
   }
 ]
