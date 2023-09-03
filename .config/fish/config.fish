@@ -5,7 +5,7 @@ alias c="clear"
 alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
-alias engine="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
+alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias ds="du -sh"
 alias npbp="npm outdated | grep -v Package | awk '{print $1}' | xargs -I% npm install --force %@latest"
 
