@@ -5,7 +5,7 @@
   st = status
   co = checkout
   br = branch
-  up = "!f(){ git add --all && git commit -m 'up'; };f"
+  up = "!f(){ git add --all && git commit -m 'up' && git push; };f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
   pull-submodle = submodule foreach git pull origin master --ff
   graph = log --graph --date-order --decorate --stat  -C -M
