@@ -17,6 +17,10 @@ set -U LSCOLORS gxfxcxdxbxegedabagacad
 
 set -g __fish_git_prompt_shorten_branch_len 30
 
+function find-file
+  find $argv[1] -type f -name $argv[2] 2>/dev/null
+end
+
 function base64rand
     openssl rand -base64 32
 end
