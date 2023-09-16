@@ -160,3 +160,7 @@ end
 
 # Created by `pipx` on 2023-08-09 12:25:13
 set PATH $PATH /Users/ryota.murakami/.local/bin
+
+# bun
+set --export BUN_INSTALL "$HOME/.bun"
+set --export PATH $BUN_INSTALL/bin $PATH
