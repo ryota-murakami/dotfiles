@@ -40,7 +40,7 @@
     "typescript.tsserver.maxTsServerMemory": 10120,
     "typescript.preferences.renameMatchingJsxTags": true,
     "javascript.preferences.renameMatchingJsxTags": true,
-    "editor.defaultFormatter": "denoland.vscode-deno",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
     "workbench.colorCustomizations": {
         "statusBar.background": "#0a0a0a",
     },
@@ -190,5 +190,9 @@
     "deno.path": "/Users/ryota.murakami/.deno/bin/deno",
     "workbench.settings.applyToAllProfiles": [
         
-    ]
+    ],
+    "[typescriptreact]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "terminal.integrated.fontSize": 14
 }
