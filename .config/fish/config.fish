@@ -8,6 +8,11 @@ alias wanip="curl https://ipinfo.io/ip"
 alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
 alias ds="du -sh"
 alias npbp="npm outdated | grep -v Package | awk '{print $1}' | xargs -I% npm install --force %@latest"
+alias h="cd ~"
+alias nsx="cd ~/nsx"
+alias util="cd ~/utils"
+alias l="cd ~/laststance"
+alias r="cd ~/repository"
 
 set -x LESS "-R"
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
