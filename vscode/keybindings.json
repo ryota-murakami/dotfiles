@@ -1732,11 +1732,6 @@
     "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
   },
   {
-    "key": "shift+alt+p",
-    "command": "block-travel.selectUp",
-    "when": "editorTextFocus"
-  },
-  {
     "key": "shift+alt+n",
     "command": "block-travel.selectDown",
     "when": "editorTextFocus"
@@ -2193,5 +2188,42 @@
     "key": "enter",
     "command": "-notebook.cell.edit",
     "when": "notebookCellListFocused && notebookEditable && !editorHoverFocused && !inputFocus"
+  },
+  {
+    "key": "shift+alt+p",
+    "command": "block-travel.selectUp",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+cmd+up",
+    "command": "editor.action.insertCursorAbove",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "alt+cmd+up",
+    "command": "-editor.action.insertCursorAbove",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+cmd+down",
+    "command": "editor.action.insertCursorBelow",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "alt+cmd+down",
+    "command": "-editor.action.insertCursorBelow",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "cmd+2",
+    "command": "-workbench.action.focusSecondEditorGroup"
+  },
+  {
+    "key": "cmd+2",
+    "command": "workbench.action.showAllSymbols"
+  },
+  {
+    "key": "alt+2",
+    "command": "outline.focus"
   }
 ]
