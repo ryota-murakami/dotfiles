@@ -13,6 +13,7 @@ alias nsx="cd ~/nsx"
 alias util="cd ~/utils"
 alias l="cd ~/laststance"
 alias r="cd ~/repository"
+alias p="pnpm"
 
 set -x LESS "-R"
 set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
