@@ -830,11 +830,6 @@
     "command": "editor.action.duplicateSelection"
   },
   {
-    "key": "ctrl+x ctrl+]",
-    "command": "editor.action.goToBottomHover",
-    "when": "editorHoverFocused"
-  },
-  {
     "key": "end",
     "command": "-editor.action.goToBottomHover",
     "when": "editorHoverFocused"
@@ -1660,11 +1655,6 @@
     "when": "inReferenceSearchEditor || referenceSearchVisible"
   },
   {
-    "key": "ctrl+x ctrl+[",
-    "command": "editor.action.goToTopHover",
-    "when": "editorHoverFocused"
-  },
-  {
     "key": "cmd+g",
     "command": "-workbench.action.terminal.goToRecentDirectory",
     "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported"
@@ -2230,5 +2220,13 @@
   {
     "key": "cmd+e",
     "command": "workbench.action.localHistory.restoreViaPicker"
+  },
+  {
+    "key": "ctrl+x ctrl+]",
+    "command": "scrollEditorBottom"
+  },
+  {
+    "key": "ctrl+x ctrl+[",
+    "command": "scrollEditorTop"
   }
 ]
