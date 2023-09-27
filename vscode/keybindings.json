@@ -1764,10 +1764,6 @@
     "when": "inQuickOpen && inRecentFilesPicker"
   },
   {
-    "key": "cmd+e",
-    "command": "files.openTimeline"
-  },
-  {
     "key": "shift+escape",
     "command": "-closeParameterHints",
     "when": "editorFocus && parameterHintsVisible"
@@ -2225,5 +2221,14 @@
   {
     "key": "alt+2",
     "command": "outline.focus"
+  },
+  {
+    "key": "cmd+e",
+    "command": "-editor.action.toggleScreenReaderAccessibilityMode",
+    "when": "accessibilityHelpIsShown"
+  },
+  {
+    "key": "cmd+e",
+    "command": "workbench.action.localHistory.restoreViaPicker"
   }
 ]
