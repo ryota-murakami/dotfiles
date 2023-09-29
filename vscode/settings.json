@@ -99,7 +99,6 @@
     "editor.scrollbar.horizontalScrollbarSize": 10,
     "editor.guides.bracketPairsHorizontal": true,
     "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
-    "window.zoomLevel": 2,
     "gitlens.showWelcomeOnInstall": false,
     "emmet.includeLanguages": {
         "postcss": "css"
@@ -194,5 +193,6 @@
     "[typescriptreact]": {
         "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    "terminal.integrated.fontSize": 14
+    "terminal.integrated.fontSize": 14,
+    "window.zoomLevel": 2
 }
