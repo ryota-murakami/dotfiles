@@ -11,7 +11,7 @@ alias npbp="npm outdated | grep -v Package | awk '{print $1}' | xargs -I% npm in
 alias h="cd ~"
 alias nsx="cd ~/nsx"
 alias util="cd ~/utils"
-alias l="cd ~/laststance"
+alias la="cd ~/laststance"
 alias r="cd ~/repository"
 alias p="pnpm"
 
