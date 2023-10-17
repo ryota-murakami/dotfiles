@@ -2228,5 +2228,14 @@
   {
     "key": "ctrl+x ctrl+[",
     "command": "scrollEditorTop"
+  },
+  {
+    "key": "ctrl+h",
+    "command": "-deleteLeft",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+g ctrl+l",
+    "command": "git-log--graph.start"
   }
 ]
