@@ -6,17 +6,17 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
 alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
-alias dush="du -sh"
 alias npbp="npm outdated | grep -v Package | awk '{print $1}' | xargs -I% npm install --force %@latest"
 alias home="cd ~"
+alias dotfiles="cd ~/dotfiles"
 alias nsx="cd ~/nsx"
-alias util="cd ~/utils"
+alias utils="cd ~/utils"
 alias last="cd ~/laststance"
 alias repo="cd ~/repository"
-alias vscode-config="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
+alias vscode-config-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
 
 set -x LESS "-R"
-set -x PATH /opt/homebrew/bin $HOME/.deno/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
+set -x PATH /opt/homebrew/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
