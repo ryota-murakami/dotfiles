@@ -55,6 +55,11 @@ function weather
     curl wttr.in/$locate
 end
 
+function save_vsc_config
+  cp ~/Library/Application\ Support/Code/User/keybindings.json ~/dotfiles/vscode
+  cp ~/Library/Application\ Support/Code/User/settings.json ~/dotfiles/vscode
+end
+
 function copy_head_commit_hash
     git rev-parse --short HEAD | pbcopy
 end
