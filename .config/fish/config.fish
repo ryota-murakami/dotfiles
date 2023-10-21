@@ -13,6 +13,7 @@ alias nsx="cd ~/nsx"
 alias utils="cd ~/utils"
 alias last="cd ~/laststance"
 alias repo="cd ~/repository"
+alias exp="cd ~/react-experimental-workspace"
 alias vscode-config-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
 
 set -x LESS "-R"
