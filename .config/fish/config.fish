@@ -14,7 +14,8 @@ alias utils="cd ~/utils"
 alias last="cd ~/laststance"
 alias repo="cd ~/repository"
 alias exp="cd ~/react-experimental-workspace"
-alias vscode-config-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
+alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
+alias voltadir="cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')"
 
 set -x LESS "-R"
 set -x PATH /opt/homebrew/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
@@ -148,6 +149,10 @@ function storage_usage
     end
 end
 
+function volta-dir
+  cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')
+end
+
 function print_argv
     echo "\$argv: $argv"
     echo "\$argv[1]: $argv[1]"
@@ -175,5 +180,5 @@ set --export PATH $BUN_INSTALL/bin $PATH
 
 eval "$(direnv hook fish)"
 
-starship init fish | source
+# starship init fish | source
 
