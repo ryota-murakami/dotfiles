@@ -1617,10 +1617,6 @@
     "when": "inInteractiveInput && textInputFocus"
   },
   {
-    "key": "ctrl+x ctrl+s",
-    "command": "workbench.action.gotoSymbol"
-  },
-  {
     "key": "shift+cmd+o",
     "command": "-workbench.action.gotoSymbol"
   },
@@ -2205,7 +2201,7 @@
     "command": "-workbench.action.focusSecondEditorGroup"
   },
   {
-    "key": "cmd+2",
+    "key": "shift+cmd+o",
     "command": "workbench.action.showAllSymbols"
   },
   {
@@ -2237,5 +2233,15 @@
   {
     "key": "ctrl+g ctrl+l",
     "command": "git-log--graph.start"
+  },
+  {
+    "key": "shift+cmd+o",
+    "command": "-workbench.action.terminal.openDetectedLink",
+    "when": "terminalFocus && terminalHasBeenCreated"
+  },
+  {
+    "key": "shift+cmd+o",
+    "command": "-editor.action.accessibleViewGoToSymbol",
+    "when": "accessibilityHelpIsShown && accessibleViewGoToSymbolSupported || accessibleViewGoToSymbolSupported && accessibleViewIsShown"
   }
 ]
