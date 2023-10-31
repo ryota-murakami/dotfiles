@@ -110,7 +110,11 @@ function mov2gif
 end
 
 function jsx_to_tsx
-    find ./src -name "*.jsx" -exec bash -c 'mv "$0" "${0%.jsx}.tsx"' {} \;
+    find $argv -name "*.jsx" -exec bash -c 'mv "$0" "${0%.jsx}.tsx"' {} \;
+end
+
+function js_to_ts
+    find $argv -name "*.js" -exec bash -c 'mv "$0" "${0%.js}.ts"' {} \;
 end
 
 function awsdir
