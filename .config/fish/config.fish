@@ -18,7 +18,7 @@ alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Cod
 alias voltadir="cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')"
 
 set -x LESS "-R"
-set -x PATH /opt/homebrew/bin $HOME/.cargo/bin $HOME/Library/Python/2.7/bin $HOME/nvim-macos/bin $PATH
+set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
