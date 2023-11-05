@@ -16,6 +16,7 @@ alias repo="cd ~/repository"
 alias exp="cd ~/react-experimental-workspace"
 alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
 alias voltadir="cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')"
+alias clone="cd ~/clone"
 
 set -x LESS "-R"
 set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
