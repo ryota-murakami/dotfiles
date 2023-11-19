@@ -1,6 +1,11 @@
 // Place your key bindings in this file to override the defaults
 [
   {
+    "key": "ctrl+w",
+    "command": "-workbench.action.closeWindow",
+    "when": "!editorIsOpen && !multipleEditorGroups"
+  },
+  {
     "key": "esc",
     "command": "workbench.files.action.focusOpenEditorsView"
   },
