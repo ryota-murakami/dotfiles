@@ -15,7 +15,6 @@ alias last="cd ~/laststance"
 alias repo="cd ~/repository"
 alias exp="cd ~/react-experimental-workspace"
 alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Code/User"
-alias voltadir="cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')"
 alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
@@ -27,10 +26,6 @@ set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
 set -U LSCOLORS gxfxcxdxbxegedabagacad
 
 set -g __fish_git_prompt_shorten_branch_len 30
-
-function find-file
-  find $argv[1] -type f -name $argv[2] 2>/dev/null
-end
 
 function base64rand
     openssl rand -base64 32
@@ -110,14 +105,6 @@ function mov2gif
     | convert -delay 5 -layers Optimize -loop 0 - "$out" &&
     echo (tput setaf 2)output file: $out(tput sgr 0) &&
     open -a Google\ Chrome $out
-end
-
-function jsx_to_tsx
-    find $argv -name "*.jsx" -exec bash -c 'mv "$0" "${0%.jsx}.tsx"' {} \;
-end
-
-function js_to_ts
-    find $argv -name "*.js" -exec bash -c 'mv "$0" "${0%.js}.ts"' {} \;
 end
 
 function awsdir
