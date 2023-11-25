@@ -18,6 +18,7 @@ alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Cod
 alias voltadir="cd (which volta | awk -F/ 'BEGIN {OFS="/"} {$NF=""; print $0}')"
 alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
+alias fork="cd ~/fork"
 
 set -x LESS "-R"
 set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
