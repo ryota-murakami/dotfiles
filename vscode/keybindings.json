@@ -2,7 +2,7 @@
 [
   {
     "key": "ctrl+w",
-    "command": "-workbench.action.closeWindow",
+    "command": "workbench.action.closeWindow",
     "when": "!editorIsOpen && !multipleEditorGroups"
   },
   {
@@ -1557,7 +1557,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+alt+f",
+    "key": "ctrl+alt+cmd+f",
     "command": "cursorWordEndRightSelect",
     "when": "textInputFocus"
   },
@@ -1699,7 +1699,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+alt+b",
+    "key": "ctrl+alt+cmd+b",
     "command": "cursorWordLeftSelect",
     "when": "textInputFocus"
   },
@@ -1723,7 +1723,7 @@
     "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
   },
   {
-    "key": "shift+alt+n",
+    "key": "ctrl+alt+cmd+n",
     "command": "block-travel.selectDown",
     "when": "editorTextFocus"
   },
@@ -2177,7 +2177,7 @@
     "when": "notebookCellListFocused && notebookEditable && !editorHoverFocused && !inputFocus"
   },
   {
-    "key": "shift+alt+p",
+    "key": "ctrl+alt+cmd+p",
     "command": "block-travel.selectUp",
     "when": "editorTextFocus"
   },
@@ -2248,5 +2248,19 @@
     "key": "shift+cmd+o",
     "command": "-editor.action.accessibleViewGoToSymbol",
     "when": "accessibilityHelpIsShown && accessibleViewGoToSymbolSupported || accessibleViewGoToSymbolSupported && accessibleViewIsShown"
+  },
+  {
+    "key": "shift+alt+f",
+    "command": "-search.action.restrictSearchToFolder",
+    "when": "folderMatchWithResourceFocus && searchViewletVisible"
+  },
+  {
+    "key": "shift+alt+p",
+    "command": "-openapi.preview",
+    "when": "editorTextFocus && !openapiErrors"
+  },
+  {
+    "key": "ctrl+alt+cmd+n",
+    "command": "-welcome.showNewFileEntries"
   }
 ]
