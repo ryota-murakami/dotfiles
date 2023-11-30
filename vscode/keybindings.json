@@ -2262,5 +2262,10 @@
   {
     "key": "ctrl+alt+cmd+n",
     "command": "-welcome.showNewFileEntries"
+  },
+  {
+    "key": "cmd+w",
+    "command": "-workbench.action.closeWindow",
+    "when": "!editorIsOpen && !multipleEditorGroups"
   }
 ]
