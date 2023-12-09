@@ -19,7 +19,7 @@ alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
 alias python="python3.11"
-alias pr="~/pr
+alias pr="~/pr"
 
 set -x LESS "-R"
 set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
