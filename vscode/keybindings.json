@@ -2267,5 +2267,9 @@
     "key": "cmd+w",
     "command": "-workbench.action.closeWindow",
     "when": "!editorIsOpen && !multipleEditorGroups"
+  },
+  {
+    "key": "ctrl+s",
+    "command": "editor.emmet.action.wrapWithAbbreviation"
   }
 ]
