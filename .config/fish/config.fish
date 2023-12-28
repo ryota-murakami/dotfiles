@@ -60,6 +60,11 @@ function save_vsc_config
   cp ~/Library/Application\ Support/Code/User/settings.json ~/dotfiles/vscode
 end
 
+function save_cursor_config
+    cp ~/Library/Application\ Support/Cursor\ Nightly/User/keybindings.json ~/dotfiles/cursor_nightly
+    cp ~/Library/Application\ Support/Cursor\ Nightly/User/settings.json ~/dotfiles/cursor_nightly
+  end
+
 function copy_head_commit_hash
     git rev-parse --short HEAD | pbcopy
 end
