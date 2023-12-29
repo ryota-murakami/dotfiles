@@ -2271,5 +2271,10 @@
   {
     "key": "ctrl+s",
     "command": "editor.emmet.action.wrapWithAbbreviation"
+  },
+  {
+    "key": "shift+cmd+r",
+    "command": "-workbench.action.reloadWindow",
+    "when": "isDevelopment"
   }
 ]

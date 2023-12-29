@@ -31,13 +31,15 @@
     ],
     "editor.guides.bracketPairs": "active",
     "editor.autoClosingDelete": "always",
+    "typescript.suggest.paths": false,
+    "javascript.suggest.paths": false,
     "typescript.preferences.importModuleSpecifier": "relative",
     "typescript.referencesCodeLens.showOnAllFunctions": true,
     "typescript.reportStyleChecksAsWarnings": false,
     "typescript.suggest.completeFunctionCalls": true,
-    "typescript.tsc.autoDetect": "off",
+    "typescript.tsc.autoDetect": "on",
     "typescript.tsdk": "./node_modules/typescript/lib",
-    "typescript.tsserver.maxTsServerMemory": 8920,
+    "typescript.tsserver.maxTsServerMemory": 52500,
     "typescript.preferences.renameMatchingJsxTags": true,
     "javascript.preferences.renameMatchingJsxTags": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -52,10 +54,10 @@
     "eslint.format.enable": true,
     "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
     "editor.scrollBeyondLastColumn": 10,
-    "files.autoSave": "afterDelay",
+    "files.autoSave": "onFocusChange",
     "editor.renderWhitespace": "all",
     "editor.semanticTokenColorCustomizations": {
-        "enabled": false,
+        "enabled": true,
         "rules": {}
     },
     "extensions.ignoreRecommendations": true,
@@ -100,7 +102,6 @@
     "editor.scrollbar.horizontalScrollbarSize": 10,
     "editor.guides.bracketPairsHorizontal": true,
     "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
-    "gitlens.showWelcomeOnInstall": false,
     "emmet.includeLanguages": {
         "postcss": "css"
     },
@@ -114,22 +115,10 @@
         "FIG_NEW_SESSION": "1"
     },
     "editor.linkedEditing": true,
-    "workbench.startupEditor": "none",
-    "gitlens.currentLine.enabled": false,
-    "github.copilot.advanced": {
-        "chat.experimental.quickQuestion.enable": true
-    },
     "search.actionsPosition": "auto",
     "editor.multiCursorModifier": "ctrlCmd",
     "editor.mouseWheelScrollSensitivity": 0.7,
     "typescript.updateImportsOnFileMove.enabled": "always",
-    "github.copilot.enable": {
-        "*": true,
-        "plaintext": true,
-        "markdown": true,
-        "scminput": false,
-        "typescript": true
-    },
     "typescript.format.insertSpaceAfterConstructor": true,
     "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets": true,
     "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": true,
@@ -147,39 +136,14 @@
     "git.suggestSmartCommit": false,
     "git.confirmSync": false,
     "eslint.lintTask.enable": true,
-    "copy-with-imports.space-between-braces": true,
     "javascript.updateImportsOnFileMove.enabled": "always",
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "deno.cacheOnSave": true,
-    "deno.enablePaths": [],
-    "deno.codeLens.referencesAllFunctions": true,
-    "deno.codeLens.test": true,
-    "deno.codeLens.implementations": true,
-    "deno.codeLens.references": true,
-    "deno.config": "deno.jconc",
-    "deno.enable": true,
     "json.schemas": [],
     "explorer.confirmDelete": false,
     "editor.accessibilitySupport": "off",
     "vitest.enable": true,
-    "openapi.platformUrl": "https://platform.42crunch.com",
-    "openapi.platformServices": "",
-    "openapi.platformScandManager": {
-        "url": "",
-        "auth": "none",
-        "header": {
-            "name": "",
-            "value": ""
-        }
-    },
-    "openapi.docker": {
-        "replaceLocalhost": true,
-        "useHostNetwork": true
-    },
-    "openapi.platformConformanceScanRuntime": "docker",
-    "openapi.platformConformanceScanImage": "42crunch/scand-agent:v2.0.0",
     "explorer.confirmDragAndDrop": false,
     "explorer.fileNesting.expand": false,
     "explorer.compactFolders": false,
@@ -194,5 +158,18 @@
         "compounds": []
     },
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "workbench.colorTheme": "Default Dark Modern"
+    "workbench.colorTheme": "Default Dark Modern",
+    "vitest.exclude": [
+        "**/build/**",
+        "**/e2e/**",
+        "**/server_build/**",
+        "**/@types/**",
+        "**/node_modules/**",
+        "**/dist/**",
+        "**/cypress/**",
+        "**/.{idea,git,cache,output,temp}/**"
+    ],
+    "jupyter.kernels.trusted": [
+        "/usr/local/share/jupyter/kernels/python3/kernel.json"
+    ]
 }
