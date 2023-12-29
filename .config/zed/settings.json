@@ -7,7 +7,7 @@
 // custom settings, run the `open default settings` command
 // from the command palette or from `Zed` application menu.
 {
-  "tab_size": 2,
+  "tab_size": 5,
   "font_size": 18,
   "theme": "Rosé Pine",
   "buffer_font_size": 18
