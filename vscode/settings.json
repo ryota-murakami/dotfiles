@@ -35,7 +35,7 @@
     "typescript.referencesCodeLens.showOnAllFunctions": true,
     "typescript.reportStyleChecksAsWarnings": false,
     "typescript.suggest.completeFunctionCalls": true,
-    "typescript.tsc.autoDetect": "off",
+    "typescript.tsc.autoDetect": "on",
     "typescript.tsdk": "./node_modules/typescript/lib",
     "typescript.tsserver.maxTsServerMemory": 8920,
     "typescript.preferences.renameMatchingJsxTags": true,
@@ -99,7 +99,6 @@
     "editor.scrollbar.horizontalScrollbarSize": 10,
     "editor.guides.bracketPairsHorizontal": true,
     "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
-    "gitlens.showWelcomeOnInstall": false,
     "emmet.includeLanguages": {
         "postcss": "css"
     },
@@ -114,7 +113,6 @@
     },
     "editor.linkedEditing": true,
     "workbench.startupEditor": "none",
-    "gitlens.currentLine.enabled": false,
     "github.copilot.advanced": {
         "chat.experimental.quickQuestion.enable": true
     },
@@ -146,41 +144,15 @@
     "git.suggestSmartCommit": false,
     "git.confirmSync": false,
     "eslint.lintTask.enable": true,
-    "copy-with-imports.space-between-braces": true,
     "javascript.updateImportsOnFileMove.enabled": "always",
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "deno.cacheOnSave": true,
-    "deno.enablePaths": [],
-    "deno.codeLens.referencesAllFunctions": true,
-    "deno.codeLens.test": true,
-    "deno.codeLens.implementations": true,
-    "deno.codeLens.references": true,
-    "deno.config": "deno.jconc",
-    "deno.enable": true,
     "json.schemas": [
     
     ],
     "explorer.confirmDelete": false,
     "editor.accessibilitySupport": "off",
-    "vitest.enable": true,
-    "openapi.platformUrl": "https://platform.42crunch.com",
-    "openapi.platformServices": "",
-    "openapi.platformScandManager": {
-        "url": "",
-        "auth": "none",
-        "header": {
-            "name": "",
-            "value": ""
-        }
-    },
-    "openapi.docker": {
-        "replaceLocalhost": true,
-        "useHostNetwork": true
-    },
-    "openapi.platformConformanceScanRuntime": "docker",
-    "openapi.platformConformanceScanImage": "42crunch/scand-agent:v2.0.0",
     "explorer.confirmDragAndDrop": false,
     "explorer.fileNesting.expand": false,
     "explorer.compactFolders": false,
