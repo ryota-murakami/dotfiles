@@ -6,7 +6,7 @@
 defaults write -g ApplePressAndHoldEnabled -bool false
 defaults write com.apple.finder AppleShowAllFiles TRUE
 defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Finder
-# Key Repeat
+# Key Repeat(Don't need anymore recent OSX)
 #defaults write -g InitialKeyRepeat -int 10
 #defaults write -g KeyRepeat -int 1
 # @TODO Add finished message with seelptime
@@ -15,8 +15,9 @@ defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Find
 # Install essential tools from Brewfile
 #=========================================================
 brew bundle
-# @TODO Add finished message with seelptime
-
+echo -e "\n"
+echo -e "\033[32mbrew install form Brewfile has just completed!!"
+sleep 3s
 #=========================================================
 # Create Symlink
 #=========================================================
