@@ -699,10 +699,6 @@
     "when": "editorTextFocus && foldingEnabled"
   },
   {
-    "key": "ctrl+[",
-    "command": "revealInExplorer"
-  },
-  {
     "key": "cmd+n",
     "command": "explorer.newFile"
   },
@@ -1792,16 +1788,6 @@
     "command": "github.copilot.toggleCopilot"
   },
   {
-    "key": "ctrl+]",
-    "command": "github.copilot.nextPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
-    "key": "ctrl+[",
-    "command": "github.copilot.previousPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
     "key": "alt+[",
     "command": "-github.copilot.previousPanelSolution",
     "when": "github.copilot.activated && github.copilot.panelVisible"
@@ -2276,5 +2262,33 @@
     "key": "shift+cmd+r",
     "command": "-workbench.action.reloadWindow",
     "when": "isDevelopment"
+  },
+  {
+    "key": "alt+[",
+    "command": "-editor.action.inlineSuggest.showPrevious",
+    "when": "inlineSuggestionVisible && !editorReadonly"
+  },
+  {
+    "key": "alt+[",
+    "command": "-editor.action.accessibleViewPrevious",
+    "when": "accessibleViewIsShown && accessibleViewSupportsNavigation"
+  },
+  {
+    "key": "alt+]",
+    "command": "-editor.action.accessibleViewNext",
+    "when": "accessibleViewIsShown && accessibleViewSupportsNavigation"
+  },
+  {
+    "key": "alt+]",
+    "command": "-editor.action.inlineSuggest.showNext",
+    "when": "inlineSuggestionVisible && !editorReadonly"
+  },
+  {
+    "key": "ctrl+]",
+    "command": "editor.action.inlineSuggest.showNext"
+  },
+  {
+    "key": "ctrl+[",
+    "command": "editor.action.inlineSuggest.showPrevious"
   }
 ]
