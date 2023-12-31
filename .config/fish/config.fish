@@ -21,7 +21,7 @@ alias fork="cd ~/fork"
 alias pr="~/pr"
 
 set -x LESS "-R"
-set -x PATH $HOME/.cargo/bin /usr/local/lib/python3.11/site-packages /usr/local/opt/python@3.11/libexec/bin $HOME/nvim-macos/bin $PATH
+set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
@@ -171,14 +171,10 @@ if not string match -q -- $PNPM_HOME $PATH
 end
 # pnpm end
 
-# Created by `pipx` on 2023-08-09 12:25:13
-set PATH $PATH /Users/ryota.murakami/.local/bin
-
 # bun
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
 
 eval "$(direnv hook fish)"
 
-# starship init fish | source
 
