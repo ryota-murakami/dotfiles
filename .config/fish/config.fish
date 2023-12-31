@@ -177,4 +177,8 @@ set --export PATH $BUN_INSTALL/bin $PATH
 
 eval "$(direnv hook fish)"
 
+pyenv init - | source
+
+
+
 
