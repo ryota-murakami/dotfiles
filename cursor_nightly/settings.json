@@ -44,7 +44,7 @@
     "javascript.preferences.renameMatchingJsxTags": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
     "workbench.colorCustomizations": {
-
+        "editorWhitespace.foreground": "#3f3f46",
         "statusBar.background": "#0a0a0a"
     },
     "[jsonc]": {
@@ -158,7 +158,6 @@
         "compounds": []
     },
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "workbench.colorTheme": "Default Dark Modern",
     "vitest.exclude": [
         "**/build/**",
         "**/e2e/**",
