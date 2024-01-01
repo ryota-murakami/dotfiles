@@ -170,5 +170,6 @@
         "configurations": [],
         "compounds": []
     },
-    "typescript.enablePromptUseWorkspaceTsdk": true
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "outline.collapseItems": "alwaysCollapse"
 }

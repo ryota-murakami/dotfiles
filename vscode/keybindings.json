@@ -2201,10 +2201,6 @@
     "command": "workbench.action.showAllSymbols"
   },
   {
-    "key": "alt+2",
-    "command": "outline.focus"
-  },
-  {
     "key": "cmd+e",
     "command": "-editor.action.toggleScreenReaderAccessibilityMode",
     "when": "accessibilityHelpIsShown"
@@ -2292,5 +2288,9 @@
     "key": "alt+]",
     "command": "-editor.action.accessibleViewNext",
     "when": "accessibleViewIsShown && accessibleViewSupportsNavigation"
+  },
+  {
+    "key": "cmd+2",
+    "command": "outline.toggleVisibility"
   }
 ]
