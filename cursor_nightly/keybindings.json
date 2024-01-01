@@ -2196,10 +2196,6 @@
     "command": "workbench.action.showAllSymbols"
   },
   {
-    "key": "alt+2",
-    "command": "outline.focus"
-  },
-  {
     "key": "cmd+e",
     "command": "-editor.action.toggleScreenReaderAccessibilityMode",
     "when": "accessibilityHelpIsShown"
@@ -2290,5 +2286,13 @@
   {
     "key": "ctrl+[",
     "command": "editor.action.inlineSuggest.showPrevious"
+  },
+  {
+    "key": "cmd+3",
+    "command": "-workbench.action.focusThirdEditorGroup"
+  },
+  {
+    "key": "cmd+2",
+    "command": "outline.toggleVisibility"
   }
 ]
