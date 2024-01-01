@@ -168,7 +168,9 @@
         "**/cypress/**",
         "**/.{idea,git,cache,output,temp}/**"
     ],
+    "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/shims/python",
     "jupyter.kernels.trusted": [
-        "/usr/local/share/jupyter/kernels/python3/kernel.json"
-    ]
+        "/Users/ryota.murakami/.pyenv/versions/3.12.1/lib/python3.12/site-packages/ipykernel/ipkernel.py"
+    ],
+    "outline.collapseItems": "alwaysCollapse"
 }
