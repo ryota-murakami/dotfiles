@@ -168,9 +168,22 @@
         "**/cypress/**",
         "**/.{idea,git,cache,output,temp}/**"
     ],
-    "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/shims/python",
+    "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/versions/3.12.1/bin/python",
     "jupyter.kernels.trusted": [
         "/Users/ryota.murakami/.pyenv/versions/3.12.1/lib/python3.12/site-packages/ipykernel/ipkernel.py"
     ],
-    "outline.collapseItems": "alwaysCollapse"
+    "outline.collapseItems": "alwaysCollapse",
+    "github.copilot.enable": {
+        "*": true,
+        "plaintext": false,
+        "markdown": false,
+        "scminput": false
+    },
+    "workbench.editorAssociations": {
+        "*.db": "sqlite-viewer.option"
+    },
+    "python.languageServer": "Pylance",
+    "jest.jestCommandLine": "./node_modules/.bin/jest",
+    "playwright.reuseBrowser": true,
+    "playwright.showTrace": false
 }

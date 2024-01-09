@@ -2294,5 +2294,10 @@
   {
     "key": "cmd+2",
     "command": "outline.toggleVisibility"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "-workbench.action.chat.clear",
+    "when": "hasChatProvider && inChat"
   }
 ]
