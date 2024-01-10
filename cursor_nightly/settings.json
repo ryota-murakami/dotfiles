@@ -56,9 +56,19 @@
     "editor.scrollBeyondLastColumn": 10,
     "files.autoSave": "onFocusChange",
     "editor.renderWhitespace": "all",
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "comment",
+                "settings": {
+                    "foreground": "#bafdc16b"
+                }
+            }
+        ]
+    },
     "editor.semanticTokenColorCustomizations": {
         "enabled": true,
-        "rules": {}
+        "rules": {},
     },
     "extensions.ignoreRecommendations": true,
     "editor.inlayHints.enabled": "off",
@@ -174,7 +184,7 @@
     ],
     "outline.collapseItems": "alwaysCollapse",
     "github.copilot.enable": {
-        "*": true,
+        "*": false,
         "plaintext": false,
         "markdown": false,
         "scminput": false
@@ -185,5 +195,6 @@
     "python.languageServer": "Pylance",
     "jest.jestCommandLine": "./node_modules/.bin/jest",
     "playwright.reuseBrowser": true,
-    "playwright.showTrace": false
+    "playwright.showTrace": false,
+    "github.copilot.advanced": {}
 }
