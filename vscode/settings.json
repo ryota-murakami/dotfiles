@@ -171,5 +171,9 @@
         "compounds": []
     },
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "outline.collapseItems": "alwaysCollapse"
+    "outline.collapseItems": "alwaysCollapse",
+    "jest.jestCommandLine": "./node_modules/.bin/jest",
+    "playwright.reuseBrowser": true,
+    "playwright.showTrace": false,
+    "security.promptForLocalFileProtocolHandling": false
 }
