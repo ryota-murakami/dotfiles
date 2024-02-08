@@ -63,7 +63,12 @@ end
 function save_cursor_config
     cp ~/Library/Application\ Support/Cursor\ Nightly/User/keybindings.json ~/dotfiles/cursor_nightly
     cp ~/Library/Application\ Support/Cursor\ Nightly/User/settings.json ~/dotfiles/cursor_nightly
-  end
+end
+
+function rollback_cursor_config
+    cp ~/dotfiles/cursor_nightly/keybindings.json ~/Library/Application\ Support/Cursor\ Nightly/User
+    cp ~/dotfiles/cursor_nightly/settings.json ~/Library/Application\ Support/Cursor\ Nightly/User
+end
 
 function copy_head_commit_hash
     git rev-parse --short HEAD | pbcopy
