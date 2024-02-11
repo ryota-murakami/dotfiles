@@ -119,5 +119,15 @@ alias vi /usr/bin/vim
 alias vscode-conf-dir cd /Users/ryota.murakami/Library/Application Support/Code/User
 alias wanip 'curl https://ipinfo.io/ip'
 
+# Env
+export LESS="-R"
+
+# Enabile autocomplete
+autoload -U compinit; compinit
+
+# PATH
+export PATH="$HOME/.cargo/bin:$HOME/nvim-macos/bin:$PATH"
+
+
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 eval "$(pyenv init -)"
