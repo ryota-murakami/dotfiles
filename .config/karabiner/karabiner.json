@@ -778,10 +778,19 @@
                         ]
                     },
                     {
-                        "description": "Disable Command+Control+Space",
+                        "description": "Allow Command+Control+Space in VSCode",
                         "manipulators": [
                             {
                                 "type": "basic",
+                                "conditions": [
+                                    {
+                                        "type": "frontmost_application_if",
+                                        "bundle_identifiers": [
+                                            "^com\\.microsoft\\.VSCode$",
+                                            "^com\\.todesktop\\.23052492jqa5xjo$"
+                                        ]
+                                    }
+                                ],
                                 "from": {
                                     "key_code": "spacebar",
                                     "modifiers": {
@@ -793,7 +802,13 @@
                                 },
                                 "to": [
                                     {
-                                        "key_code": "vk_none"
+                                        "key_code": "spacebar",
+                                        "modifiers": {
+                                            "mandatory": [
+                                                "control",
+                                                "command"
+                                            ]
+                                        }
                                     }
                                 ]
                             }
