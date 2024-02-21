@@ -150,7 +150,9 @@
     "[json]": {
         "editor.defaultFormatter": "vscode.json-language-features"
     },
-    "json.schemas": [],
+    "json.schemas": [
+    
+    ],
     "explorer.confirmDelete": false,
     "editor.accessibilitySupport": "off",
     "vitest.enable": true,
@@ -168,33 +170,15 @@
         "compounds": []
     },
     "typescript.enablePromptUseWorkspaceTsdk": true,
-    "vitest.exclude": [
-        "**/build/**",
-        "**/e2e/**",
-        "**/server_build/**",
-        "**/@types/**",
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/cypress/**",
-        "**/.{idea,git,cache,output,temp}/**"
-    ],
     "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/versions/3.12.1/bin/python",
     "jupyter.kernels.trusted": [
         "/Users/ryota.murakami/.pyenv/versions/3.12.1/lib/python3.12/site-packages/ipykernel/ipkernel.py"
     ],
     "outline.collapseItems": "alwaysCollapse",
-    "github.copilot.enable": {
-        "*": false,
-        "plaintext": false,
-        "markdown": false,
-        "scminput": false
-    },
     "workbench.editorAssociations": {
         "*.db": "sqlite-viewer.option"
     },
     "python.languageServer": "Pylance",
-    "jest.jestCommandLine": "./node_modules/.bin/jest",
     "playwright.reuseBrowser": true,
     "playwright.showTrace": false,
-    "github.copilot.advanced": {}
 }
