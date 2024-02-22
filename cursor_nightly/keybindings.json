@@ -1813,7 +1813,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+cmd+\\",
+    "key": "cmd+\\",
     "command": "aichat.close-sidebar"
   },
   {
@@ -2299,5 +2299,10 @@
     "key": "ctrl+l",
     "command": "-workbench.action.chat.clear",
     "when": "hasChatProvider && inChat"
+  },
+  {
+    "key": "shift+cmd+\\",
+    "command": "-workbench.action.terminal.focusTabs",
+    "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported || terminalHasBeenCreated && terminalTabsFocus || terminalProcessSupported && terminalTabsFocus"
   }
 ]
