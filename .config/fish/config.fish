@@ -18,7 +18,6 @@ alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Cod
 alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
-alias pr="~/pr"
 
 set -x LESS "-R"
 set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
