@@ -19,6 +19,7 @@ alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Cod
 alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
+alias io="cd ~/laststance/laststance.io"
 
 set -x LESS "-R"
 set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
@@ -32,6 +33,9 @@ function i --description 'alias i=SHELL=(which bash) interpreter -y'
     SHELL=(which bash) interpreter -y $argv
 end
 
+# function function name -d explanation -a argument
+#     command ...
+# end
 
 function base64rand
     openssl rand -base64 32
@@ -167,6 +171,18 @@ function print_argv
     echo "\$argv: $argv"
     echo "\$argv[1]: $argv[1]"
     echo "\$argv[2]: $argv[2]"
+end
+
+function fd_dust_ignore_system_volumes
+    set name $argv[1]
+    sudo fd $name / | grep -v '^/System/Volumes/Data' | while read -l line
+        echo $line
+        # echo ""
+        # set_color bg_white
+        # echo $line
+        # set_color normal
+        # sudo dust --no-percent-bars --depth 1 $line
+    end
 end
 
 set -gx VOLTA_HOME "$HOME/.volta"
