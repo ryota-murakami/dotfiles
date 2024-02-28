@@ -181,4 +181,9 @@
     "python.languageServer": "Pylance",
     "playwright.reuseBrowser": true,
     "playwright.showTrace": false,
+    "chat.editor.fontSize": 16,
+    "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
+    "chat.editor.lineHeight": 1,
+    "cursor.cpp.disabledLanguages": [],
+    "editor.formatOnPaste": true,
 }

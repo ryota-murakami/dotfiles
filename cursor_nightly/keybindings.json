@@ -913,11 +913,6 @@
     "when": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
   },
   {
-    "key": "ctrl+cmd+space",
-    "command": "editor.action.formatDocument",
-    "when": "editorHasDocumentFormattingProvider && editorTextFocus && !editorReadonly && !inCompositeEditor"
-  },
-  {
     "key": "shift+alt+f",
     "command": "-editor.action.formatDocument",
     "when": "editorHasDocumentFormattingProvider && editorTextFocus && !editorReadonly && !inCompositeEditor"
@@ -931,11 +926,6 @@
     "key": "shift+alt+f",
     "command": "-editor.action.formatDocument.none",
     "when": "editorTextFocus && !editorHasDocumentFormattingProvider && !editorReadonly"
-  },
-  {
-    "key": "ctrl+cmd+space",
-    "command": "notebook.formatCell",
-    "when": "editorHasDocumentFormattingProvider && editorTextFocus && inCompositeEditor && notebookEditable && !editorReadonly && activeEditor == 'workbench.editor.notebook'"
   },
   {
     "key": "shift+alt+f",
@@ -1774,16 +1764,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+u",
-    "command": "scrollLineUp",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+d",
-    "command": "scrollLineDown",
-    "when": "textInputFocus"
-  },
-  {
     "key": "ctrl+;",
     "command": "github.copilot.toggleCopilot"
   },
@@ -1813,12 +1793,12 @@
     "when": "textInputFocus"
   },
   {
-    "key": "cmd+\\",
-    "command": "aichat.close-sidebar"
+    "key": "shift+cmd+.",
+    "command": "aichat.close-sidebar",
   },
   {
     "key": "cmd+\\",
-    "command": "aichat.open-ai-chat-side-pane"
+    "command": "aichat.open-ai-chat-side-pane",
   },
   {
     "key": "alt+cmd+n",
@@ -2304,5 +2284,9 @@
     "key": "shift+cmd+\\",
     "command": "-workbench.action.terminal.focusTabs",
     "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported || terminalHasBeenCreated && terminalTabsFocus || terminalProcessSupported && terminalTabsFocus"
+  },
+  {
+    "key": "ctrl+x shift+cmd+,",
+    "command": "workbench.action.openGlobalKeybindingsFile"
   }
 ]
