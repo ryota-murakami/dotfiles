@@ -22,7 +22,7 @@ alias fork="cd ~/fork"
 alias io="cd ~/laststance/laststance.io"
 
 set -x LESS "-R"
-set -x PATH $HOME/.cargo/bin $HOME/nvim-macos/bin $PATH
+set -x PATH $HOME/nvim-macos/bin $PATH
 
 # Color of 'ls' output
 set -U LSCOLORS gxfxcxdxbxegedabagacad
