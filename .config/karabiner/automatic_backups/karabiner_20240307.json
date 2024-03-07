@@ -18,7 +18,7 @@
                 },
                 "rules": [
                     {
-                        "description": "Convert spacebar + left_command + left_control emoji shortcut to spacebar + left_option + left_control",
+                        "description": "Disable Option+Command+Space for Emoji Picker",
                         "manipulators": [
                             {
                                 "from": {
@@ -26,7 +26,7 @@
                                     "modifiers": {
                                         "mandatory": [
                                             "left_command",
-                                            "left_control"
+                                            "left_option"
                                         ],
                                         "optional": [
                                             "any"
@@ -35,11 +35,7 @@
                                 },
                                 "to": [
                                     {
-                                        "key_code": "spacebar",
-                                        "modifiers": [
-                                            "left_option",
-                                            "left_control"
-                                        ]
+                                        "key_code": "vk_none"
                                     }
                                 ],
                                 "type": "basic"
