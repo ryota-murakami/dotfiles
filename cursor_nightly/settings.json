@@ -186,4 +186,7 @@
     "chat.editor.lineHeight": 1,
     "cursor.cpp.disabledLanguages": [],
     "editor.formatOnPaste": true,
+    "gitlens.views.searchAndCompare.avatars": false,
+    "jest.jestCommandLine": "./node_modules/.bin/jest",
+    "jest.runMode": "on-demand",
 }

@@ -841,10 +841,6 @@
     "when": "editorHasImplementationProvider && editorTextFocus && !isInEmbeddedEditor"
   },
   {
-    "key": "cmd+l",
-    "command": "workbench.action.gotoLine"
-  },
-  {
     "key": "ctrl+g",
     "command": "-workbench.action.gotoLine"
   },
