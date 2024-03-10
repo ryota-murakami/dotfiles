@@ -914,11 +914,6 @@
     "when": "editorHasDocumentFormattingProvider && editorTextFocus && !editorReadonly && !inCompositeEditor"
   },
   {
-    "key": "ctrl+cmd+space",
-    "command": "editor.action.formatDocument.none",
-    "when": "editorTextFocus && !editorHasDocumentFormattingProvider && !editorReadonly"
-  },
-  {
     "key": "shift+alt+f",
     "command": "-editor.action.formatDocument.none",
     "when": "editorTextFocus && !editorHasDocumentFormattingProvider && !editorReadonly"
@@ -1539,7 +1534,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+f",
+    "key": "ctrl+alt+f",
     "command": "cursorWordEndRightSelect",
     "when": "textInputFocus"
   },
@@ -1681,7 +1676,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+b",
+    "key": "ctrl+alt+b",
     "command": "cursorWordLeftSelect",
     "when": "textInputFocus"
   },
@@ -2284,5 +2279,58 @@
   {
     "key": "ctrl+x shift+cmd+,",
     "command": "workbench.action.openGlobalKeybindingsFile"
+  },
+  {
+    "key": "cmd+r s",
+    "command": "-workbench.action.files.saveWithoutFormatting"
+  },
+  {
+    "key": "cmd+r cmd+f",
+    "command": "-editor.action.formatSelection",
+    "when": "editorHasDocumentSelectionFormattingProvider && editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "ctrl+x ctrl+f",
+    "command": "prettier.forceFormatDocument"
+  },
+  {
+    "key": "f7",
+    "command": "-editor.action.accessibleDiffViewer.next",
+    "when": "isInDiffEditor"
+  },
+  {
+    "key": "shift+f7",
+    "command": "-editor.action.accessibleDiffViewer.prev",
+    "when": "isInDiffEditor"
+  },
+  {
+    "key": "alt+f6",
+    "command": "-editor.action.accessibleViewDisableHint",
+    "when": "accessibilityHelpIsShown && accessibleViewVerbosityEnabled || accessibleViewIsShown && accessibleViewVerbosityEnabled"
+  },
+  {
+    "key": "cmd+f12",
+    "command": "-editor.action.revealDefinition",
+    "when": "editorHasDefinitionProvider && editorTextFocus && isWeb && !isInEmbeddedEditor"
+  },
+  {
+    "key": "ctrl+shift+r",
+    "command": "-editor.action.refactor",
+    "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "cmd+p",
+    "command": "-expandLineSelection",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+escape",
+    "command": "-cancelSelection",
+    "when": "editorHasSelection && textInputFocus"
+  },
+  {
+    "key": "ctrl+shift+alt+right",
+    "command": "-cursorWordPartRightSelect",
+    "when": "textInputFocus"
   }
 ]
