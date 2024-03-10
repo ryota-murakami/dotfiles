@@ -18,33 +18,6 @@
                 },
                 "rules": [
                     {
-                        "description": "Ctrl + Left Click to Left Click",
-                        "manipulators": [
-                            {
-                                "from": {
-                                    "modifiers": {
-                                        "mandatory": [
-                                            "left_control"
-                                        ],
-                                        "optional": [
-                                            "caps_lock"
-                                        ]
-                                    },
-                                    "pointing_button": "button1"
-                                },
-                                "to": [
-                                    {
-                                        "pointing_button": "button1"
-                                    },
-                                    {
-                                        "key_code": "left_control"
-                                    }
-                                ],
-                                "type": "basic"
-                            }
-                        ]
-                    },
-                    {
                         "description": "コマンドキーを単体で押したときに、英数・かなキーを送信する。（左コマンドキーは英数、右コマンドキーはかな） (rev 3)",
                         "manipulators": [
                             {
