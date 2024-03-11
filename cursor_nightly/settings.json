@@ -1,6 +1,6 @@
 {
   "editor.inlineSuggest.enabled": true,
-  "editor.scrollBeyondLastLine": false,
+  "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
   "editor.language.brackets": [
     ["[", "]"],

@@ -1093,16 +1093,6 @@
     "when": "canNavigateForward"
   },
   {
-    "key": "ctrl+/",
-    "command": "-github.copilot.acceptCursorPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
-    "key": "alt+]",
-    "command": "-github.copilot.nextPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
-  },
-  {
     "key": "cmd+i",
     "command": "-interactiveEditor.start",
     "when": "interactiveEditorHasProvider && !editorReadonly"
@@ -1484,11 +1474,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+cmd+p",
-    "command": "cursorColumnSelectUp",
-    "when": "textInputFocus"
-  },
-  {
     "key": "shift+alt+cmd+up",
     "command": "-cursorColumnSelectUp",
     "when": "textInputFocus"
@@ -1531,11 +1516,6 @@
   {
     "key": "shift+pageup",
     "command": "-cursorPageUpSelect",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+alt+f",
-    "command": "cursorWordEndRightSelect",
     "when": "textInputFocus"
   },
   {
@@ -1651,11 +1631,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+alt+right",
-    "command": "cursorWordEndRightSelect",
-    "when": "textInputFocus"
-  },
-  {
     "key": "alt+b",
     "command": "cursorWordLeft",
     "when": "textInputFocus"
@@ -1700,7 +1675,7 @@
     "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
   },
   {
-    "key": "ctrl+alt+cmd+n",
+    "key": "ctrl+alt+n",
     "command": "block-travel.selectDown",
     "when": "editorTextFocus"
   },
@@ -1747,21 +1722,13 @@
   },
   {
     "key": "shift+cmd+left",
-    "command": "cursorLineStartSelect"
+    "command": "cursorLineStartSelect",
+    "when": "textInputFocus"
   },
   {
     "key": "ctrl+d",
     "command": "-deleteRight",
     "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+;",
-    "command": "github.copilot.toggleCopilot"
-  },
-  {
-    "key": "alt+[",
-    "command": "-github.copilot.previousPanelSolution",
-    "when": "github.copilot.activated && github.copilot.panelVisible"
   },
   {
     "key": "ctrl+shift+g",
@@ -1785,11 +1752,11 @@
   },
   {
     "key": "shift+cmd+.",
-    "command": "aichat.close-sidebar",
+    "command": "aichat.close-sidebar"
   },
   {
     "key": "cmd+\\",
-    "command": "aichat.open-ai-chat-side-pane",
+    "command": "aichat.open-ai-chat-side-pane"
   },
   {
     "key": "alt+cmd+n",
@@ -2134,7 +2101,7 @@
     "when": "notebookCellListFocused && notebookEditable && !editorHoverFocused && !inputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+p",
+    "key": "ctrl+alt+p",
     "command": "block-travel.selectUp",
     "when": "editorTextFocus"
   },
@@ -2332,5 +2299,48 @@
     "key": "ctrl+shift+alt+right",
     "command": "-cursorWordPartRightSelect",
     "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+x ctrl+;",
+    "command": "editor.cpp.disableenabled"
+  },
+  {
+    "key": "ctrl+alt+n",
+    "command": "-list.focusAnyDown",
+    "when": "listFocus && !inputFocus && !treestickyScrollFocused"
+  },
+  {
+    "key": "ctrl+alt+p",
+    "command": "-list.focusAnyUp",
+    "when": "listFocus && !inputFocus && !treestickyScrollFocused"
+  },
+  {
+    "key": "cmd+r cmd+,",
+    "command": "-editor.createFoldingRangeFromSelection",
+    "when": "editorTextFocus && foldingEnabled"
+  },
+  {
+    "key": "cmd+r cmd+-",
+    "command": "-editor.foldAllExcept",
+    "when": "editorTextFocus && foldingEnabled"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorColumnSelectUp",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "shift+alt+right",
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+alt+f",
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+;",
+    "command": "editor.action.enableCppGlobally"
   }
 ]
