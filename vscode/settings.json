@@ -108,7 +108,8 @@
     },
     "editor.suggest.localityBonus": true,
     "terminal.integrated.env.osx": {
-        "FIG_NEW_SESSION": "1"
+        "FIG_NEW_SESSION": "1",
+        "CW_NEW_SESSION": "1"
     },
     "editor.linkedEditing": true,
     "workbench.startupEditor": "none",
@@ -149,6 +150,7 @@
     },
     "json.schemas": [
     
+    
     ],
     "explorer.confirmDelete": false,
     "editor.accessibilitySupport": "off",
@@ -175,5 +177,9 @@
     "playwright.reuseBrowser": true,
     "playwright.showTrace": false,
     "security.promptForLocalFileProtocolHandling": false,
-    "extensions.ignoreRecommendations": true
+    "extensions.ignoreRecommendations": true,
+    "codeium.enableConfig": {
+        "*": true,
+        "fish": true
+    }
 }
