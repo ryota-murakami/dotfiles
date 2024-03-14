@@ -1548,7 +1548,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+f",
+    "key": "ctrl+alt+f",
     "command": "cursorWordEndRightSelect",
     "when": "textInputFocus"
   },
@@ -1690,7 +1690,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+b",
+    "key": "ctrl+alt+b",
     "command": "cursorWordLeftSelect",
     "when": "textInputFocus"
   },
@@ -1714,7 +1714,7 @@
     "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
   },
   {
-    "key": "ctrl+alt+cmd+n",
+    "key": "ctrl+alt+n",
     "command": "block-travel.selectDown",
     "when": "editorTextFocus"
   },
@@ -1815,10 +1815,6 @@
   {
     "key": "ctrl+cmd+\\",
     "command": "aichat.close-sidebar"
-  },
-  {
-    "key": "cmd+\\",
-    "command": "aichat.open-ai-chat-side-pane"
   },
   {
     "key": "alt+cmd+n",
@@ -2163,7 +2159,7 @@
     "when": "notebookCellListFocused && notebookEditable && !editorHoverFocused && !inputFocus"
   },
   {
-    "key": "ctrl+alt+cmd+p",
+    "key": "ctrl+alt+p",
     "command": "block-travel.selectUp",
     "when": "editorTextFocus"
   },
@@ -2307,5 +2303,75 @@
     "key": "cmd+pageup",
     "command": "-scrollPageUp",
     "when": "textInputFocus"
+  },
+  {
+    "key": "f7",
+    "command": "-editor.action.accessibleDiffViewer.next",
+    "when": "isInDiffEditor"
+  },
+  {
+    "key": "shift+f7",
+    "command": "-editor.action.accessibleDiffViewer.prev",
+    "when": "isInDiffEditor"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "cursorColumnSelectDown",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "cmd+\\",
+    "command": "codeium.openChatView",
+    "when": "true"
+  },
+  {
+    "key": "shift+cmd+a",
+    "command": "-codeium.openChatView",
+    "when": "true"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-inlineChat.start",
+    "when": "editorFocus && inlineChatHasProvider && !editorReadonly"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-workbench.action.chat.startVoiceChat",
+    "when": "hasChatProvider && hasSpeechProvider && inChatInput && !chatSessionRequestInProgress && !editorFocus && !inlineChatHasActiveRequest && !inlineVoiceChatInProgress && !quickVoiceChatInProgress && !voiceChatGettingReady && !voiceChatInEditorInProgress && !voiceChatInViewInProgress || hasChatProvider && hasSpeechProvider && inlineChatFocused && !chatSessionRequestInProgress && !editorFocus && !inlineChatHasActiveRequest && !inlineVoiceChatInProgress && !quickVoiceChatInProgress && !voiceChatGettingReady && !voiceChatInEditorInProgress && !voiceChatInViewInProgress"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-workbench.action.chat.stopListeningAndSubmit",
+    "when": "hasChatProvider && hasSpeechProvider && inChatInput && voiceChatInProgress || hasChatProvider && hasSpeechProvider && inlineChatFocused && voiceChatInProgress"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-focusSuggestion",
+    "when": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-inlineChat.holdForSpeech",
+    "when": "hasSpeechProvider && inlineChatHasProvider && inlineChatVisible && textInputFocus"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-toggleSuggestionDetails",
+    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-workbench.action.chat.holdToVoiceChatInChatView",
+    "when": "hasChatProvider && hasSpeechProvider && !editorFocus && !inChatInput && !inlineChatFocused"
+  },
+  {
+    "key": "ctrl+x ctrl+i",
+    "command": "codeium.openCodeiumCommand",
+    "when": "codeium.commandEnabled && editorTextFocus && !inlineSuggestionsVisible"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-codeium.openCodeiumCommand",
+    "when": "codeium.commandEnabled && editorTextFocus && !inlineSuggestionsVisible"
   }
 ]
