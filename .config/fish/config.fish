@@ -29,8 +29,8 @@ set -U LSCOLORS gxfxcxdxbxegedabagacad
 
 set -g __fish_git_prompt_shorten_branch_len 30
 
-function i --description 'alias i=SHELL=(which bash) interpreter -y'
-    SHELL=(which bash) interpreter -y $argv
+function i --description 'alias i=SHELL=(which bash) interpreter'
+    SHELL=(which bash) interpreter $argv
 end
 
 # function function name -d explanation -a argument
