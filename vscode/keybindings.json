@@ -2373,5 +2373,9 @@
     "key": "cmd+i",
     "command": "-codeium.openCodeiumCommand",
     "when": "codeium.commandEnabled && editorTextFocus && !inlineSuggestionsVisible"
+  },
+  {
+    "key": "shift+cmd+\\",
+    "command": "workbench.action.closeAuxiliaryBar"
   }
 ]
