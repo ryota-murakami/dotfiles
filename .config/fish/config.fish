@@ -20,6 +20,7 @@ alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
 alias io="cd ~/laststance/laststance.io"
+alias react-tailwind-components="cd ~/react-tailwind-components"
 
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
