@@ -68,8 +68,6 @@
   "less.lint.unknownProperties": "ignore",
   "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
   "editor.defaultColorDecorators": true,
-  "typescript.preferGoToSourceDefinition": true,
-  "javascript.preferGoToSourceDefinition": true,
   "editor.gotoLocation.multipleDefinitions": "goto",
   "editor.gotoLocation.multipleTypeDefinitions": "goto",
   "git.autofetch": true,
@@ -153,7 +151,7 @@
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/versions/3.12.1/bin/python",
   "jupyter.kernels.trusted": [
-    "/Users/ryota.murakami/.pyenv/versions/3.12.1/lib/python3.12/site-packages/ipykernel/ipkernel.py"
+    "/Users/ryota.murakami/Library/Jupyter/runtime/kernel-v2-5341561NxJ0d3TtPg.json"
   ],
   "outline.collapseItems": "alwaysCollapse",
   "workbench.editorAssociations": {
@@ -175,5 +173,9 @@
     "/usr/local/bin/python3.11",
     "/usr/local/bin/python3.8",
     "~/.pyenv/versions/3.10.12/bin/python"
-  ]
+  ],
+  "editor.gotoLocation.alternativeImplementationCommand": "editor.action.goToImplementation",
+  "editor.gotoLocation.alternativeReferenceCommand": "editor.action.explainSymbol",
+  "typescript.preferGoToSourceDefinition": true,
+  "javascript.preferGoToSourceDefinition": true
 }
