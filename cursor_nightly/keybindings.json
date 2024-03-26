@@ -660,16 +660,6 @@
     "when": "hasSymbols"
   },
   {
-    "key": "cmd+b",
-    "command": "editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
-  },
-  {
-    "key": "f12",
-    "command": "-editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
-  },
-  {
     "key": "shift+cmd+e",
     "command": "-workbench.view.explorer",
     "when": "viewContainer.workbench.view.explorer.enabled"
@@ -2276,11 +2266,6 @@
     "when": "accessibilityHelpIsShown && accessibleViewVerbosityEnabled || accessibleViewIsShown && accessibleViewVerbosityEnabled"
   },
   {
-    "key": "cmd+f12",
-    "command": "-editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus && isWeb && !isInEmbeddedEditor"
-  },
-  {
     "key": "ctrl+shift+r",
     "command": "-editor.action.refactor",
     "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
@@ -2342,5 +2327,14 @@
   {
     "key": "ctrl+;",
     "command": "editor.action.enableCppGlobally"
+  },
+  {
+    "key": "cmd+b",
+    "command": "-mdx.toggleStrong",
+    "when": "editorTextFocus && !editorReadonly && editorLangId == 'mdx'"
+  },
+  {
+    "key": "cmd+b",
+    "command": "typescript.goToSourceDefinition"
   }
 ]
