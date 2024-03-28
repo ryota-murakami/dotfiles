@@ -14,7 +14,7 @@
   rm-untracked = "!git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf"
 
 [user]
-  name = ryota-murakami
+	name = Ryota Murakami
   email = dojce1048@gmail.com
 [core]
   excludesFile = ~/.gitignore_global
