@@ -71,8 +71,8 @@ function save_vsc_config
 end
 
 function save_cursor_config
-    cp ~/Library/Application\ Support/Cursor\ Nightly/User/keybindings.json ~/dotfiles/cursor_nightly
-    cp ~/Library/Application\ Support/Cursor\ Nightly/User/settings.json ~/dotfiles/cursor_nightly
+    cp ~/Library/Application\ Support/Cursor/User/keybindings.json ~/dotfiles/cursor
+    cp ~/Library/Application\ Support/Cursor/User/settings.json ~/dotfiles/cursor
 end
 
 function rollback_cursor_config
