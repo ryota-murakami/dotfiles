@@ -186,6 +186,14 @@ function fd_dust_ignore_system_volumes
     end
 end
 
+function backup_readlist
+    cd ~/nsx
+    bash -c './scripts/backup'
+    mv backup_*.sql ~/repository/backup-files/readlist/
+    cd ~/repository/backup-files/readlist
+    git up
+end
+
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
 
