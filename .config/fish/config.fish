@@ -21,6 +21,7 @@ alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
 alias io="cd ~/laststance/laststance.io"
 alias react-tailwind-components="cd ~/react-tailwind-components"
+alias ui-library="cd ~/ui-library"
 
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
@@ -42,7 +43,7 @@ function base64rand
     openssl rand -base64 32
 end
 
-function genpasswd 
+function genpasswd
     pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo "Has been copied to clipboard"
 end
 
@@ -50,7 +51,7 @@ function ssh-swh
     ssh-add -D
     if [ -z $argv ]
       return
-    else  
+    else
       ssh-add $argv
     end
 end
@@ -192,6 +193,7 @@ function backup_readlist
     mv backup_*.sql ~/repository/backup-files/readlist/
     cd ~/repository/backup-files/readlist
     git up
+    cd ~
 end
 
 set -gx VOLTA_HOME "$HOME/.volta"
