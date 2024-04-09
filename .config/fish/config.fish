@@ -76,8 +76,8 @@ function save_cursor_config
 end
 
 function rollback_cursor_config
-    cp ~/dotfiles/cursor_nightly/keybindings.json ~/Library/Application\ Support/Cursor\ Nightly/User
-    cp ~/dotfiles/cursor_nightly/settings.json ~/Library/Application\ Support/Cursor\ Nightly/User
+    cp ~/dotfiles/cursor/keybindings.json ~/Library/Application\ Support/Cursor/User
+    cp ~/dotfiles/cursor/settings.json ~/Library/Application\ Support/Cursor/User
 end
 
 function copy_head_commit_hash
