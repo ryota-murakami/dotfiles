@@ -959,6 +959,11 @@
     "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus"
   },
   {
+    "key": "cmd+f",
+    "command": "filesExplorer.findInFolder",
+    "when": "explorerResourceIsFolder && filesExplorerFocus && foldersViewVisible && !inputFocus"
+  },
+  {
     "key": "shift+alt+f",
     "command": "-filesExplorer.findInFolder",
     "when": "explorerResourceIsFolder && filesExplorerFocus && foldersViewVisible && !inputFocus"
@@ -1175,6 +1180,10 @@
     "when": "terminalFocus && terminalProcessSupported || terminalFocus && terminalWebExtensionContributedProfile"
   },
   {
+    "key": "ctrl+x 3",
+    "command": "workbench.action.splitEditor"
+  },
+  {
     "key": "cmd+\\",
     "command": "-workbench.action.splitEditor"
   },
@@ -1194,12 +1203,16 @@
     "when": "terminalProcessSupported && terminalTabsFocus"
   },
   {
-    "key": "ctrl+x ctrl+n",
+    "key": "ctrl+x 2",
     "command": "workbench.action.splitEditorDown"
   },
   {
     "key": "shift+cmd+t",
     "command": "-workbench.action.reopenClosedEditor"
+  },
+  {
+    "key": "ctrl+x 1",
+    "command": "workbench.action.closeOtherEditors"
   },
   {
     "key": "alt+cmd+t",
@@ -1219,7 +1232,11 @@
     "command": "-editor.action.toggleWordWrap"
   },
   {
-    "key": "ctrl+x ctrl+j",
+    "key": "ctrl+x ctrl+o",
+    "command": "workbench.action.moveActiveEditorGroupLeft"
+  },
+  {
+    "key": "ctrl+x o",
     "command": "workbench.action.moveActiveEditorGroupRight"
   },
   {
@@ -2230,7 +2247,7 @@
     "when": "editorHasDocumentSelectionFormattingProvider && editorTextFocus && !editorReadonly"
   },
   {
-    "key": "ctrl+x ctrl+x",
+    "key": "ctrl+x ctrl+f",
     "command": "prettier.forceFormatDocument"
   },
   {
@@ -2317,114 +2334,7 @@
     "when": "editorTextFocus && !editorReadonly && editorLangId == 'mdx'"
   },
   {
-    "key": "ctrl+x ctrl+f",
-    "command": "workbench.action.splitEditorRight"
-  },
-  {
-    "key": "cmd+r cmd+\\",
-    "command": "-workbench.action.splitEditorRight"
-  },
-  {
-    "key": "cmd+r cmd+\\",
-    "command": "-workbench.action.splitEditorLeft"
-  },
-  {
-    "key": "cmd+r cmd+\\",
-    "command": "-workbench.action.splitEditorOrthogonal"
-  },
-  {
-    "key": "cmd+r cmd+\\",
-    "command": "-workbench.action.splitEditorDown"
-  },
-  {
-    "key": "cmd+r shift+cmd+\\",
-    "command": "-workbench.action.splitEditorInGroup",
-    "when": "activeEditorCanSplitInGroup"
-  },
-  {
-    "key": "ctrl+x ctrl+p",
-    "command": "workbench.action.splitEditorUp"
-  },
-  {
-    "key": "cmd+r cmd+\\",
-    "command": "-workbench.action.splitEditorUp"
-  },
-  {
-    "key": "ctrl+shift+5",
-    "command": "-workbench.action.terminal.splitActiveTab",
-    "when": "terminalProcessSupported && terminalTabsFocus"
-  },
-  {
-    "key": "cmd+\\",
-    "command": "-workbench.action.terminal.splitActiveTab",
-    "when": "terminalProcessSupported && terminalTabsFocus"
-  },
-  {
-    "key": "cmd+r right",
-    "command": "-workbench.action.moveActiveEditorGroupRight"
-  },
-  {
-    "key": "cmd+r left",
-    "command": "-workbench.action.moveActiveEditorGroupLeft"
-  },
-  {
-    "key": "ctrl+x ctrl+d",
-    "command": "workbench.action.moveActiveEditorGroupDown"
-  },
-  {
-    "key": "cmd+r down",
-    "command": "-workbench.action.moveActiveEditorGroupDown"
-  },
-  {
-    "key": "ctrl+alt+m",
-    "command": "bracket-select.select",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "alt+a",
-    "command": "-bracket-select.select",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "ctrl+x ctrl+i",
-    "command": "extension.scanNodeModules"
-  },
-  {
-    "key": "ctrl+cmd+m",
-    "command": "bracket-select.select-include",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "alt+cmd+a",
-    "command": "-bracket-select.select-include",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "shift+cmd+b",
-    "command": "editor.action.goToImplementation"
-  },
-  {
-    "key": "f12",
-    "command": "-editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus && !isInEmbeddedEditor"
-  },
-  {
-    "key": "cmd+f12",
-    "command": "-editor.action.revealDefinition",
-    "when": "editorHasDefinitionProvider && editorTextFocus && isWeb && !isInEmbeddedEditor"
-  },
-  {
     "key": "cmd+b",
-    "command": "editor.action.revealDefinition"
-  },
-  {
-    "key": "shift+cmd+b",
-    "command": "-workbench.action.tasks.build",
-    "when": "taskCommandsRegistered"
-  },
-  {
-    "key": "shift+cmd+f",
-    "command": "filesExplorer.findInFolder",
-    "when": "explorerResourceIsFolder && filesExplorerFocus && foldersViewVisible && !inputFocus"
+    "command": "typescript.goToSourceDefinition"
   }
 ]
