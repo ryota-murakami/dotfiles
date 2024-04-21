@@ -65,6 +65,10 @@ function weather
     curl wttr.in/$locate
 end
 
+function fd
+    command fd $argv --exclude /System/
+end
+
 function save_vsc_config
   cp ~/Library/Application\ Support/Code/User/keybindings.json ~/dotfiles/vscode
   cp ~/Library/Application\ Support/Code/User/settings.json ~/dotfiles/vscode
