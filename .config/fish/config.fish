@@ -21,6 +21,7 @@ alias fork="cd ~/fork"
 alias io="cd ~/laststance/laststance.io"
 alias react-plain-tailwind-ui="cd ~/react-next-tailwind-ui"
 alias ui-library="cd ~/ui-library"
+alias corelive="cd ~/corelive"
 
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
