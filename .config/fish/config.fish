@@ -22,7 +22,7 @@ alias fork="cd ~/fork"
 alias io="cd ~/laststance/laststance.io"
 alias react-next-tailwind-ui="cd ~/react-next-tailwind-ui"
 alias ui-library="cd ~/ui-library"
-alias unfare="cd ~/unfare"
+alias unfarely="cd ~/unfarely"
 
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
