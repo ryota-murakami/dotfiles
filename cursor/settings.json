@@ -3,38 +3,18 @@
   "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
   "editor.language.brackets": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ]
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"]
   ],
   "editor.language.colorizedBracketPairs": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ]
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"]
   ],
   "editor.guides.bracketPairs": "active",
   "editor.autoClosingDelete": "always",
-  "typescript.suggest.paths": false,
-  "javascript.suggest.paths": false,
-  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.importModuleSpecifier": "non-relative",
   "typescript.referencesCodeLens.showOnAllFunctions": true,
   "typescript.reportStyleChecksAsWarnings": false,
   "typescript.suggest.completeFunctionCalls": true,
@@ -53,7 +33,7 @@
   },
   "editor.fontSize": 15,
   "eslint.format.enable": true,
-  "files.autoSave": "onWindowChange",
+  "files.autoSave": "onFocusChange",
   "editor.renderWhitespace": "all",
   "editor.scrollbar.verticalScrollbarSize": 6,
   "editor.scrollbar.horizontalScrollbarSize": 6,
@@ -150,7 +130,6 @@
   "explorer.confirmDelete": false,
   "editor.accessibilitySupport": "off",
   "vitest.enable": true,
-  "explorer.confirmDragAndDrop": false,
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
   "workbench.settings.applyToAllProfiles": [],
@@ -165,12 +144,9 @@
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "outline.collapseItems": "alwaysCollapse",
-  "workbench.editorAssociations": {
-    "*.db": "sqlite-viewer.option"
-  },
   "python.languageServer": "Default",
   "playwright.reuseBrowser": true,
-  "playwright.showTrace": false,
+  "playwright.showTrace": true,
   "chat.editor.fontSize": 16,
   "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
   "chat.editor.lineHeight": 1,
@@ -199,9 +175,9 @@
       "compare": true
     },
     "editorGutter": {
-      "compare": true,
-      "remote": true,
-      "share": true
+      "compare": false,
+      "remote": false,
+      "share": false
     },
     "editorTab": {
       "clipboard": true,
@@ -210,10 +186,10 @@
       "remote": true
     },
     "explorer": {
-      "clipboard": true,
-      "compare": true,
-      "history": true,
-      "remote": true
+      "clipboard": false,
+      "compare": false,
+      "history": false,
+      "remote": false
     },
     "ghpr": {
       "worktree": true
@@ -251,14 +227,38 @@
     }
   },
   "gitlens.gitCommands.search.showResultsInSideBar": false,
-  "remote.extensionKind": {
-    "pub.name": [
-      "ui"
-    ]
-  },
   "editor.folding": false,
-  "autoimport.filesToScan": "**/*.{js,jsx,ts,tsx,cjs,mjs}",
-  "autoimport.useSemiColon": false,
   "gitlens.hovers.enabled": false,
-  "cursor.chat.smoothStreaming": true
+  "cursor.chat.smoothStreaming": true,
+  "files.exclude": {
+    "**/.yarn": true
+  },
+  "debug.javascript.unmapMissingSources": true,
+  "javascript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "tailwindCSS.experimental.classRegex": [
+    ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
+    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"]
+  ],
+  "surround.custom": {
+    "Parenthesis": {
+      "label": "()",
+      "description": "Just parenthesis",
+      "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
+      "languageIds": ["html", "javascript", "typescript", "markdown"]
+    }
+  },
+  "editor.minimap.enabled": true,
+  "gitlens.launchpad.indicator.enabled": false,
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "jupyter.kernels.trusted": [
+    "/Users/ryota.murakami/.pyenv/versions/3.12.1/share/jupyter/kernels/python3/kernel.json"
+  ],
+  "jupyter.askForLargeDataFrames": false,
+  "jupyter.jupyterCommandLineArguments": [],
+  "cursor.aipreview.enabled": true,
+  "cursor.general.enableShadowWorkspace": true,
+  "javascript.preferences.importModuleSpecifier": "non-relative",
+  "prettier.configPath": ".prettierrc",
 }
