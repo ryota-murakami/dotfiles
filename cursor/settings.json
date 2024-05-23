@@ -261,4 +261,5 @@
   "cursor.general.enableShadowWorkspace": true,
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
+  "prisma.showPrismaDataPlatformNotification": false,
 }
