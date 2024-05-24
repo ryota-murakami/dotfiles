@@ -217,6 +217,5 @@ eval "$(direnv hook fish)"
 
 pyenv init - | source
 
-
-
+zoxide init fish | source
 
