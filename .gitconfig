@@ -1,3 +1,10 @@
+[core]
+  excludesFile = ~/.gitignore_global
+  editor = vim
+  filemode = false
+  ignorecase = false
+  pager = delta
+
 [color]
   ui = true
 
@@ -16,12 +23,6 @@
 [user]
 	name = Ryota Murakami
   email = dojce1048@gmail.com
-[core]
-  excludesFile = ~/.gitignore_global
-  editor = vim
-  filemode = false
-  ignorecase = false
-  pager = diff-so-fancy | less --tabs=4 -RFX
 [push]
   default = current
 [pull]
@@ -31,14 +32,15 @@
   smudge = git-lfs smudge -- %f
   process = git-lfs filter-process
   required = true
-
+[delta]
+    navigate = true
 [init]
   defaultBranch = main
 [gui]
   fontui = -family .AppleSystemUIFont -size 16 -weight normal -slant roman -underline 0 -overstrike 0
   fontdiff = -family Menlo -size 18 -weight normal -slant roman -underline 0 -overstrike 0
 [interactive]
-  diffFilter = diff-so-fancy --patch
+    diffFilter = delta --color-only
 [color "diff-highlight"]
   oldNormal = red bold
   boldoldHighlight = red bold 52
@@ -52,3 +54,7 @@
   old = red bold
   new = green bold
   whitespace = red reverse
+[merge]
+    conflictstyle = diff3
+[diff]
+    colorMoved = default
