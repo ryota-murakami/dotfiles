@@ -1,7 +1,7 @@
 [core]
   excludesFile = ~/.gitignore_global
   editor = vim
-  filemode = false
+  filemode = true
   ignorecase = false
   pager = delta
 
