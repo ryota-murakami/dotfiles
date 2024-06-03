@@ -13,12 +13,13 @@
   co = checkout
   br = branch
   up = "!f(){ git add --all && git commit -m 'up' && git push; };f"
+  br-flush = "!f() { branches_to_delete=$(git branch --merged | grep -vE '^(\\*|\\s*(master|main)\\s*)$' | grep -v $(git worktree list | awk '{print $1}')); if [ -n \"$branches_to_delete\" ]; then echo \"$branches_to_delete\" | xargs -n 1 git branch -d; else echo 'No branches to delete'; fi; }; f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
   pull-submodle = submodule foreach git pull origin master --ff
   graph = log --graph --date-order --decorate --stat  -C -M
   showpr = "!f() { git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1; }; f"
   log-rev2 = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
-  rm-untracked = "!git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf"
+  rm-untracked = !git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf
 
 [user]
 	name = Ryota Murakami
@@ -33,14 +34,14 @@
   process = git-lfs filter-process
   required = true
 [delta]
-    navigate = true
+  navigate = true
 [init]
   defaultBranch = main
 [gui]
   fontui = -family .AppleSystemUIFont -size 16 -weight normal -slant roman -underline 0 -overstrike 0
   fontdiff = -family Menlo -size 18 -weight normal -slant roman -underline 0 -overstrike 0
 [interactive]
-    diffFilter = delta --color-only
+  diffFilter = delta --color-only
 [color "diff-highlight"]
   oldNormal = red bold
   boldoldHighlight = red bold 52
@@ -55,6 +56,7 @@
   new = green bold
   whitespace = red reverse
 [merge]
-    conflictstyle = diff3
+  conflictstyle = diff3
 [diff]
-    colorMoved = default
+  colorMoved = default
+  colorMoved = default
