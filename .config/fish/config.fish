@@ -6,7 +6,6 @@ alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
 alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs --incognito"
-alias home="cd ~"
 alias dotfiles="cd ~/dotfiles"
 alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
@@ -28,13 +27,17 @@ set -U LSCOLORS gxfxcxdxbxegedabagacad
 
 set -g __fish_git_prompt_shorten_branch_len 30
 
+# function function name -d explanation -a argument
+#     command ...
+# end
+
 function i --description 'alias i=SHELL=(which bash) interpreter'
     SHELL=(which bash) interpreter $argv
 end
 
-# function function name -d explanation -a argument
-#     command ...
-# end
+function ez
+    eza --long --header --git --icons --color=always $argv
+end
 
 function base64rand
     openssl rand -base64 32
