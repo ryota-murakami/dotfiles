@@ -146,7 +146,7 @@
   "outline.collapseItems": "alwaysCollapse",
   "python.languageServer": "Default",
   "playwright.reuseBrowser": true,
-  "playwright.showTrace": true,
+  "playwright.showTrace": false,
   "chat.editor.fontSize": 16,
   "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
   "chat.editor.lineHeight": 1,
@@ -253,7 +253,8 @@
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "typescript.preferences.preferTypeOnlyAutoImports": true,
   "jupyter.kernels.trusted": [
-    "/Users/ryota.murakami/.pyenv/versions/3.12.1/share/jupyter/kernels/python3/kernel.json"
+    "/Users/ryota.murakami/.pyenv/versions/3.12.1/share/jupyter/kernels/python3/kernel.json",
+    "/Users/ryota.murakami/.pyenv/versions/3.11.9/share/jupyter/kernels/python3/kernel.json"
   ],
   "jupyter.askForLargeDataFrames": false,
   "jupyter.jupyterCommandLineArguments": [],
@@ -262,4 +263,9 @@
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
   "prisma.showPrismaDataPlatformNotification": false,
+  "typescript.tsserver.experimental.useVsCodeWatcher": true,
+  "typescript.experimental.tsserver.web.typeAcquisition.enabled": true,
+  "typescript.preferences.importModuleSpecifierEnding": "minimal",
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+  "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/shims/python",
 }

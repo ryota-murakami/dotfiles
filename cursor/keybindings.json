@@ -1657,7 +1657,7 @@
     "command": "-workbench.action.newWindow"
   },
   {
-    "key": "ctrl+d",
+    "key": "shift+cmd+d",
     "command": "explorer.newFolder"
   },
   {
@@ -1724,7 +1724,7 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+cmd+.",
+    "key": "cmd+l",
     "command": "aichat.close-sidebar"
   },
   {
@@ -2450,10 +2450,6 @@
     "key": "cmd+e",
     "command": "-aichat.sendAnotherMessage",
     "when": "activeAIChatEditor || view == 'workbench.panel.aichat.view' && (arbitrary function)"
-  },
-  {
-    "key": "cmd+e",
-    "command": "workbench.action.openPreviousEditorFromHistory"
   },
   {
     "key": "cmd+g",
