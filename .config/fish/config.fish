@@ -32,7 +32,7 @@ set -g __fish_git_prompt_shorten_branch_len 30
 # end
 
 function i --description 'alias i=SHELL=(which bash) interpreter'
-    SHELL=(which bash) interpreter $argv
+    SHELL=(which bash) sudo interpreter $argv
 end
 
 function ez
