@@ -2511,5 +2511,13 @@
   {
     "key": "shift+cmd+l",
     "command": "-aichat.insertselectionintochat"
+  },
+  {
+    "key": "alt+h",
+    "command": "-git.viewFileHistory"
+  },
+  {
+    "key": "ctrl+g ctrl+h",
+    "command": "extension.git-file-history"
   }
 ]
