@@ -1,0 +1,54 @@
+{
+  "React Function Component": {
+    "prefix": "rfc",
+    "body": [
+      "import React from 'react'",
+      "",
+      "interface Props {}",
+      "",
+      "export const ${1:${TM_FILENAME_BASE}}: React.FC<Props> = () => {",
+      "  return (",
+      "    <div>$0</div>",
+      "  )",
+      "}",
+      ""
+    ],
+    "description": "React Function Component"
+  },
+  "React Client Component": {
+    "prefix": "rfcc",
+    "body": [
+      "'use client'",
+      "",
+      "import React from 'react'",
+      "",
+      "interface Props {}",
+      "",
+      "export const ${1:${TM_FILENAME_BASE}}: React.FC<Props> = () => {",
+      "  return (",
+      "    <div>$0</div>",
+      "  )",
+      "}",
+      ""
+    ],
+    "description": "React Client Component"
+  },
+  "Next Page.tsx Component": {
+    "prefix": "pagetsx",
+    "body": [
+      "import React from 'react'",
+      "",
+      "export const metadata = {",
+      "title: '',",
+      "}",
+      "",
+      "export default async function Page() {",
+      "  return (",
+      "    <div>$0</div>",
+      "  )",
+      "}",
+      ""
+    ],
+    "description": "page.tsx Component for Next.js App Router."
+  },
+}

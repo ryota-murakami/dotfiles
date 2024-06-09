@@ -52,7 +52,6 @@
     "rules": {}
   },
   "extensions.ignoreRecommendations": true,
-  "editor.inlayHints.enabled": "off",
   "javascript.inlayHints.parameterNames.enabled": "all",
   "css.lint.emptyRules": "ignore",
   "less.lint.emptyRules": "ignore",
@@ -268,4 +267,5 @@
     "/Users/ryota.murakami/Library/Jupyter/kernels/python3"
   ],
   "python.defaultInterpreterPath": "",
+  "editor.inlayHints.fontSize": 15,
 }
