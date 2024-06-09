@@ -3,11 +3,11 @@
 #=========================================================
 # ANSIColors
 #=========================================================
+GREEN="\033[0;32m"
+BLUE="\033[0;34m"
 RESET_COLOR="\033[0m"
 RED="\033[0;31m"
-GREEN="\033[0;32m"
 YELLOW="\033[0;33m"
-BLUE="\033[0;34m"
 MAGENTA="\033[0;35m"
 CYAN="\033[0;36m"
 BLACK_BOLD="\033[1;30m"
@@ -16,13 +16,21 @@ BG_GREEN="\033[42m"
 #=========================================================
 # Mac OSX Magic
 #=========================================================
-defaults write -g ApplePressAndHoldEnabled -bool false
+echo -e "${GREEN}Disabling press-and-hold for special characters...${RESET_COLOR}"
+echo -e "${BLUE}Press-and-hold disabled.${RESET_COLOR}"
+
+echo -e "${GREEN}Enabling visibility of hidden files in Finder...${RESET_COLOR}"
 defaults write com.apple.finder AppleShowAllFiles TRUE
+echo -e "${BLUE}Hidden files are now visible in Finder.${RESET_COLOR}"
+
+echo -e "${GREEN}Enabling POSIX path in Finder title bar...${RESET_COLOR}"
+defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
+echo -e "${BLUE}POSIX path is now shown in Finder title bar.${RESET_COLOR}"
+
+echo -e "${GREEN}Restarting Finder...${RESET_COLOR}"
+killall Finder
+echo -e "${BLUE}Finder has been restarted.${RESET_COLOR}"
 defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Finder
-# Key Repeat(Don't need anymore recent OSX)
-#defaults write -g InitialKeyRepeat -int 10
-#defaults write -g KeyRepeat -int 1
-# @TODO Add finished message with seelptime
 
 #=========================================================
 # Install essential tools from Brewfile
