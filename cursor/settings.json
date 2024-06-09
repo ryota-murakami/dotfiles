@@ -252,10 +252,6 @@
   "gitlens.launchpad.indicator.enabled": false,
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "typescript.preferences.preferTypeOnlyAutoImports": true,
-  "jupyter.kernels.trusted": [
-    "/Users/ryota.murakami/.pyenv/versions/3.12.1/share/jupyter/kernels/python3/kernel.json",
-    "/Users/ryota.murakami/.pyenv/versions/3.11.9/share/jupyter/kernels/python3/kernel.json"
-  ],
   "jupyter.askForLargeDataFrames": false,
   "jupyter.jupyterCommandLineArguments": [],
   "cursor.aipreview.enabled": true,
@@ -267,5 +263,9 @@
   "typescript.experimental.tsserver.web.typeAcquisition.enabled": true,
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
-  "python.defaultInterpreterPath": "/Users/ryota.murakami/.pyenv/shims/python",
+  "python.venvPath": "~/.pyenv",
+  "jupyter.kernels.trusted": [
+    "/Users/ryota.murakami/Library/Jupyter/kernels/python3"
+  ],
+  "python.defaultInterpreterPath": "",
 }
