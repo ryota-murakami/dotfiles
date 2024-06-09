@@ -1,0 +1,36 @@
+{
+  "Redux Toolkit Slice": {
+    "prefix": "slice",
+    "body": [
+      "import { createSlice } from '@reduxjs/toolkit'",
+      "import type { PayloadAction } from '@reduxjs/toolkit'",
+      "",
+      "export interface ${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/} {",
+      "  ${TM_FILENAME_BASE/([a-z]+).*/$1/}: boolean",
+      "}",
+      "",
+      "const initialState: ${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/} = {",
+      "  ${TM_FILENAME_BASE/([a-z]+).*/$1/}: true,",
+      "}",
+      "",
+      "export const ${TM_FILENAME_BASE/([a-z]+).*/$1/}Slice = createSlice({",
+      "  name: '${TM_FILENAME_BASE/^([a-z])([a-z]+).*/${1:/upcase}$2/}',",
+      "  initialState,",
+      "  reducers: {",
+      "    set${TM_FILENAME_BASE/^([a-z])([a-z]+).*/${1:/upcase}$2/}: (state, action: PayloadAction<${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/}['${TM_FILENAME_BASE/([a-z]+).*/$1/}']>) => {",
+      "      state.${TM_FILENAME_BASE/([a-z]+).*/$1/} = action.payload",
+      "    },",
+      "  },",
+      "  selectors: {",
+      "    select${TM_FILENAME_BASE/^([a-z])([a-z]+).*/${1:/upcase}$2/}: (state: ${TM_FILENAME_BASE/(.*)/${1:/pascalcase}/}) => state.${TM_FILENAME_BASE/([a-z]+).*/$1/},",
+      "  },",
+      "})",
+      "",
+      "export const { set${TM_FILENAME_BASE/^([a-z])([a-z]+).*/${1:/upcase}$2/} } = ${TM_FILENAME_BASE/([a-z]+).*/$1/}Slice.actions",
+      "",
+      "export const { select${TM_FILENAME_BASE/^([a-z])([a-z]+).*/${1:/upcase}$2/} } = ${TM_FILENAME_BASE/([a-z]+).*/$1/}Slice.selectors",
+      ""
+    ],
+    "description": "Redux Toolkit Slice"
+  }
+}

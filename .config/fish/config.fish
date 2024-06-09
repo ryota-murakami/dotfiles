@@ -78,6 +78,7 @@ end
 function save_cursor_config
     cp ~/Library/Application\ Support/Cursor/User/keybindings.json ~/dotfiles/cursor
     cp ~/Library/Application\ Support/Cursor/User/settings.json ~/dotfiles/cursor
+    cp -R ~/Library/Application\ Support/Cursor/User/snippets ~/dotfiles/cursor
 end
 
 function rollback_cursor_config
