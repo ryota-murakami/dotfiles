@@ -22,9 +22,6 @@ alias rhizome="cd ~/rhizome"
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
 
-# Color of 'ls' output
-set -U LSCOLORS gxfxcxdxbxegedabagacad
-
 set -g __fish_git_prompt_shorten_branch_len 30
 
 # function function name -d explanation -a argument
