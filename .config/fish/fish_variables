@@ -1,6 +1,5 @@
 # This file contains fish universal variable definitions.
 # VERSION: 3.0
-SETUVAR LSCOLORS:gxfxcxdxbxegedabagacad
 SETUVAR --export PYENV_ROOT:/Users/ryota\x2emurakami/\x2epyenv
 SETUVAR __fish_init_2_39_8:\x1d
 SETUVAR __fish_init_2_3_0:\x1d
