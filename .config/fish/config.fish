@@ -2,6 +2,7 @@
 
 alias vi="/usr/bin/vim"
 alias c="clear"
+alias e="eza --all --long --header --git --icons --color=always"
 alias lf="perl -pe 's/\n/\n\n/g'"
 alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --guest"
 alias wanip="curl https://ipinfo.io/ip"
