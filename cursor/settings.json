@@ -20,7 +20,7 @@
   "typescript.suggest.completeFunctionCalls": true,
   "typescript.tsc.autoDetect": "on",
   "typescript.tsdk": "./node_modules/typescript/lib",
-  "typescript.tsserver.maxTsServerMemory": 52500,
+  "typescript.tsserver.maxTsServerMemory": 10480,
   "typescript.preferences.renameMatchingJsxTags": true,
   "javascript.preferences.renameMatchingJsxTags": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -96,9 +96,6 @@
     "strings": "on"
   },
   "editor.suggest.localityBonus": true,
-  "terminal.integrated.env.osx": {
-    "FIG_NEW_SESSION": "1"
-  },
   "editor.linkedEditing": true,
   "search.actionsPosition": "auto",
   "editor.multiCursorModifier": "alt",
@@ -118,7 +115,7 @@
   "typescript.tsserver.enableTracing": true,
   "js/ts.implicitProjectConfig.strictFunctionTypes": false,
   "js/ts.implicitProjectConfig.strictNullChecks": false,
-  "git.suggestSmartCommit": false,
+  "git.suggestSmartCommit": true,
   "git.confirmSync": false,
   "eslint.lintTask.enable": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
@@ -128,7 +125,6 @@
   "json.schemas": [],
   "explorer.confirmDelete": false,
   "editor.accessibilitySupport": "off",
-  "vitest.enable": true,
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
   "workbench.settings.applyToAllProfiles": [],
@@ -257,7 +253,6 @@
   "cursor.general.enableShadowWorkspace": true,
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
-  "prisma.showPrismaDataPlatformNotification": false,
   "typescript.tsserver.experimental.useVsCodeWatcher": true,
   "typescript.experimental.tsserver.web.typeAcquisition.enabled": true,
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
@@ -268,4 +263,17 @@
   ],
   "python.defaultInterpreterPath": "",
   "editor.inlayHints.fontSize": 15,
+  "diffEditor.ignoreTrimWhitespace": true,
+  "surround.with.arrowFunction": {
+    "label": "arrowFunction",
+    "description": "const $name = ($params) => { ... }",
+    "disabled": false,
+    "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0"
+  },
+  "auto-close-tag.activationOnLanguage": [
+      "mdx"
+  ],
+  "glassit.alpha": 100,
+  "glassit.force_sway": true,
+  "editor.dragAndDrop": false
 }
