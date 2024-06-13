@@ -2393,7 +2393,7 @@
     "when": "editorTextFocus"
   },
   {
-    "key": "shift+cmd+b",
+    "key": "cmd+b",
     "command": "editor.action.goToImplementation"
   },
   {
@@ -2405,10 +2405,6 @@
     "key": "cmd+f12",
     "command": "-editor.action.revealDefinition",
     "when": "editorHasDefinitionProvider && editorTextFocus && isWeb && !isInEmbeddedEditor"
-  },
-  {
-    "key": "cmd+b",
-    "command": "editor.action.revealDefinition"
   },
   {
     "key": "shift+cmd+b",
@@ -2535,5 +2531,15 @@
     "key": "alt+cmd+g b",
     "command": "-gitlens.toggleFileBlame",
     "when": "editorTextFocus && config.gitlens.keymap == 'chorded' && gitlens:activeFileStatus =~ /blameable/"
+  },
+  {
+    "key": "f12",
+    "command": "-editor.action.revealDefinition",
+    "when": "editorHasDefinitionProvider && editorTextFocus"
+  },
+  {
+    "key": "cmd+f12",
+    "command": "-editor.action.goToImplementation",
+    "when": "editorHasImplementationProvider && editorTextFocus"
   }
 ]
