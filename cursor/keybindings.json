@@ -1657,8 +1657,9 @@
     "command": "-workbench.action.newWindow"
   },
   {
-    "key": "shift+cmd+d",
-    "command": "explorer.newFolder"
+    "key": "cmd+d",
+    "command": "explorer.newFolder",
+    "when": "explorerViewletFocus"
   },
   {
     "key": "ctrl+x ctrl+r",
@@ -2519,5 +2520,20 @@
   {
     "key": "ctrl+g ctrl+h",
     "command": "extension.git-file-history"
+  },
+  {
+    "key": "alt+b",
+    "command": "-gitlens.toggleFileBlame",
+    "when": "editorTextFocus && config.gitlens.keymap == 'alternate' && gitlens:activeFileStatus =~ /blameable/"
+  },
+  {
+    "key": "ctrl+g ctrl+b",
+    "command": "gitlens.toggleFileBlame",
+    "when": "editorTextFocus && config.gitlens.keymap == 'chorded' && gitlens:activeFileStatus =~ /blameable/"
+  },
+  {
+    "key": "alt+cmd+g b",
+    "command": "-gitlens.toggleFileBlame",
+    "when": "editorTextFocus && config.gitlens.keymap == 'chorded' && gitlens:activeFileStatus =~ /blameable/"
   }
 ]
