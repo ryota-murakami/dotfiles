@@ -221,3 +221,5 @@ pyenv init - | source
 
 zoxide init fish | source
 
+atuin init fish | source
+
