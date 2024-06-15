@@ -20,6 +20,8 @@ alias io="cd ~/laststance/laststance.io"
 alias unfarely="cd ~/unfarely"
 alias rhizome="cd ~/rhizome"
 
+set -gx LSCOLORS "CxGxBxDxCxEgEdxbxgxcxd"
+set -gx EZA_COLORS "di=1;32"
 set -x LESS "-R"
 set -x PATH $HOME/nvim-macos/bin $PATH
 
@@ -216,6 +218,4 @@ eval "$(direnv hook fish)"
 pyenv init - | source
 
 zoxide init fish | source
-
-atuin init fish | source
 
