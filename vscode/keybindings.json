@@ -1658,8 +1658,9 @@
     "command": "-workbench.action.newWindow"
   },
   {
-    "key": "ctrl+d",
-    "command": "explorer.newFolder"
+    "key": "cmd+d",
+    "command": "explorer.newFolder",
+    "when": "explorerViewletFocus"
   },
   {
     "key": "ctrl+x ctrl+r",
@@ -2416,5 +2417,13 @@
     "key": "ctrl+shift+`",
     "command": "-workbench.action.terminal.new",
     "when": "terminalProcessSupported || terminalWebExtensionContributedProfile"
+  },
+  {
+    "key": "cmd+l",
+    "command": "workbench.action.toggleAuxiliaryBar"
+  },
+  {
+    "key": "cmd+n",
+    "command": "welcome.showNewFileEntries"
   }
 ]
