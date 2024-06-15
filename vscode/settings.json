@@ -14,10 +14,6 @@
   "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
   "chat.editor.fontSize": 16,
   "chat.editor.lineHeight": 1,
-  "codium.agent.onSave.improve": false,
-  "codium.agent.onSave.issues": false,
-  "codium.javascriptTestsConfig-1RunWorkingDirectory": "/Users/ryota.murakami/nsx",
-  "codium.javascriptTestsConfig-2RunCommand": "pnpm test TEST_FILEPATH",
   "css.lint.emptyRules": "ignore",
   "css.lint.propertyIgnoredDueToDisplay": "ignore",
   "css.lint.unknownAtRules": "error",
@@ -135,16 +131,13 @@
   "less.lint.unknownAtRules": "ignore",
   "less.lint.unknownProperties": "ignore",
   "outline.collapseItems": "alwaysCollapse",
-  "playwright.reuseBrowser": true,
-  "playwright.showTrace": false,
+  "playwright.reuseBrowser": false,
+  "playwright.showTrace": true,
   "prettier.withNodeModules": true,
   "redhat.telemetry.enabled": true,
   "scss.lint.emptyRules": "ignore",
   "scss.lint.propertyIgnoredDueToDisplay": "ignore",
   "search.actionsPosition": "auto",
-  "terminal.integrated.env.osx": {
-    "FIG_NEW_SESSION": "1"
-  },
   "terminal.integrated.fontSize": 14,
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.format.enable": false,
@@ -186,7 +179,15 @@
   },
   "workbench.list.fastScrollSensitivity": 1,
   "workbench.settings.applyToAllProfiles": [],
+  "workbench.tree.indent": 14,
   "github.copilot.chat.fixTestFailures": true,
   "workbench.startupEditor": "none",
-  "prisma.showPrismaDataPlatformNotification": false,
+  "github.copilot.editor.enableAutoCompletions": true,
+  "github.copilot.enable": {
+    "*": true,
+    "plaintext": false,
+    "markdown": true,
+    "scminput": false
+  },
+  "vscode-aiconfig.version": "0.0.22"
 }
