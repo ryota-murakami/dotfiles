@@ -128,6 +128,7 @@
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
   "workbench.settings.applyToAllProfiles": [],
+  "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
@@ -236,8 +237,21 @@
     ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"]
   ],
   "surround.custom": {
+    "Double Quote": {
+        "label": "double quote",
+        "disabled": false,
+        "description": "\"...\"",
+        "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
+        "languageIds": [
+          "html",
+          "javascript",
+          "typescript",
+          "markdown"
+        ]
+      },
     "Parenthesis": {
       "label": "()",
+      "disabled": false,
       "description": "Just parenthesis",
       "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
       "languageIds": ["html", "javascript", "typescript", "markdown"]
@@ -270,10 +284,13 @@
     "disabled": false,
     "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0"
   },
-  "auto-close-tag.activationOnLanguage": [
-      "mdx"
-  ],
-  "glassit.alpha": 100,
-  "glassit.force_sway": true,
-  "editor.dragAndDrop": false
+  "editor.dragAndDrop": false,
+  "surround.with.templateLiteral": {
+
+    "label": "Template Literal",
+    "description": "`...` (Also replaces single and double quotes with backtick)",
+    "disabled": false,
+    "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
+  },
+  "surround.showOnlyUserDefinedSnippets": true
 }

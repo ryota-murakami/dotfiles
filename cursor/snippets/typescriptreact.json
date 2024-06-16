@@ -51,4 +51,17 @@
     ],
     "description": "page.tsx Component for Next.js App Router."
   },
+  "Storybook": {
+    "prefix": "sb",
+    "body": [
+      "import type { Meta, StoryObj } from '@storybook/react';",
+      "import { MyComponent } from './MyComponent';",
+      "const meta: Meta<typeof MyComponent> = {",
+      "  component: MyComponent,",
+      "};",
+      "export default meta;",
+      "type Story = StoryObj<typeof MyComponent>;"
+    ],
+    "description": "component.stories.tsx file"
+  }
 }
