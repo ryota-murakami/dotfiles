@@ -2541,5 +2541,20 @@
     "key": "cmd+f12",
     "command": "-editor.action.goToImplementation",
     "when": "editorHasImplementationProvider && editorTextFocus"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorColumnSelectUp",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorColumnSelectUp",
+    "when": "editorColumnSelection && textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorUpSelect",
+    "when": "textInputFocus"
   }
 ]
