@@ -20,6 +20,7 @@
   showpr = "!f() { git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1; }; f"
   log-rev2 = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
   rm-untracked = !git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf
+	tree-changes = "!f() { \\\n  branch_point=$(git merge-base origin/main HEAD); \\\n  git log --no-merges --name-status --relative $branch_point..HEAD | \\\n  awk '{print $1 \" \" $2}' | \\\n  while read status file; do \\\n    case $status in \\\n      A) echo \"Added: $file\";; \\\n      M) echo \"Modified: $file\";; \\\n      D) echo \"Deleted: $file\";; \\\n    esac; \\\n  done | \\\n  tree --fromfile; \\\n}; f"
 
 [user]
 	name = Ryota Murakami

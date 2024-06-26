@@ -27,6 +27,24 @@ set -x PATH $HOME/nvim-macos/bin $PATH
 
 set -g __fish_git_prompt_shorten_branch_len 30
 
+# -- Use fd instead of fzf --
+
+set -gx FZF_DEFAULT_COMMAND "fd --hidden --strip-cwd-prefix --exclude .git"
+set -gx FZF_CTRL_T_COMMAND "$FZF_DEFAULT_COMMAND"
+set -gx FZF_ALT_C_COMMAND "fd --type=d --hidden --strip-cwd-prefix --exclude .git"
+
+# Use fd (https://github.com/sharkdp/fd) for listing path candidates.
+# - The first argument to the function ($1) is the base path to start traversal
+# - See the source code (completion.{bash,zsh}) for the details.
+function _fzf_compgen_path
+    fd --hidden --exclude .git . $argv
+end
+
+# Use fd to generate the list for directory completion
+function _fzf_compgen_dir
+    fd --type=d --hidden --exclude .git . $argv
+end
+
 # function function name -d explanation -a argument
 #     command ...
 # end
