@@ -16,6 +16,7 @@ alias vscode-conf-dir="cd /Users/ryota.murakami/Library/Application\ Support/Cod
 alias clone="cd ~/clone"
 alias geek="cd ~/laststance/geek-infiltration"
 alias fork="cd ~/fork"
+alias utils="cd ~/utils"
 alias io="cd ~/laststance/laststance.io"
 alias unfarely="cd ~/unfarely"
 alias rhizome="cd ~/rhizome"
