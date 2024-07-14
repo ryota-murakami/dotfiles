@@ -238,17 +238,12 @@
   ],
   "surround.custom": {
     "Double Quote": {
-        "label": "double quote",
-        "disabled": false,
-        "description": "\"...\"",
-        "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-        "languageIds": [
-          "html",
-          "javascript",
-          "typescript",
-          "markdown"
-        ]
-      },
+      "label": "double quote",
+      "disabled": false,
+      "description": "\"...\"",
+      "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
+      "languageIds": ["html", "javascript", "typescript", "markdown"]
+    },
     "Parenthesis": {
       "label": "()",
       "disabled": false,
@@ -286,11 +281,25 @@
   },
   "editor.dragAndDrop": false,
   "surround.with.templateLiteral": {
-
     "label": "Template Literal",
     "description": "`...` (Also replaces single and double quotes with backtick)",
     "disabled": false,
     "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
   },
-  "surround.showOnlyUserDefinedSnippets": true
+  "surround.showOnlyUserDefinedSnippets": true,
+  "gitlens.ai.experimental.model": "openai:gpt-4",
+  "cursor.cpp.enablePartialAccepts": true,
+  "cursor.chat.ghostTextAtSymbols": true,
+  "totalTypeScript.hideAllTips": false,
+  "totalTypeScript.hideBasicTips": true,
+  "totalTypeScript.hiddenTips": [
+    "variable-type-annotation",
+    "passing-generics-to-types",
+    "ts-object-type",
+    "typeof",
+    "partial-utility-type",
+    "type-alias-with-generics",
+    "type-predicate",
+    "in-operator-narrowing"
+  ]
 }
