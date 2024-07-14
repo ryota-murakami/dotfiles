@@ -1265,7 +1265,7 @@
     "command": "-testing.toggleInlineTestOutput"
   },
   {
-    "key": "ctrl+m",
+    "key": "ctrl+cmd+m",
     "command": "editor.emmet.action.matchTag"
   },
   {
@@ -2369,7 +2369,7 @@
     "command": "-workbench.action.moveActiveEditorGroupDown"
   },
   {
-    "key": "ctrl+alt+m",
+    "key": "alt+a",
     "command": "bracket-select.select",
     "when": "editorTextFocus"
   },
@@ -2381,11 +2381,6 @@
   {
     "key": "ctrl+x ctrl+i",
     "command": "extension.scanNodeModules"
-  },
-  {
-    "key": "ctrl+cmd+m",
-    "command": "bracket-select.select-include",
-    "when": "editorTextFocus"
   },
   {
     "key": "alt+cmd+a",
@@ -2556,5 +2551,49 @@
     "key": "ctrl+cmd+p",
     "command": "cursorUpSelect",
     "when": "textInputFocus"
+  },
+  {
+    "key": "alt+space",
+    "command": "editor.action.quickFix",
+    "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "alt+space",
+    "command": "editor.action.quickFix",
+    "when": "editorHasCodeActionsProvider && kb-macro.active && textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "alt+space",
+    "command": "-workbench.action.terminal.sendSequence",
+    "when": "terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
+  },
+  {
+    "key": "shift+tab",
+    "command": "-acceptAlternativeSelectedSuggestion",
+    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
+  },
+  {
+    "key": "shift+tab",
+    "command": "-insertPrevSuggestion",
+    "when": "hasOtherSuggestions && textInputFocus && !inSnippetMode && !suggestWidgetVisible && config.editor.tabCompletion == 'on'"
+  },
+  {
+    "key": "shift+tab",
+    "command": "-jumpToPrevSnippetPlaceholder",
+    "when": "hasPrevTabstop && inSnippetMode && textInputFocus"
+  },
+  {
+    "key": "shift+tab",
+    "command": "editor.action.inlineSuggest.acceptNextWord",
+    "when": "cppSuggestion && !editorReadonly || inlineSuggestionVisible && !editorReadonly"
+  },
+  {
+    "key": "cmd+right",
+    "command": "-editor.action.inlineSuggest.acceptNextWord",
+    "when": "cppSuggestion && !editorReadonly || inlineSuggestionVisible && !editorReadonly"
+  },
+  {
+    "key": "ctrl+x cmd+b",
+    "command": "editor.action.revealDefinition"
   }
 ]
