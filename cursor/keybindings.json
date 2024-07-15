@@ -2593,7 +2593,7 @@
     "when": "cppSuggestion && !editorReadonly || inlineSuggestionVisible && !editorReadonly"
   },
   {
-    "key": "ctrl+x cmd+b",
+    "key": "ctrl+x ctrl+b",
     "command": "editor.action.revealDefinition"
   }
 ]
