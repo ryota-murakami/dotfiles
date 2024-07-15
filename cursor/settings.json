@@ -300,6 +300,10 @@
     "partial-utility-type",
     "type-alias-with-generics",
     "type-predicate",
-    "in-operator-narrowing"
+    "in-operator-narrowing",
+    "generic-slots-in-functions",
+    "returntype-utility-type",
+    "as-const",
+    "readonly-utility-type"
   ]
 }
