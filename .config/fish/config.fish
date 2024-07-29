@@ -21,6 +21,7 @@ alias utils="cd ~/utils"
 alias io="cd ~/laststance/laststance.io"
 alias unfarely="cd ~/unfarely"
 alias rhizome="cd ~/rhizome"
+alias purchased="cd ~/purchased"
 
 set -gx LSCOLORS "CxGxBxDxCxEgEdxbxgxcxd"
 set -gx EZA_COLORS "di=1;32"
