@@ -669,18 +669,8 @@
     "command": "-workbench.action.focusFirstEditorGroup"
   },
   {
-    "key": "ctrl+-",
-    "command": "editor.fold",
-    "when": "editorTextFocus && foldingEnabled"
-  },
-  {
     "key": "alt+cmd+[",
     "command": "-editor.fold",
-    "when": "editorTextFocus && foldingEnabled"
-  },
-  {
-    "key": "ctrl+=",
-    "command": "editor.unfold",
     "when": "editorTextFocus && foldingEnabled"
   },
   {
@@ -1217,10 +1207,6 @@
   {
     "key": "alt+z",
     "command": "-editor.action.toggleWordWrap"
-  },
-  {
-    "key": "ctrl+x ctrl+j",
-    "command": "workbench.action.moveActiveEditorGroupRight"
   },
   {
     "key": "shift+cmd+f3",
@@ -2361,10 +2347,6 @@
     "command": "-workbench.action.moveActiveEditorGroupLeft"
   },
   {
-    "key": "ctrl+x ctrl+d",
-    "command": "workbench.action.moveActiveEditorGroupDown"
-  },
-  {
     "key": "cmd+r down",
     "command": "-workbench.action.moveActiveEditorGroupDown"
   },
@@ -2388,7 +2370,7 @@
     "when": "editorTextFocus"
   },
   {
-    "key": "cmd+b",
+    "key": "ctrl+x ctrl+b",
     "command": "editor.action.goToImplementation"
   },
   {
@@ -2425,10 +2407,6 @@
     "key": "cmd+r left",
     "command": "-views.moveViewLeft",
     "when": "focusedView != ''"
-  },
-  {
-    "key": "ctrl+x ctrl+h",
-    "command": "workbench.action.moveEditorLeftInGroup"
   },
   {
     "key": "cmd+r shift+cmd+left",
@@ -2593,7 +2571,49 @@
     "when": "cppSuggestion && !editorReadonly || inlineSuggestionVisible && !editorReadonly"
   },
   {
-    "key": "ctrl+x ctrl+b",
+    "key": "cmd+b",
     "command": "editor.action.revealDefinition"
+  },
+  {
+    "key": "alt+d",
+    "command": "-aidebug.autodebugterminal"
+  },
+  {
+    "key": "shift+f6",
+    "command": "-workbench.action.focusPreviousPart"
+  },
+  {
+    "key": "ctrl+x ctrl+j",
+    "command": "workbench.action.focusRightGroup"
+  },
+  {
+    "key": "cmd+r cmd+right",
+    "command": "-workbench.action.focusRightGroup"
+  },
+  {
+    "key": "ctrl+x ctrl+h",
+    "command": "workbench.action.focusLeftGroup"
+  },
+  {
+    "key": "cmd+r cmd+left",
+    "command": "-workbench.action.focusLeftGroup"
+  },
+  {
+    "key": "cmd+r cmd+up",
+    "command": "-workbench.action.focusAboveGroup"
+  },
+  {
+    "key": "cmd+r cmd+down",
+    "command": "-workbench.action.focusBelowGroup"
+  },
+  {
+    "key": "f9",
+    "command": "-editor.debug.action.toggleBreakpoint",
+    "when": "debuggersAvailable && disassemblyViewFocus || debuggersAvailable && editorTextFocus"
+  },
+  {
+    "key": "cmd+r e",
+    "command": "-workbench.files.action.focusOpenEditorsView",
+    "when": "workbench.explorer.openEditorsView.active"
   }
 ]

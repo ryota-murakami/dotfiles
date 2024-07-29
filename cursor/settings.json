@@ -234,7 +234,19 @@
   "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
-    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"]
+    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
+    [
+      "clsx\\(([^)]*)\\)",
+      "(?:'|\"|`)([^']*)(?:'|\"|`)"
+    ],
+    [
+      "classnames\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*)[\"'`]"
+    ],
+    [
+      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
+      "[`'\"`]([^'\"`;]*)[`'\"`]"
+    ]
   ],
   "surround.custom": {
     "Double Quote": {
@@ -256,20 +268,14 @@
   "gitlens.launchpad.indicator.enabled": false,
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "typescript.preferences.preferTypeOnlyAutoImports": true,
-  "jupyter.askForLargeDataFrames": false,
-  "jupyter.jupyterCommandLineArguments": [],
   "cursor.aipreview.enabled": true,
   "cursor.general.enableShadowWorkspace": true,
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
   "typescript.tsserver.experimental.useVsCodeWatcher": true,
-  "typescript.experimental.tsserver.web.typeAcquisition.enabled": true,
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
   "python.venvPath": "~/.pyenv",
-  "jupyter.kernels.trusted": [
-    "/Users/ryota.murakami/Library/Jupyter/kernels/python3"
-  ],
   "python.defaultInterpreterPath": "",
   "editor.inlayHints.fontSize": 15,
   "diffEditor.ignoreTrimWhitespace": true,
@@ -304,6 +310,23 @@
     "generic-slots-in-functions",
     "returntype-utility-type",
     "as-const",
-    "readonly-utility-type"
-  ]
+    "readonly-utility-type",
+    "non-null-expression",
+    "conditional-type",
+    "mapped-type",
+    "keyof",
+    "nested-conditional-type",
+    "infer",
+    "never-keyword",
+    "exclude-utility-type",
+    "nonnullable-utility-type",
+    "bigint",
+    "record-utility-type"
+  ],
+  "cursor.cmdk.ghostTextAtSymbols": true,
+  "tailwindCSS.experimental.configFile": null,
+  "typescript.experimental.updateImportsOnPaste": true,
+  "typescript.inlayHints.parameterNames.enabled": "literals",
+  "typescript.tsserver.web.typeAcquisition.enabled": true,
+  "typescript.implementationsCodeLens.showOnInterfaceMethods": true,
 }
