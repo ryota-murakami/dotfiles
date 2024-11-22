@@ -272,7 +272,7 @@
   "cursor.general.enableShadowWorkspace": true,
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
-  "typescript.tsserver.experimental.useVsCodeWatcher": true,
+  "typescript.tsserver.experimental.useVsCodeWatcher": false,
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
   "python.venvPath": "~/.pyenv",
@@ -321,12 +321,29 @@
     "exclude-utility-type",
     "nonnullable-utility-type",
     "bigint",
-    "record-utility-type"
+    "record-utility-type",
+    "type-alias-with-multiple-generics",
+    "omit-utility-type",
+    "interface-with-generics"
   ],
   "cursor.cmdk.ghostTextAtSymbols": true,
   "tailwindCSS.experimental.configFile": null,
-  "typescript.experimental.updateImportsOnPaste": true,
   "typescript.inlayHints.parameterNames.enabled": "literals",
   "typescript.tsserver.web.typeAcquisition.enabled": true,
   "typescript.implementationsCodeLens.showOnInterfaceMethods": true,
+  "editor.inlayHints.enabled": "off",
+  "surround.with.element": {
+    
+    "label": "<element></element>",
+    "description": "<element>...</element>",
+    "disabled": false,
+    "snippet": "<${1}$2>$TM_SELECTED_TEXT</$1>$0",
+    "languageIds": [
+      "html",
+      "typescriptreact",
+      "javascriptreact",
+      "jsx",
+      "markdown"
+    ]
+  },
 }
