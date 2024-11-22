@@ -2615,5 +2615,28 @@
     "key": "cmd+r e",
     "command": "-workbench.files.action.focusOpenEditorsView",
     "when": "workbench.explorer.openEditorsView.active"
+  },
+  {
+    "key": "alt+cmd+1",
+    "command": "workbench.action.toggleSidebarVisibility"
+  },
+  {
+    "key": "ctrl+/",
+    "command": "-editor.action.accessibleViewAcceptInlineCompletion",
+    "when": "accessibleViewIsShown && accessibleViewCurrentProviderId == 'inlineCompletions'"
+  },
+  {
+    "key": "cmd+space",
+    "command": "-editor.action.inlineEdits.accept",
+    "when": "inlineEditsVisible"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "-workbench.action.chat.newChat",
+    "when": "chatIsEnabled && inChat"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "expandLineSelection"
   }
 ]
