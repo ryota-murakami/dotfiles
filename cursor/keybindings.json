@@ -2638,5 +2638,25 @@
   {
     "key": "ctrl+l",
     "command": "expandLineSelection"
+  },
+  {
+    "key": "ctrl+v",
+    "command": "scrollPageDown",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "cmd+pagedown",
+    "command": "-scrollPageDown",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "alt+v",
+    "command": "scrollPageUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "cmd+pageup",
+    "command": "-scrollPageUp",
+    "when": "textInputFocus"
   }
 ]
