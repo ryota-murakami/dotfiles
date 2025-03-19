@@ -26,7 +26,12 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "workbench.colorCustomizations": {
     "editorWhitespace.foreground": "#3f3f46",
-    "statusBar.background": "#0a0a0a"
+    "statusBar.background": "#0a0a0a",
+        "[Cursor Dark]": {
+          // "list.activeSelectionForeground": "#ffffff", // Active selection text color
+          // "list.inactiveSelectionForeground": "#ffffff", // Inactive selection text color
+          // "list.inactiveFocusOutline": "#ffffff" // Inactive selection text color
+        }
   },
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
@@ -63,7 +68,7 @@
   "less.lint.unknownAtRules": "ignore",
   "less.lint.unknownProperties": "ignore",
   "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
-  "editor.defaultColorDecorators": true,
+  "editor.defaultColorDecorators": "auto",
   "editor.gotoLocation.multipleDefinitions": "goto",
   "editor.gotoLocation.multipleTypeDefinitions": "goto",
   "git.autofetch": true,
