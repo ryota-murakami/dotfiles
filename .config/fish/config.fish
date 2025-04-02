@@ -131,6 +131,10 @@ function get_pid_by_name
     ps -e | grep -m1 $argv | awk '{print $1}'
 end
 
+function pid_by_port
+    sudo lsof -i :$argv
+end
+
 function show_all_commands
     for dir in (echo $PATH | string split " ")
         if test $dir != "/Users/ryota.murakami/Library/pnpm"
