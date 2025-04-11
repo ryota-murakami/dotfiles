@@ -14,6 +14,7 @@
   "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
   "chat.editor.fontSize": 16,
   "chat.editor.lineHeight": 1,
+  "chat.agent.enabled": true,
   "css.lint.emptyRules": "ignore",
   "css.lint.propertyIgnoredDueToDisplay": "ignore",
   "css.lint.unknownAtRules": "error",
@@ -23,7 +24,7 @@
   "editor.accessibilitySupport": "off",
   "editor.autoClosingDelete": "always",
   "editor.codeActionsOnSave": {},
-  "editor.defaultColorDecorators": true,
+  "editor.defaultColorDecorators": "auto",
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.fontSize": 15,
   "editor.formatOnPaste": true,
@@ -38,32 +39,14 @@
   "editor.inlineSuggest.showToolbar": "always",
   "editor.inlineSuggest.suppressSuggestions": true,
   "editor.language.brackets": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ]
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"]
   ],
   "editor.language.colorizedBracketPairs": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ]
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"]
   ],
   "editor.linkedEditing": true,
   "editor.mouseWheelScrollSensitivity": 0.7,
@@ -115,7 +98,6 @@
   "javascript.inlayHints.parameterNames.enabled": "all",
   "javascript.preferGoToSourceDefinition": true,
   "javascript.preferences.renameMatchingJsxTags": true,
-  "javascript.suggest.paths": false,
   "javascript.suggestionActions.enabled": false,
   "javascript.updateImportsOnFileMove.enabled": "always",
   "jest.jestCommandLine": "./node_modules/.bin/jest",
@@ -163,6 +145,7 @@
   "typescript.reportStyleChecksAsWarnings": false,
   "typescript.suggest.completeFunctionCalls": true,
   "typescript.suggest.paths": false,
+  "javascript.suggest.paths": false,
   "typescript.tsc.autoDetect": "on",
   "typescript.tsdk": "./node_modules/typescript/lib",
   "typescript.tsserver.enableTracing": true,
@@ -174,20 +157,37 @@
     "editorWhitespace.foreground": "#3f3f46",
     "statusBar.background": "#0a0a0a"
   },
-  "workbench.editorAssociations": {
-    "*.db": "sqlite-viewer.option"
-  },
   "workbench.list.fastScrollSensitivity": 1,
   "workbench.settings.applyToAllProfiles": [],
   "workbench.tree.indent": 14,
-  "github.copilot.chat.fixTestFailures": true,
   "workbench.startupEditor": "none",
   "github.copilot.editor.enableAutoCompletions": true,
   "github.copilot.enable": {
     "*": true,
     "plaintext": false,
     "markdown": true,
-    "scminput": false
+    "scminput": false,
+    "typescriptreact": true
   },
-  "vscode-aiconfig.version": "0.0.22"
+  "security.promptForLocalFileProtocolHandling": false,
+  "totalTypeScript.hideAllTips": true,
+  "totalTypeScript.hideBasicTips": true,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "${capture}.js",
+    "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+    "*.jsx": "${capture}.js",
+    "*.tsx": "${capture}.ts",
+    "tsconfig.json": "tsconfig.*.json",
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb",
+    "*.sqlite": "${capture}.${extname}-*",
+    "*.db": "${capture}.${extname}-*",
+    "*.sqlite3": "${capture}.${extname}-*",
+    "*.db3": "${capture}.${extname}-*",
+    "*.sdb": "${capture}.${extname}-*",
+    "*.s3db": "${capture}.${extname}-*"
+  },
+  "github.copilot.chat.languageContext.fix.typescript.enabled": true,
+  "github.copilot.chat.languageContext.inline.typescript.enabled": true,
+  "github.copilot.chat.languageContext.typescript.enabled": true,
+  "github.copilot.chat.codesearch.enabled": true,
 }
