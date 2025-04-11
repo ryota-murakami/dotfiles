@@ -665,18 +665,8 @@
     "command": "-workbench.action.focusFirstEditorGroup"
   },
   {
-    "key": "ctrl+-",
-    "command": "editor.fold",
-    "when": "editorTextFocus && foldingEnabled"
-  },
-  {
     "key": "alt+cmd+[",
     "command": "-editor.fold",
-    "when": "editorTextFocus && foldingEnabled"
-  },
-  {
-    "key": "ctrl+=",
-    "command": "editor.unfold",
     "when": "editorTextFocus && foldingEnabled"
   },
   {
@@ -1214,14 +1204,6 @@
   {
     "key": "alt+z",
     "command": "-editor.action.toggleWordWrap"
-  },
-  {
-    "key": "ctrl+x ctrl+h",
-    "command": "workbench.action.moveActiveEditorGroupLeft"
-  },
-  {
-    "key": "ctrl+x ctrl+j",
-    "command": "workbench.action.moveActiveEditorGroupRight"
   },
   {
     "key": "shift+cmd+f3",
@@ -2423,7 +2405,47 @@
     "command": "workbench.action.toggleAuxiliaryBar"
   },
   {
+    "key": "ctrl+g ctrl+h",
+    "command": "extension.git-file-history"
+  },
+  {
     "key": "cmd+n",
-    "command": "welcome.showNewFileEntries"
+    "command": "explorer.newFile"
+  },
+  {
+    "key": "cmd+b",
+    "command": "editor.action.revealDefinition",
+    "when": "editorHasDefinitionProvider && editorTextFocus"
+  },
+  {
+    "key": "cmd+u",
+    "command": "editor.action.goToReferences"
+  },
+  {
+    "key": "alt+space",
+    "command": "-workbench.action.terminal.sendSequence",
+    "when": "terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
+  },
+  {
+    "key": "alt+space",
+    "command": "editor.action.quickFix",
+    "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "cmd+.",
+    "command": "-editor.action.quickFix",
+    "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "ctrl+x ctrl+j",
+    "command": "workbench.action.focusRightGroup"
+  },
+  {
+    "key": "ctrl+x ctrl+h",
+    "command": "workbench.action.focusLeftGroup"
+  },
+  {
+    "key": "shift+cmd+p",
+    "command": "typescript.selectTypeScriptVersion"
   }
 ]
