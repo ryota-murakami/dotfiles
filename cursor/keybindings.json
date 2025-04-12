@@ -2370,7 +2370,7 @@
     "when": "editorTextFocus"
   },
   {
-    "key": "ctrl+x ctrl+b",
+    "key": "cmd+b",
     "command": "editor.action.goToImplementation"
   },
   {
@@ -2571,10 +2571,6 @@
     "when": "cppSuggestion && !editorReadonly || inlineSuggestionVisible && !editorReadonly"
   },
   {
-    "key": "cmd+b",
-    "command": "editor.action.revealDefinition"
-  },
-  {
     "key": "alt+d",
     "command": "-aidebug.autodebugterminal"
   },
@@ -2658,5 +2654,13 @@
     "key": "cmd+pageup",
     "command": "-scrollPageUp",
     "when": "textInputFocus"
+  },
+  {
+    "key": "cmd+i",
+    "command": "composerMode.agent"
+  },
+  {
+    "key": "cmd+b",
+    "command": "editor.action.revealDefinition"
   }
 ]
