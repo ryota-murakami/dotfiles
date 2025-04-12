@@ -12,6 +12,7 @@
   st = status
   co = checkout
   br = branch
+  new = "!f() { git checkout -b $1; }; f"
   up = "!f(){ git add --all && git commit -m 'up' && git push; };f"
   br-flush = "!f() { branches_to_delete=$(git branch --merged | grep -vE '^(\\*|\\s*(master|main)\\s*)$' | grep -v $(git worktree list | awk '{print $1}')); if [ -n \"$branches_to_delete\" ]; then echo \"$branches_to_delete\" | xargs -n 1 git branch -d; else echo 'No branches to delete'; fi; }; f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
@@ -20,12 +21,12 @@
   showpr = "!f() { git log --merges --oneline --reverse --ancestry-path $1...master | grep 'Merge pull request #' | head -n 1; }; f"
   log-rev2 = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
   rm-untracked = !git status | awk \"/Untracked files:/{flag=1; next} /no changes added to commit/{flag=0} flag\" | sed \"s/^\\t//\" | xargs rm -rf
-	tree-changes = "!f() { \\\n  branch_point=$(git merge-base origin/main HEAD); \\\n  git log --no-merges --name-status --relative $branch_point..HEAD | \\\n  awk '{print $1 \" \" $2}' | \\\n  while read status file; do \\\n    case $status in \\\n      A) echo \"Added: $file\";; \\\n      M) echo \"Modified: $file\";; \\\n      D) echo \"Deleted: $file\";; \\\n    esac; \\\n  done | \\\n  tree --fromfile; \\\n}; f"
+  tree-changes = "!f() { \\\n  branch_point=$(git merge-base origin/main HEAD); \\\n  git log --no-merges --name-status --relative $branch_point..HEAD | \\\n  awk '{print $1 \" \" $2}' | \\\n  while read status file; do \\\n    case $status in \\\n      A) echo \"Added: $file\";; \\\n      M) echo \"Modified: $file\";; \\\n      D) echo \"Deleted: $file\";; \\\n    esac; \\\n  done | \\\n  tree --fromfile; \\\n}; f"
   aspr = "!f() { branch_name=\"pr-commit-$(date +%s)\"; git checkout -b \"$branch_name\"; git add --all; git commit -m 'commit'; git push -u origin \"$branch_name\"; gh pr create --title \"Automated Pull Request from $branch_name\" --body \"This is an automated pull request.\"; gh browse; }; f"
 
 
 [user]
-	name = Ryota Murakami
+  name = Ryota Murakami
   email = dojce1048@gmail.com
 [push]
   default = current
