@@ -2248,10 +2248,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+x ctrl+;",
-    "command": "editor.cpp.disableenabled"
-  },
-  {
     "key": "ctrl+alt+n",
     "command": "-list.focusAnyDown",
     "when": "listFocus && !inputFocus && !treestickyScrollFocused"
@@ -2285,10 +2281,6 @@
     "key": "shift+alt+f",
     "command": "cursorWordRightSelect",
     "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+;",
-    "command": "editor.action.enableCppGlobally"
   },
   {
     "key": "cmd+b",
@@ -2532,16 +2524,6 @@
   },
   {
     "key": "alt+space",
-    "command": "editor.action.quickFix",
-    "when": "editorHasCodeActionsProvider && textInputFocus && !editorReadonly"
-  },
-  {
-    "key": "alt+space",
-    "command": "editor.action.quickFix",
-    "when": "editorHasCodeActionsProvider && kb-macro.active && textInputFocus && !editorReadonly"
-  },
-  {
-    "key": "alt+space",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
   },
@@ -2662,5 +2644,9 @@
   {
     "key": "cmd+b",
     "command": "editor.action.revealDefinition"
+  },
+  {
+    "key": "ctrl+;",
+    "command": "editor.cpp.toggle"
   }
 ]
