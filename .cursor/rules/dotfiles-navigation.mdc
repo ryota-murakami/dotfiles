@@ -1,0 +1,45 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Dotfiles Navigation
+
+This repository contains various configuration files (dotfiles) for the user's development environment.
+
+## Shell Configuration
+
+The main shell configuration is in [.config/fish/config.fish](mdc:.config/fish/config.fish), which contains:
+
+- Aliases for common commands
+- Custom shell functions
+- Environment variable configurations
+- Path configurations
+
+## Important Aliases
+
+- `dotfiles`: Navigate to the dotfiles repository
+- `nsx`: Navigate to the nsx project
+- `last`: Navigate to the LaststanceIO project
+- `e`: Enhanced directory listing with eza
+- `wanip`: Get public IP address
+
+## Custom Functions
+
+The repository includes several custom fish functions for common tasks:
+
+- `save_cursor_config`: Backup Cursor IDE settings
+- `rollback_cursor_config`: Restore Cursor IDE settings
+- `weather`: Get weather information
+- `storage_usage`: Analyze disk usage
+- `awsdir`: Switch between AWS profiles
+
+## Development Tools
+
+The configuration includes setup for:
+
+- Node.js via Volta (`$VOLTA_HOME`)
+- pnpm package manager
+- Python via pyenv
+- Docker tools
+- Git utilities

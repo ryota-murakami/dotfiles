@@ -1,0 +1,55 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Development Environment
+
+This document describes the development environment setup and tools configured in these dotfiles.
+
+## JavaScript/Node.js Environment
+
+This dotfiles repository configures a JavaScript/TypeScript development environment with:
+
+- **Volta**: Node.js version manager ([.config/fish/config.fish](mdc:.config/fish/config.fish))
+  - Configuration: `set -gx VOLTA_HOME "$HOME/.volta"`
+  - Path addition: `set -gx PATH "$VOLTA_HOME/bin" $PATH`
+
+- **pnpm**: Preferred package manager for Node.js projects
+  - Configuration: `set -gx PNPM_HOME "/Users/ryota.murakami/Library/pnpm"`
+
+- **Bun**: JavaScript runtime and toolkit
+  - Configuration: `set --export BUN_INSTALL "$HOME/.bun"`
+
+## Python Environment
+
+Python development is configured with:
+
+- **pyenv**: Python version manager
+  - Initialization: `pyenv init - | source`
+
+## Shell Enhancements
+
+The shell environment includes several enhancements:
+
+- **fzf**: Fuzzy finder configured to use fd
+  - Uses custom ignore patterns and command substitutions
+
+- **direnv**: Directory-specific environment variables
+  - Initialization: `eval "$(direnv hook fish)"`
+
+- **zoxide**: Smarter directory navigation
+  - Initialization: `zoxide init fish | source`
+
+## Development Projects
+
+Quick navigation to development projects:
+
+- `dotfiles`: Navigate to dotfiles repository
+- `nsx`: Navigate to NSX project
+- `last`: Navigate to LaststanceIO projects
+
+## Container Management
+
+- OrbStack for Docker/container management
+  - Initialization: `source ~/.orbstack/shell/init2.fish`
