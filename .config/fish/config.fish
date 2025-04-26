@@ -40,10 +40,6 @@ end
 #     command ...
 # end
 
-function i --description 'alias i=SHELL=(which bash) interpreter'
-    SHELL=(which bash) sudo interpreter $argv
-end
-
 function base64rand
     openssl rand -base64 32
 end
