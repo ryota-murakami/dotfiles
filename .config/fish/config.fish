@@ -87,6 +87,10 @@ function rollback_cursor_config
     cp ~/dotfiles/cursor/settings.json ~/Library/Application\ Support/Cursor/User
 end
 
+function getpr
+    gh pr checkout $argv
+end
+
 function copy_head_commit_hash
     git rev-parse --short HEAD | pbcopy
 end
