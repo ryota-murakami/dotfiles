@@ -369,4 +369,5 @@
   },
   "cursor.composer.shouldChimeAfterChatFinishes": true,
   "cursor.composer.shouldAllowCustomModes": true,
+  "cursor.composer.collapsePaneInputBoxPills": true,
 }
