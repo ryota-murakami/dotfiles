@@ -330,7 +330,8 @@
     "type-alias-with-multiple-generics",
     "omit-utility-type",
     "interface-with-generics",
-    "as-const-on-object"
+    "as-const-on-object",
+    "extract-utility-type"
   ],
   "cursor.cmdk.ghostTextAtSymbols": true,
   "tailwindCSS.experimental.configFile": null,
