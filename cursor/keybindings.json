@@ -2648,5 +2648,10 @@
   {
     "key": "ctrl+;",
     "command": "editor.cpp.toggle"
+  },
+  {
+    "key": "cmd+c",
+    "command": "filesExplorer.copy",
+    "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus && !treeFindOpen"
   }
 ]
