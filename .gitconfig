@@ -14,7 +14,7 @@
   br = branch
   new = "!f() { git checkout -b $1; }; f"
   up = "!f(){ git add --all && git commit -m 'up' && git push; };f"
-  br-flush = "!f() { branches_to_delete=$(git branch --merged | grep -vE '^(\\*|\\s*(master|main)\\s*)$' | grep -v $(git worktree list | awk '{print $1}')); if [ -n \"$branches_to_delete\" ]; then echo \"$branches_to_delete\" | xargs -n 1 git branch -d; else echo 'No branches to delete'; fi; }; f"
+  flush = "!f() { branches_to_delete=$(git branch --merged | grep -vE '^(\\*|\\s*(master|main)\\s*)$' | grep -v $(git worktree list | awk '{print $1}')); if [ -n \"$branches_to_delete\" ]; then echo \"$branches_to_delete\" | xargs -n 1 git branch -d; else echo 'No branches to delete'; fi; }; f"
   rollback = "!f() { git checkout $2 -- $1; echo \"Reverted $1 to commit $2\"; }; f"
   nippo = log --author=ryota-murakami --since=yesterday --format='- %s' --date=iso
   pull-submodle = submodule foreach git pull origin master --ff
