@@ -11,7 +11,6 @@ alias dotfiles="cd ~/dotfiles"
 alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
-alias pmx="pnpm dlx"
 
 set -gx LSCOLORS "CxGxBxDxCxEgEdxbxgxcxd"
 set -gx EZA_COLORS "di=1;32"
