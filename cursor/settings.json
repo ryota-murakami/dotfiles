@@ -20,18 +20,15 @@
   "typescript.suggest.completeFunctionCalls": true,
   "typescript.tsc.autoDetect": "on",
   "typescript.tsdk": "./node_modules/typescript/lib",
-  "typescript.tsserver.maxTsServerMemory": 10480,
+  "typescript.tsserver.maxTsServerMemory": 31440,
   "typescript.preferences.renameMatchingJsxTags": true,
   "javascript.preferences.renameMatchingJsxTags": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "workbench.colorCustomizations": {
     "editorWhitespace.foreground": "#3f3f46",
     "statusBar.background": "#0a0a0a",
-        "[Cursor Dark]": {
-          // "list.activeSelectionForeground": "#ffffff", // Active selection text color
-          // "list.inactiveSelectionForeground": "#ffffff", // Inactive selection text color
-          // "list.inactiveFocusOutline": "#ffffff" // Inactive selection text color
-        }
+    "[Cursor Dark]": {},
+    "terminal.background": "#00000000"
   },
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
@@ -132,7 +129,9 @@
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": [],
+  "workbench.settings.applyToAllProfiles": [
+    "workbench.colorCustomizations"
+  ],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -145,7 +144,6 @@
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "outline.collapseItems": "alwaysCollapse",
-  "python.languageServer": "Default",
   "playwright.reuseBrowser": true,
   "playwright.showTrace": false,
   "chat.editor.fontSize": 16,
@@ -159,7 +157,6 @@
   "editor.gotoLocation.alternativeReferenceCommand": "editor.action.explainSymbol",
   "typescript.preferGoToSourceDefinition": true,
   "javascript.preferGoToSourceDefinition": true,
-  "cursor.chat.alwaysSearchWeb": true,
   "gitlens.plusFeatures.enabled": false,
   "gitlens.virtualRepositories.enabled": false,
   "gitlens.currentLine.pullRequests.enabled": false,
@@ -230,7 +227,6 @@
   "gitlens.gitCommands.search.showResultsInSideBar": false,
   "editor.folding": false,
   "gitlens.hovers.enabled": false,
-  "cursor.chat.smoothStreaming": true,
   "files.exclude": {
     "**/.yarn": true
   },
@@ -273,15 +269,15 @@
   "gitlens.launchpad.indicator.enabled": false,
   "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
   "typescript.preferences.preferTypeOnlyAutoImports": true,
-  "cursor.aipreview.enabled": true,
   "cursor.general.enableShadowWorkspace": true,
   "javascript.preferences.importModuleSpecifier": "non-relative",
   "prettier.configPath": ".prettierrc",
-  "typescript.tsserver.experimental.useVsCodeWatcher": false,
+  "typescript.tsserver.watchOptions": {
+    "watchFile": "useFsEvents",
+    "watchDirectory": "useFsEvents"
+  },
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
-  "python.venvPath": "~/.pyenv",
-  "python.defaultInterpreterPath": "",
   "editor.inlayHints.fontSize": 15,
   "diffEditor.ignoreTrimWhitespace": true,
   "surround.with.arrowFunction": {
@@ -371,4 +367,18 @@
   "cursor.composer.shouldChimeAfterChatFinishes": true,
   "cursor.composer.shouldAllowCustomModes": true,
   "cursor.composer.collapsePaneInputBoxPills": true,
+  "cursor.general.globalCursorIgnoreList": [
+    "**/secret.json",
+    "**/secrets.json",
+    "**/*.key",
+    "**/*.pem",
+    "**/*.pfx",
+    "**/*.p12",
+    "**/*.crt",
+    "**/*.cer",
+    "**/id_rsa",
+    "**/id_dsa",
+    "**/.ssh/id_*"
+  ],
+  "window.titleBarStyle": "custom",
 }
