@@ -202,7 +202,7 @@ function fd_dust_ignore_system_volumes
     end
 end
 
-function backup_readlist
+function backup_nsx
     cd ~/nsx
     bash -c './scripts/backup'
     mv backup_*.sql ~/repository/backup-files/readlist/
