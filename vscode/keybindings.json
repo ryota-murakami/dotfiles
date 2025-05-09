@@ -1430,11 +1430,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+alt+cmd+up",
-    "command": "-cursorColumnSelectUp",
-    "when": "textInputFocus"
-  },
-  {
     "key": "ctrl+cmd+n",
     "command": "cursorDownSelect",
     "when": "textInputFocus"
@@ -2269,11 +2264,6 @@
     "when": "editorTextFocus && foldingEnabled"
   },
   {
-    "key": "ctrl+cmd+p",
-    "command": "cursorColumnSelectUp",
-    "when": "editorColumnSelection && textInputFocus"
-  },
-  {
     "key": "shift+alt+right",
     "command": "cursorWordRightSelect",
     "when": "textInputFocus"
@@ -2472,5 +2462,10 @@
     "key": "cmd+c",
     "command": "filesExplorer.copy",
     "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus"
+  },
+  {
+    "key": "ctrl+cmd+p",
+    "command": "cursorUpSelect",
+    "when": "textInputFocus"
   }
 ]
