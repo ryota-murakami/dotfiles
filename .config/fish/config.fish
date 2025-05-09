@@ -205,8 +205,8 @@ end
 function backup_nsx
     cd ~/nsx
     bash -c './scripts/backup'
-    mv backup_*.sql ~/repository/backup-files/readlist/
-    cd ~/repository/backup-files/readlist
+    mv backup_*.sql ~/repository/backup-files/nsx/
+    cd ~/repository/backup-files/nsx
     git up
     cd ~
 end
