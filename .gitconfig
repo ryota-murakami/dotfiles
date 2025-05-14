@@ -12,7 +12,7 @@
   st = status
   co = checkout
   br = branch
-  new = "!f() { git checkout -b $1; }; f"
+  new = "!f() {\n    if [ -z \"$1\" ]; then\n      options=(hack heat papercut hybrid-theory)\n      branch=\"${options[RANDOM % ${#options[@]}]}\"\n      echo \"Selected branch: $branch\"\n    else\n      branch=$1\n    fi\n    git checkout -b \"$branch\";\n  }; f"
   up = "!f(){ git add --all && git commit -m 'up' && git push; };f"
   flush = "!f() { branches_to_delete=$(git branch --merged | grep -vE '^(\\*|\\s*(master|main)\\s*)$' | grep -v $(git worktree list | awk '{print $1}')); if [ -n \"$branches_to_delete\" ]; then echo \"$branches_to_delete\" | xargs -n 1 git branch -d; else echo 'No branches to delete'; fi; }; f"
   rollback = "!f() { git checkout $2 -- $1; echo \"Reverted $1 to commit $2\"; }; f"
