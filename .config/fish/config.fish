@@ -211,6 +211,10 @@ function backup_nsx
     cd ~
 end
 
+function flush_dns_cache
+    sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+end
+
 set -gx VOLTA_HOME "$HOME/.volta"
 set -gx PATH "$VOLTA_HOME/bin" $PATH
 
