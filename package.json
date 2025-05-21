@@ -1,0 +1,23 @@
+{
+  "name": "dotfiles",
+  "version": "1.0.0",
+  "description": "👨‍💻 My Mac OS X setup manual",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "macos",
+    "dotfiles",
+    "setup",
+    "manual"
+  ],
+  "author": "Ryota Murakami <dojce1048@gmail.com> (https://github.com/ryota-murakami)",
+  "license": "ISC",
+  "packageManager": "pnpm@10.11.0",
+  "volta": {
+    "node": "24.0.2"
+  },
+  "dependencies": {
+    "prettier": "^3.5.3"
+  }
+}
