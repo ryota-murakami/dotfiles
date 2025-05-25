@@ -343,10 +343,6 @@
     "command": "-workbench.action.moveActiveEditorGroupLeft"
   },
   {
-    "key": "cmd+k right",
-    "command": "-workbench.action.moveActiveEditorGroupRight"
-  },
-  {
     "key": "cmd+k up",
     "command": "-workbench.action.moveActiveEditorGroupUp"
   },
@@ -869,16 +865,6 @@
     "when": "config.terminal.integrated.shellIntegration.suggestEnabled && terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
   },
   {
-    "key": "ctrl+cmd+i",
-    "command": "toggleSuggestionDetails",
-    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
-  },
-  {
-    "key": "ctrl+space",
-    "command": "-toggleSuggestionDetails",
-    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
-  },
-  {
     "key": "ctrl+i",
     "command": "focusSuggestion",
     "when": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
@@ -1251,10 +1237,6 @@
     "command": "-testing.toggleInlineTestOutput"
   },
   {
-    "key": "ctrl+cmd+m",
-    "command": "editor.emmet.action.matchTag"
-  },
-  {
     "key": "ctrl+shift+cmd+right",
     "command": "-editor.action.smartSelect.expand",
     "when": "editorTextFocus"
@@ -1493,11 +1475,6 @@
     "when": "editorTextFocus && inputFocus && notebookEditorFocused"
   },
   {
-    "key": "pageup",
-    "command": "-notebook.cell.cursorPageUp",
-    "when": "editorTextFocus && inputFocus && notebookEditorFocused"
-  },
-  {
     "key": "shift+pageup",
     "command": "-notebook.cell.cursorPageUpSelect",
     "when": "editorTextFocus && inputFocus && notebookEditorFocused"
@@ -1672,10 +1649,6 @@
     "when": "editorFocus && parameterHintsVisible"
   },
   {
-    "key": "ctrl+x ctrl+c",
-    "command": "workbench.action.closePanel"
-  },
-  {
     "key": "shift+cmd+left",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "terminalFocus && terminalShellType == 'pwsh'"
@@ -1709,10 +1682,6 @@
     "key": "delete",
     "command": "-deleteRight",
     "when": "textInputFocus"
-  },
-  {
-    "key": "cmd+l",
-    "command": "aichat.close-sidebar"
   },
   {
     "key": "alt+cmd+n",
@@ -2095,14 +2064,6 @@
     "when": "accessibilityHelpIsShown"
   },
   {
-    "key": "ctrl+x ctrl+]",
-    "command": "scrollEditorBottom"
-  },
-  {
-    "key": "ctrl+x ctrl+[",
-    "command": "scrollEditorTop"
-  },
-  {
     "key": "ctrl+h",
     "command": "-deleteLeft",
     "when": "textInputFocus"
@@ -2331,10 +2292,6 @@
     "when": "terminalProcessSupported && terminalTabsFocus"
   },
   {
-    "key": "cmd+r right",
-    "command": "-workbench.action.moveActiveEditorGroupRight"
-  },
-  {
     "key": "cmd+r left",
     "command": "-workbench.action.moveActiveEditorGroupLeft"
   },
@@ -2384,11 +2341,6 @@
     "key": "shift+cmd+f",
     "command": "filesExplorer.findInFolder",
     "when": "explorerResourceIsFolder && filesExplorerFocus && foldersViewVisible && !inputFocus"
-  },
-  {
-    "key": "ctrl+g ctrl+c",
-    "command": "workbench.view.scm",
-    "when": "workbench.scm.active && !gitlens:disabled && config.gitlens.keymap == 'chorded'"
   },
   {
     "key": "ctrl+shift+g",
@@ -2458,10 +2410,6 @@
     "command": "-aichat.newchataction"
   },
   {
-    "key": "ctrl+x ctrl+l",
-    "command": "workbench.action.positionPanelRight"
-  },
-  {
     "key": "ctrl+l",
     "command": "-workbench.action.chat.newChat",
     "when": "hasChatProvider && inChat"
@@ -2477,10 +2425,6 @@
   {
     "key": "alt+h",
     "command": "-git.viewFileHistory"
-  },
-  {
-    "key": "ctrl+g ctrl+h",
-    "command": "extension.git-file-history"
   },
   {
     "key": "alt+b",
@@ -2561,10 +2505,6 @@
     "command": "-workbench.action.focusPreviousPart"
   },
   {
-    "key": "ctrl+x ctrl+j",
-    "command": "workbench.action.focusRightGroup"
-  },
-  {
     "key": "cmd+r cmd+right",
     "command": "-workbench.action.focusRightGroup"
   },
@@ -2614,44 +2554,135 @@
     "when": "chatIsEnabled && inChat"
   },
   {
-    "key": "ctrl+l",
-    "command": "expandLineSelection"
-  },
-  {
-    "key": "ctrl+v",
-    "command": "scrollPageDown",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "cmd+pagedown",
-    "command": "-scrollPageDown",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "alt+v",
-    "command": "scrollPageUp",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "cmd+pageup",
-    "command": "-scrollPageUp",
-    "when": "textInputFocus"
-  },
-  {
     "key": "cmd+i",
     "command": "composerMode.agent"
   },
   {
-    "key": "cmd+b",
-    "command": "editor.action.revealDefinition"
-  },
-  {
-    "key": "ctrl+;",
+    "key": "ctrl+x ctrl+c",
     "command": "editor.cpp.toggle"
   },
   {
     "key": "cmd+c",
     "command": "filesExplorer.copy",
     "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus && !treeFindOpen"
+  },
+  {
+    "key": "cmd+b",
+    "command": "typescript.goToSourceDefinition"
+  },
+  {
+    "key": "alt+cmd+g shift+h",
+    "command": "-gitlens.showQuickRepoHistory",
+    "when": "!gitlens:disabled && config.gitlens.keymap == 'chorded'"
+  },
+  {
+    "key": "shift+alt+h",
+    "command": "-gitlens.showQuickRepoHistory",
+    "when": "!gitlens:disabled && config.gitlens.keymap == 'alternate'"
+  },
+  {
+    "key": "alt+h",
+    "command": "-gitlens.showQuickFileHistory",
+    "when": "!gitlens:disabled && config.gitlens.keymap == 'alternate'"
+  },
+  {
+    "key": "alt+cmd+g h",
+    "command": "-gitlens.showQuickFileHistory",
+    "when": "!gitlens:disabled && config.gitlens.keymap == 'chorded'"
+  },
+  {
+    "key": "cmd+enter",
+    "command": "editor.action.insertLineAfter"
+  },
+  {
+    "key": "shift+pagedown",
+    "command": "-notebook.cell.cursorPageDownSelect",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused && !notebookOutputFocused"
+  },
+  {
+    "key": "ctrl+v",
+    "command": "cursorPageDown",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+pageup",
+    "command": "-notebook.cell.cursorPageUpSelect",
+    "when": "editorTextFocus && inputFocus && notebookEditorFocused && !notebookOutputFocused"
+  },
+  {
+    "key": "alt+v",
+    "command": "cursorPageUp",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+x ctrl+]",
+    "command": "cursorBottom",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+x ctrl+[",
+    "command": "cursorTop",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "-workbench.action.chat.open",
+    "when": "chatPanelParticipantRegistered || chatSetupInstalled"
+  },
+  {
+    "key": "shift+cmd+i",
+    "command": "-workbench.action.chat.openEditSession",
+    "when": "chatEditingParticipantRegistered && chatIsEnabled && view != 'workbench.panel.chat.view.edits'"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "editor.action.marker.nextInFiles"
+  },
+  {
+    "key": "ctrl+alt+r",
+    "command": "-workbench.action.terminal.runRecentCommand",
+    "when": "terminalFocus && terminalHasBeenCreated && !accessibilityModeEnabled || terminalFocus && terminalProcessSupported && !accessibilityModeEnabled"
+  },
+  {
+    "key": "ctrl+alt+r",
+    "command": "-workbench.action.terminal.sendSequence",
+    "when": "accessibilityModeEnabled && terminalFocus"
+  },
+  {
+    "key": "cmd+u",
+    "command": "editor.action.referenceSearch.trigger"
+  },
+  {
+    "key": "cmd+k",
+    "command": "-aipopup.action.modal.generate",
+    "when": "editorFocus && !composerBarIsVisible"
+  },
+  {
+    "key": "ctrl+cmd+m",
+    "command": "editor.action.selectToBracket"
+  },
+  {
+    "key": "ctrl+x right",
+    "command": "workbench.action.splitEditorRight"
+  },
+  {
+    "key": "ctrl+x down",
+    "command": "workbench.action.splitEditorDown"
+  },
+  {
+    "key": "ctrl+x up",
+    "command": "workbench.action.splitEditorUp"
+  },
+  {
+    "key": "cmd+j",
+    "command": "-workbench.action.togglePanel"
+  },
+  {
+    "key": "cmd+r right",
+    "command": "-workbench.action.moveActiveEditorGroupRight"
+  },
+  {
+    "key": "ctrl+x ctrl+j",
+    "command": "workbench.action.focusRightGroup"
   }
 ]
