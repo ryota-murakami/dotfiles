@@ -79,8 +79,6 @@
   "[typescript]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
-  "typescript.format.indentSwitchCase": false,
-  "typescript.format.enable": false,
   "typescript.locale": "en",
   "javascript.suggestionActions.enabled": false,
   "redhat.telemetry.enabled": true,
@@ -327,9 +325,9 @@
     "omit-utility-type",
     "interface-with-generics",
     "as-const-on-object",
-    "extract-utility-type"
+    "extract-utility-type",
+    "pick-utility-type"
   ],
-  "cursor.cmdk.ghostTextAtSymbols": true,
   "tailwindCSS.experimental.configFile": null,
   "typescript.inlayHints.parameterNames.enabled": "literals",
   "typescript.tsserver.web.typeAcquisition.enabled": true,
@@ -368,6 +366,9 @@
   "cursor.composer.shouldAllowCustomModes": true,
   "cursor.composer.collapsePaneInputBoxPills": true,
   "cursor.general.globalCursorIgnoreList": [
+    ".next/**/*",
+    "node_modules/**/*",
+    ".idea/**/*",
     "**/secret.json",
     "**/secrets.json",
     "**/*.key",
