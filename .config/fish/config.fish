@@ -72,6 +72,22 @@ function fd
     command fd $argv --exclude /System/
 end
 
+function remove_chrome_cache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/Cache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/Code\ Cache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/Media\ Cache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/extensions_crx_cache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/Shared\ Dictionary
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/IndexedDB
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/WebStorage
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/CacheStorage
+    rm -rf ~/Library/Application\ Support/Google/Chrome/Default/Service\ Worker
+    rm -rf ~/Library/Application\ Support/Google/Chrome/ShaderCache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/GrShaderCache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/GPUCache
+    rm -rf ~/Library/Application\ Support/Google/Chrome/GPUCache
+end
+
 function save_vsc_config
   cp ~/Library/Application\ Support/Code/User/keybindings.json ~/dotfiles/vscode
   cp ~/Library/Application\ Support/Code/User/settings.json ~/dotfiles/vscode
