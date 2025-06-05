@@ -368,6 +368,9 @@
   "cursor.general.globalCursorIgnoreList": [
     ".next/**/*",
     "node_modules/**/*",
+    "dist/**/*",
+    "build/**/*",
+    "storybook-static",
     ".idea/**/*",
     "**/secret.json",
     "**/secrets.json",
