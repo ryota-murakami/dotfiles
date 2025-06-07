@@ -1659,29 +1659,9 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+d",
-    "command": "-deleteRight",
-    "when": "textInputFocus"
-  },
-  {
     "key": "ctrl+shift+g",
     "command": "-workbench.view.scm",
     "when": "workbench.scm.active"
-  },
-  {
-    "key": "ctrl+o",
-    "command": "deleteRight",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+delete",
-    "command": "-deleteRight",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "delete",
-    "command": "-deleteRight",
-    "when": "textInputFocus"
   },
   {
     "key": "alt+cmd+n",
@@ -2684,5 +2664,10 @@
   {
     "key": "ctrl+x ctrl+j",
     "command": "workbench.action.focusRightGroup"
+  },
+  {
+    "key": "tab",
+    "command": "-editor.action.acceptGPT4",
+    "when": "hasGPT4Diff"
   }
 ]
