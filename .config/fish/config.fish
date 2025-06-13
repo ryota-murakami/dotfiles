@@ -49,6 +49,8 @@ function genpasswd
     pwgen -Bsy $argv 1 |pbcopy |pbpaste; echo "Has been copied to clipboard"
 end
 
+
+
 function ssh-swh
     ssh-add -D
     if [ -z $argv ]
@@ -229,6 +231,21 @@ end
 
 function flush_dns_cache
     sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
+end
+
+function on_claude_md
+    grep -v "CLAUDE.md" ~/.gitignore_global > ~/.gitignore_global.tmp
+    mv ~/.gitignore_global.tmp ~/.gitignore_global
+    echo "Removed CLAUDE.md from .gitignore_global"
+end
+
+function off_claude_md
+    if not grep -q "CLAUDE.md" ~/.gitignore_global
+        echo "CLAUDE.md" >> ~/.gitignore_global
+        echo "Added CLAUDE.md to .gitignore_global"
+    else
+        echo "CLAUDE.md already exists in .gitignore_global"
+    end
 end
 
 set -gx VOLTA_HOME "$HOME/.volta"
