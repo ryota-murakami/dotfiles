@@ -13,3 +13,6 @@ dockerfiles/resources/
 tmp/
 .env.production
 CLAUDE.md
+# by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
+uploads/
+usage_tracking2.json
