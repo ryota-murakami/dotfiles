@@ -12,3 +12,4 @@ dockerfiles/resources/
 .vscode/settings.json
 tmp/
 .env.production
+CLAUDE.md
