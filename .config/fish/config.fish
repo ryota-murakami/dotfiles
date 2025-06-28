@@ -233,14 +233,20 @@ function flush_dns_cache
     sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder
 end
 
-function on_claude_md
+function show_claude_md
     grep -v "CLAUDE.md" ~/.gitignore_global > ~/.gitignore_global.tmp
     mv ~/.gitignore_global.tmp ~/.gitignore_global
     echo "Removed CLAUDE.md from .gitignore_global"
 end
 
-function off_claude_md
+function hide_claude_md
     if not grep -q "CLAUDE.md" ~/.gitignore_global
+        # Check if the file ends with a newline
+        if test (tail -c 1 ~/.gitignore_global | wc -l) -eq 0
+            # File does not end with newline, add an extra one
+            echo "" >> ~/.gitignore_global
+        end
+        # Now add CLAUDE.md
         echo "CLAUDE.md" >> ~/.gitignore_global
         echo "Added CLAUDE.md to .gitignore_global"
     else
@@ -278,3 +284,6 @@ alias claude="/Users/ryota.murakami/.claude/local/claude"
 
 # Added by Windsurf
 fish_add_path /Users/ryota.murakami/.codeium/windsurf/bin
+
+# uv
+fish_add_path "/Users/ryota.murakami/.local/bin"
