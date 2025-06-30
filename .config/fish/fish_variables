@@ -44,4 +44,4 @@ SETUVAR fish_pager_color_selected_background:\x2d\x2dbackground\x3dbrblack
 SETUVAR fish_pager_color_selected_completion:\x1d
 SETUVAR fish_pager_color_selected_description:\x1d
 SETUVAR fish_pager_color_selected_prefix:\x1d
-SETUVAR fish_user_paths:/Users/ryota\x2emurakami/\x2elocal/bin\x1e/Users/ryota\x2emurakami/\x2ecodeium/windsurf/bin\x1e/opt/homebrew/sbin\x1e/usr/local/opt/sqlite/bin\x1e/usr/local/sbin\x1e/Users/ryota\x2emurakami/\x2eyarn/bin\x1e/usr/local/opt/fzf/bin
+SETUVAR fish_user_paths:/Users/ryota\x2emurakami/\x2elocal/bin\x1e/opt/homebrew/sbin\x1e/usr/local/opt/sqlite/bin\x1e/usr/local/sbin\x1e/Users/ryota\x2emurakami/\x2eyarn/bin\x1e/usr/local/opt/fzf/bin
