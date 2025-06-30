@@ -282,8 +282,5 @@ zoxide init fish | source
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 alias claude="/Users/ryota.murakami/.claude/local/claude"
 
-# Added by Windsurf
-fish_add_path /Users/ryota.murakami/.codeium/windsurf/bin
-
 # uv
 fish_add_path "/Users/ryota.murakami/.local/bin"
