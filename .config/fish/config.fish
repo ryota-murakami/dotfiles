@@ -283,5 +283,3 @@ source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 
 # uv
 fish_add_path "/Users/ryota.murakami/.local/bin"
-
-alias claude="/Users/ryota.murakami/.claude/local/claude"
