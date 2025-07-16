@@ -283,3 +283,5 @@ source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 
 # uv
 fish_add_path "/Users/ryota.murakami/.local/bin"
+
+string match -q "$TERM_PROGRAM" "kiro" and . (kiro --locate-shell-integration-path fish)
