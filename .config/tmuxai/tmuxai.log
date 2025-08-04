@@ -1,0 +1,16 @@
+2025/07/30 12:20:16 [INFO] TmuxAI starting up
+2025/07/30 12:20:16 [INFO] TmuxAI starting up
+2025/07/30 12:25:52 [INFO] TmuxAI starting up
+2025/07/30 12:25:53 [INFO] TmuxAI starting up
+2025/07/30 12:25:53 [INFO] Found available pane: %7
+2025/07/30 12:26:13 [INFO] Processing command: /help
+2025/07/30 12:26:34 [INFO] Sending 2 messages to AI
+2025/07/30 12:26:34 [DEBUG] Sending API request to: https://openrouter.ai/api/v1/chat/completions with model: google/gemini-2.5-flash-preview
+2025/07/30 12:26:34 [DEBUG] API response status: 404, response size: 135 bytes
+2025/07/30 12:26:34 [ERROR] API returned error: {"error":{"message":"No endpoints found for google/gemini-2.5-flash-preview.","code":404},"user_id":"user_2vwLkVSkuZFcnp6uEes5PD7SmyZ"}
+2025/07/30 12:26:50 [INFO] Sending 2 messages to AI
+2025/07/30 12:26:50 [DEBUG] Sending API request to: https://openrouter.ai/api/v1/chat/completions with model: google/gemini-2.5-flash-preview
+2025/07/30 12:26:50 [DEBUG] API response status: 404, response size: 135 bytes
+2025/07/30 12:26:50 [ERROR] API returned error: {"error":{"message":"No endpoints found for google/gemini-2.5-flash-preview.","code":404},"user_id":"user_2vwLkVSkuZFcnp6uEes5PD7SmyZ"}
+2025/07/30 12:27:08 [INFO] Processing command: /exit
+2025/07/30 12:27:08 [INFO] Exit command received, stopping watch mode (if active) and exiting.
