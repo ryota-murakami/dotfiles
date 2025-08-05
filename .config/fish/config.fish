@@ -101,6 +101,11 @@ function save_cursor_config
     cp -R ~/Library/Application\ Support/Cursor/User/snippets ~/dotfiles/cursor
 end
 
+function rollback_vsc_config
+  cp -f ~/dotfiles/vscode/keybindings.json ~/Library/Application\ Support/Code/User/keybindings.json
+  cp -f ~/dotfiles/vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
+end
+
 function rollback_cursor_config
     cp ~/dotfiles/cursor/keybindings.json ~/Library/Application\ Support/Cursor/User
     cp ~/dotfiles/cursor/settings.json ~/Library/Application\ Support/Cursor/User
