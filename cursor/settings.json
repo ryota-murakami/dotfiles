@@ -20,7 +20,7 @@
   "typescript.suggest.completeFunctionCalls": true,
   "typescript.tsc.autoDetect": "on",
   "typescript.tsdk": "./node_modules/typescript/lib",
-  "typescript.tsserver.maxTsServerMemory": 31440,
+  "typescript.tsserver.maxTsServerMemory": 4440,
   "typescript.preferences.renameMatchingJsxTags": true,
   "javascript.preferences.renameMatchingJsxTags": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -127,14 +127,24 @@
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": [
-    "workbench.colorCustomizations"
-  ],
+  "workbench.settings.applyToAllProfiles": ["workbench.colorCustomizations"],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "terminal.integrated.fontSize": 14,
+  "terminal.integrated.profiles.osx": {
+    "bash": {
+      "path": "/bin/bash", // or e.g. "/opt/homebrew/bin/bash"
+      "args": ["-l"] // login shell so you get ~/.bash_profile
+    },
+    "zsh": { "path": "/bin/zsh", "args": ["-l"] },
+    "fish": {
+      "path": "/usr/local/bin/fish", // keep fish so you can still pick it
+      "args": ["-l"]
+    }
+  },
+  "terminal.integrated.defaultProfile.osx": "bash",
   "window.zoomLevel": 2,
   "launch": {
     "configurations": [],
@@ -144,9 +154,6 @@
   "outline.collapseItems": "alwaysCollapse",
   "playwright.reuseBrowser": true,
   "playwright.showTrace": false,
-  "chat.editor.fontSize": 16,
-  "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
-  "chat.editor.lineHeight": 1,
   "cursor.cpp.disabledLanguages": [],
   "editor.formatOnPaste": true,
   "jest.jestCommandLine": "./node_modules/.bin/jest",
@@ -234,18 +241,9 @@
   "tailwindCSS.experimental.classRegex": [
     ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
     ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
-    [
-      "clsx\\(([^)]*)\\)",
-      "(?:'|\"|`)([^']*)(?:'|\"|`)"
-    ],
-    [
-      "classnames\\(([^)]*)\\)",
-      "[\"'`]([^\"'`]*)[\"'`]"
-    ],
-    [
-      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
-      "[`'\"`]([^'\"`;]*)[`'\"`]"
-    ]
+    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
+    ["classnames\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
+    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"]
   ],
   "surround.custom": {
     "Double Quote": {
@@ -292,49 +290,13 @@
     "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
   },
   "surround.showOnlyUserDefinedSnippets": true,
-  "gitlens.ai.experimental.model": "openai:gpt-4",
   "cursor.cpp.enablePartialAccepts": true,
-  "cursor.chat.ghostTextAtSymbols": true,
-  "totalTypeScript.hideAllTips": false,
-  "totalTypeScript.hideBasicTips": true,
-  "totalTypeScript.hiddenTips": [
-    "variable-type-annotation",
-    "passing-generics-to-types",
-    "ts-object-type",
-    "typeof",
-    "partial-utility-type",
-    "type-alias-with-generics",
-    "type-predicate",
-    "in-operator-narrowing",
-    "generic-slots-in-functions",
-    "returntype-utility-type",
-    "as-const",
-    "readonly-utility-type",
-    "non-null-expression",
-    "conditional-type",
-    "mapped-type",
-    "keyof",
-    "nested-conditional-type",
-    "infer",
-    "never-keyword",
-    "exclude-utility-type",
-    "nonnullable-utility-type",
-    "bigint",
-    "record-utility-type",
-    "type-alias-with-multiple-generics",
-    "omit-utility-type",
-    "interface-with-generics",
-    "as-const-on-object",
-    "extract-utility-type",
-    "pick-utility-type"
-  ],
   "tailwindCSS.experimental.configFile": null,
   "typescript.inlayHints.parameterNames.enabled": "literals",
   "typescript.tsserver.web.typeAcquisition.enabled": true,
   "typescript.implementationsCodeLens.showOnInterfaceMethods": true,
   "editor.inlayHints.enabled": "off",
   "surround.with.element": {
-    
     "label": "<element></element>",
     "description": "<element>...</element>",
     "disabled": false,
@@ -385,4 +347,11 @@
     "**/.ssh/id_*"
   ],
   "window.titleBarStyle": "custom",
+  "git.enableSmartCommit": true,
+  "cursor.windowSwitcher.sidebarHoverCollapsed": true,
+  "diffEditor.maxComputationTime": 0,
+  "cursor.terminal.usePreviewBox": true,
+  "[shellscript]": {
+    "editor.defaultFormatter": "mkhl.shfmt"
+  }
 }
