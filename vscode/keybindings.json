@@ -861,11 +861,6 @@
     "when": "config.terminal.integrated.shellIntegration.suggestEnabled && terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
   },
   {
-    "key": "ctrl+cmd+i",
-    "command": "toggleSuggestionDetails",
-    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
-  },
-  {
     "key": "ctrl+space",
     "command": "-toggleSuggestionDetails",
     "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
@@ -1664,10 +1659,6 @@
     "when": "editorFocus && parameterHintsVisible"
   },
   {
-    "key": "ctrl+x ctrl+c",
-    "command": "workbench.action.closePanel"
-  },
-  {
     "key": "shift+cmd+left",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "terminalFocus && terminalShellType == 'pwsh'"
@@ -1713,10 +1704,6 @@
   {
     "key": "cmd+b",
     "command": "-workbench.action.toggleSidebarVisibility"
-  },
-  {
-    "key": "cmd+escape",
-    "command": "workbench.action.closeSidebar"
   },
   {
     "key": "shift+cmd+a",
@@ -2372,10 +2359,6 @@
     "command": "-workbench.action.moveEditorToFirstGroup"
   },
   {
-    "key": "cmd+e",
-    "command": "workbench.action.openPreviousEditorFromHistory"
-  },
-  {
     "key": "shift+cmd+f9",
     "command": "-workbench.action.chat.previousFileTree",
     "when": "hasChatProvider && inChat"
@@ -2467,5 +2450,37 @@
     "key": "ctrl+cmd+p",
     "command": "cursorUpSelect",
     "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "-workbench.action.chat.open",
+    "when": "!chatSetupHidden"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "-workbench.panel.chat",
+    "when": "workbench.panel.chat.view.copilot.active"
+  },
+  {
+    "key": "ctrl+/",
+    "command": "-editor.action.accessibleViewAcceptInlineCompletion",
+    "when": "accessibleViewIsShown && accessibleViewCurrentProviderId == 'inlineCompletions'"
+  },
+  {
+    "key": "cmd+escape",
+    "command": "-workbench.action.chat.cancel"
+  },
+  {
+    "key": "ctrl+x ctrl+c",
+    "command": "github.copilot.completions.toggle"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "-workbench.action.chat.open",
+    "when": "!chatSetupDisabled && !chatSetupHidden"
+  },
+  {
+    "key": "cmd+e",
+    "command": "markdown.showPreview"
   }
 ]

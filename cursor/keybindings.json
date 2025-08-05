@@ -2669,5 +2669,28 @@
     "key": "tab",
     "command": "-editor.action.acceptGPT4",
     "when": "hasGPT4Diff"
+  },
+  {
+    "key": "shift+cmd+0",
+    "command": "-aiSettings.usingOpenAIKey.toggle"
+  },
+  {
+    "key": "alt+a",
+    "command": "-editor.action.accessibilityHelpConfigureAssignedKeybindings",
+    "when": "accessibilityHelpIsShown && accessibleViewHasAssignedKeybindings"
+  },
+  {
+    "key": "alt+k",
+    "command": "-editor.action.accessibilityHelpConfigureKeybindings",
+    "when": "accessibilityHelpIsShown && accessibleViewHasUnassignedKeybindings"
+  },
+  {
+    "key": "cmd+e",
+    "command": "-composer.showBackgroundAgentHistory",
+    "when": "backgroundComposerEnabled || showBackgroundAgentHistoryAction"
+  },
+  {
+    "key": "cmd+e",
+    "command": "markdown.showPreview"
   }
 ]

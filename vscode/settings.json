@@ -14,7 +14,6 @@
   "chat.editor.fontFamily": "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica Neue, Arial, \"Noto Sans\", sans-serif, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", \"Noto Color Emoji\"",
   "chat.editor.fontSize": 16,
   "chat.editor.lineHeight": 1,
-  "chat.agent.enabled": true,
   "css.lint.emptyRules": "ignore",
   "css.lint.propertyIgnoredDueToDisplay": "ignore",
   "css.lint.unknownAtRules": "error",
@@ -39,14 +38,32 @@
   "editor.inlineSuggest.showToolbar": "always",
   "editor.inlineSuggest.suppressSuggestions": true,
   "editor.language.brackets": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ]
   ],
   "editor.language.colorizedBracketPairs": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ]
   ],
   "editor.linkedEditing": true,
   "editor.mouseWheelScrollSensitivity": 0.7,
@@ -121,6 +138,21 @@
   "scss.lint.propertyIgnoredDueToDisplay": "ignore",
   "search.actionsPosition": "auto",
   "terminal.integrated.fontSize": 14,
+  "terminal.integrated.profiles.osx": {
+    "bash": {
+      "path": "/bin/bash", // or e.g. "/opt/homebrew/bin/bash"
+      "args": [
+        "-l"
+      ] // login shell so you get ~/.bash_profile
+    },
+    "fish": {
+      "path": "/usr/local/bin/fish", // keep fish so you can still pick it
+      "args": [
+        "-l"
+      ]
+    }
+  },
+  "terminal.integrated.defaultProfile.osx": "bash",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.format.enable": false,
   "typescript.format.indentSwitchCase": false,
@@ -161,17 +193,14 @@
   "workbench.settings.applyToAllProfiles": [],
   "workbench.tree.indent": 14,
   "workbench.startupEditor": "none",
-  "github.copilot.editor.enableAutoCompletions": true,
   "github.copilot.enable": {
-    "*": true,
+    "*": false,
     "plaintext": false,
-    "markdown": true,
+    "markdown": false,
     "scminput": false,
     "typescriptreact": true
   },
   "security.promptForLocalFileProtocolHandling": false,
-  "totalTypeScript.hideAllTips": true,
-  "totalTypeScript.hideBasicTips": true,
   "explorer.fileNesting.patterns": {
     "*.ts": "${capture}.js",
     "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
@@ -189,5 +218,68 @@
   "github.copilot.chat.languageContext.fix.typescript.enabled": true,
   "github.copilot.chat.languageContext.inline.typescript.enabled": true,
   "github.copilot.chat.languageContext.typescript.enabled": true,
-  "github.copilot.chat.codesearch.enabled": true
+  "github.copilot.chat.codesearch.enabled": true,
+  "colorful-comments-refreshed.tags": [
+    {
+      "tag": "!",
+      "color": "#ADD8E6",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "?",
+      "color": "#0076FF",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "//",
+      "color": "#474747",
+      "strikethrough": true,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "^",
+      "color": "#EAF622",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "*",
+      "color": "#28FF00",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "&",
+      "color": "#FF06A0",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "~",
+      "color": "#BE00FF",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    },
+    {
+      "tag": "todo",
+      "color": "#FF8C00",
+      "strikethrough": false,
+      "backgroundColor": "transparent"
+    }
+  ],
+  "chat.agent.maxRequests": 100000,
+  "github.copilot.chat.completionContext.typescript.mode": "sidecar",
+  "github.copilot.chat.editor.temporalContext.enabled": true,
+  "github.copilot.chat.edits.temporalContext.enabled": true,
+  "github.copilot.chat.generateTests.codeLens": true,
+  "chat.extensionTools.enabled": false,
+  "editor.formatOnSave": true,
+  "chat.mcp.discovery.enabled": false,
+  "chat.mcp.serverSampling": {},
+  "github.copilot.nextEditSuggestions.enabled": true,
+  "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [],
+  "chat.mcp.enabled": false,
+  "chat.tools.autoApprove": true
 }
