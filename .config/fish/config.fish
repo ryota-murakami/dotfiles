@@ -149,7 +149,7 @@ end
 
 function show_all_commands
     for dir in (echo $PATH | string split " ")
-        if test $dir != "/Users/ryota.murakami/Library/pnpm"
+        if test $dir != "$HOME/Library/pnpm"
             echo $dir
             tree -fiC --noreport $dir | grep -v '/$'
             echo ""
@@ -265,7 +265,7 @@ set -gx PATH "$VOLTA_HOME/bin" $PATH
 fish_add_path /usr/local/sbin
 
 # pnpm
-set -gx PNPM_HOME "/Users/ryota.murakami/Library/pnpm"
+set -gx PNPM_HOME "$HOME/Library/pnpm"
 if not string match -q -- $PNPM_HOME $PATH
   set -gx PATH "$PNPM_HOME" $PATH
 end
@@ -287,6 +287,6 @@ zoxide init fish | source
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 
 # uv
-fish_add_path "/Users/ryota.murakami/.local/bin"
+fish_add_path "$HOME/.local/bin"
 
 string match -q "$TERM_PROGRAM" "kiro" and . (kiro --locate-shell-integration-path fish)

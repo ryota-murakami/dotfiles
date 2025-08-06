@@ -46,7 +46,7 @@
   {
     "key": "cmd+k cmd+k",
     "command": "-editor.action.defineKeybinding",
-    "when": "resource == 'vscode-userdata:/Users/ryota.murakami/Library/Application%20Support/Code/User/keybindings.json'"
+    "when": "resource == 'vscode-userdata:~/Library/Application%20Support/Code/User/keybindings.json'"
   },
   {
     "key": "shift+cmd+,",
