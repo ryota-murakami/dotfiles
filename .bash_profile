@@ -23,7 +23,7 @@ export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git
 
 # ツール設定
 export VOLTA_HOME="$HOME/.volta"
-export PNPM_HOME="/Users/ryota.murakami/Library/pnpm"
+export PNPM_HOME="$HOME/Library/pnpm"
 export BUN_INSTALL="$HOME/.bun"
 
 # path（Fish shellの設定に合わせて更新）
