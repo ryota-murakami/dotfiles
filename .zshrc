@@ -116,7 +116,7 @@ alias repo 'cd ~/repository'
 alias utils 'cd ~/utils'
 alias v8 '/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs'
 alias vi /usr/bin/vim
-alias vscode-conf-dir cd /Users/ryota.murakami/Library/Application Support/Code/User
+alias vscode-conf-dir cd $HOME/Library/Application Support/Code/User
 alias wanip 'curl https://ipinfo.io/ip'
 
 # Fish shellから移植された環境変数
@@ -131,7 +131,7 @@ export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git
 
 # ツール設定（Fish shellから移植）
 export VOLTA_HOME="$HOME/.volta"
-export PNPM_HOME="/Users/ryota.murakami/Library/pnpm"
+export PNPM_HOME="$HOME/Library/pnpm"
 export BUN_INSTALL="$HOME/.bun"
 
 # Enabile autocomplete

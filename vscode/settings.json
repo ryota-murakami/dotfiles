@@ -99,7 +99,7 @@
   "eslint.ignoreUntitled": true,
   "eslint.lintTask.enable": true,
   "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
-  "eslint.nodePath": "/Users/ryota.murakami/.volta/bin/node",
+  "eslint.nodePath": "~/.volta/bin/node",
   "eslint.trace.server": "verbose",
   "explorer.compactFolders": false,
   "explorer.confirmDelete": false,
