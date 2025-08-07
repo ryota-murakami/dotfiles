@@ -12,6 +12,8 @@ alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
 
+zoxide init fish | source
+
 set -gx LSCOLORS "CxGxBxDxCxEgEdxbxgxcxd"
 set -gx EZA_COLORS "di=1;32"
 set -x LESS "-R"
@@ -293,20 +295,6 @@ if status is-interactive
         pyenv init - | source
         functions -e pip python  # Remove wrappers
         pip $argv
-    end
-    
-    # zoxide - smart lazy wrapper with fallback behavior
-    function z --wraps z
-        # Handle no arguments case - go to home directory
-        if test (count $argv) -eq 0
-            cd ~
-            return
-        end
-        
-        # Initialize zoxide and replace this function
-        zoxide init fish | source
-        functions -e z  # Remove this wrapper
-        z $argv
     end
     
     # OrbStack - only if docker commands are used
