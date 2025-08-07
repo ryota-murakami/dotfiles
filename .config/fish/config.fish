@@ -275,18 +275,52 @@ end
 set --export BUN_INSTALL "$HOME/.bun"
 set --export PATH $BUN_INSTALL/bin $PATH
 
-eval "$(direnv hook fish)"
-
-pyenv init - | source
-
-zoxide init fish | source
-
-
-# Added by OrbStack: command-line tools and integration
-# This won't be added again if you remove it.
-source ~/.orbstack/shell/init2.fish 2>/dev/null || :
+# Super lazy load - only load when actually needed
+if status is-interactive
+    # direnv - only load if .envrc files exist in current directory
+    if test -f .envrc
+        eval "$(direnv hook fish)"
+    end
+    
+    # pyenv - delay load until python command is used
+    function python --wraps python
+        pyenv init - | source
+        functions -e python pip  # Remove wrappers
+        python $argv
+    end
+    
+    function pip --wraps pip  
+        pyenv init - | source
+        functions -e pip python  # Remove wrappers
+        pip $argv
+    end
+    
+    # zoxide - smart lazy wrapper with fallback behavior
+    function z --wraps z
+        # Handle no arguments case - go to home directory
+        if test (count $argv) -eq 0
+            cd ~
+            return
+        end
+        
+        # Initialize zoxide and replace this function
+        zoxide init fish | source
+        functions -e z  # Remove this wrapper
+        z $argv
+    end
+    
+    # OrbStack - only if docker commands are used
+    function docker --wraps docker
+        source ~/.orbstack/shell/init2.fish 2>/dev/null || :
+        functions -e docker  # Remove this wrapper
+        docker $argv
+    end
+end
 
 # uv
 fish_add_path "$HOME/.local/bin"
 
-string match -q "$TERM_PROGRAM" "kiro" and . (kiro --locate-shell-integration-path fish)
+# Lazy load kiro integration
+if status is-interactive; and string match -q "$TERM_PROGRAM" "kiro"
+    . (kiro --locate-shell-integration-path fish)
+end
