@@ -35,9 +35,9 @@ defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Find
 #=========================================================
 # Install essential tools from Brewfile
 #=========================================================
-echo -e "${GREEN}Starting .Brewfile installations...${RESET_COLOR}"
+echo -e "${GREEN}Starting Brewfile installations...${RESET_COLOR}"
 brew bundle
-echo -e "\n${GREEN}.Brewfile install has just completed!!${RESET_COLOR}\n"
+echo -e "\n${GREEN}Brewfile install has just completed!!${RESET_COLOR}\n"
 sleep 3s
 #=========================================================
 # Create Symlink
@@ -68,8 +68,8 @@ sleep 1s
 #=========================================================
 # Setup fish-shell (fish-shell is contained in Brewfile)
 #=========================================================
-grep -E "/usr/local/bin/fish" /etc/shells || echo "/usr/local/bin/fish" | sudo tee -a /etc/shells # If there is no fish in the shell listing file, add it to the end of the line.
-chsh -s /usr/local/bin/fish
+grep -E "/opt/homebrew/bin/fish" /etc/shells || echo "/opt/homebrew/bin/fish" | sudo tee -a /etc/shells # If there is no fish in the shell listing file, add it to the end of the line.
+chsh -s /opt/homebrew/bin/fish
 
 #=========================================================
 # Finish
