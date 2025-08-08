@@ -7,8 +7,8 @@ My Mac OS X setup manual.
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
 
-- [1. Executable `sudo` without password.(using `sudo` into setup.sh)](#1-executable-sudo-without-passwordusing-sudo-into-setupsh)
-- [2. privilege](#2-privilege)
+- [1. Touch ID for sudo authentication (modern approach)](#1-touch-id-for-sudo-authentication-modern-approach)
+- [2. Homebrew permissions (modern approach)](#2-homebrew-permissions-modern-approach)
 - [3. Install Homebrew](#3-install-homebrew)
 - [4. clone dotfiles](#4-clone-dotfiles)
 - [5. Kick `setup.sh`(Homebrew required)](#5-kick-setupshhomebrew-required)
@@ -18,27 +18,41 @@ My Mac OS X setup manual.
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-## 1. Executable `sudo` without password.(using `sudo` into setup.sh)  
+## 1. Touch ID for sudo authentication (modern approach)
 
+Enable Touch ID for sudo commands instead of password-less sudo (more secure approach).
+
+For **macOS Sonoma 14.x and above** (recommended):
 ```sh
-$ sudo visudo
-Password:
-
-# User privilege specification
-root    ALL=(ALL) ALL
-%admin  ALL=(ALL) ALL
-ryota.murakami ALL=(ALL) NOPASSWD: ALL
-
-:wq
+sudo nano /etc/pam.d/sudo_local
+# Add this line:
+auth sufficient pam_tid.so
 ```
 
-> see:<a href="http://blog.bungu-do.jp/archives/2417" target="_blank">http://blog.bungu-do.jp/archives/2417</a>
-
-## 2 privilege
-
+For **older macOS versions**:
 ```sh
-sudo chown -R ryota.murakami /usr/local
+sudo nano /etc/pam.d/sudo
+# Add 'auth sufficient pam_tid.so' as the second line
 ```
+
+> See: <a href="https://9to5mac.com/2025/03/07/security-bite-stop-typing-your-sudo-password-use-touch-id-instead/" target="_blank">Touch ID for sudo on macOS (2025 Guide)</a>
+
+## 2. Homebrew permissions (modern approach)
+
+Modern Homebrew handles permissions automatically during installation. 
+
+For **Apple Silicon Macs** (M1/M2/M3): Homebrew installs to `/opt/homebrew`  
+For **Intel Macs**: Homebrew installs to `/usr/local`
+
+**No manual ownership changes are required** - Homebrew installer sets up proper permissions automatically.
+
+If you encounter permission issues, use:
+```sh
+brew doctor
+# Follow the specific suggestions provided
+```
+
+> See: <a href="https://docs.brew.sh/Installation" target="_blank">Official Homebrew Installation Guide</a> | <a href="https://www.nyx.net/~mlu/pages/computing/installing_and_configuring/fixing_ownership_and_permission_of_usr_local_content_for_Homebrew/" target="_blank">Homebrew Permissions Troubleshooting</a>
 
 ## 3. Install Homebrew
 
@@ -93,13 +107,8 @@ https://github.com/hokaccha/nodebrew
 
 ## Extra. Any Manual Tasks
 
-- change `¥` to `\` at OS X system config
 - install karabiner-elements
 - system prefefences > hidden dock
-- system prefefences > - to dark OS menu-bar & dock
-- terminal.app -> Preference -> Profiles -> Keybord -> ✔︎ Use Option as Meta Key
-- system prefefences > keybord > Shorcuts > MIsson Control > Show Notification Center `${F2}`
-- System Preferences > Keybord > App Shortcut > Google Chrome.app > press + button of window bottom > type "Developer Tools" and set `^O` as a shortcut
 - System Preferences > Keybord > App Shortcut > Others > type action "Log Out ryota..." > set `cmd + option + q` as shortcut
   - OSX default shortcut `cmd + option + q` of "Log Out ryota..." is conflict my custom editor's "close project" shortcut 
   - See: https://apple.stackexchange.com/questions/210517/disable-shift-cmd-q-for-logout
