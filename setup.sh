@@ -35,10 +35,36 @@ defaults write com.apple.finder _FXShowPosixPathInTitle -bool true; killall Find
 #=========================================================
 # Install essential tools from Brewfile
 #=========================================================
-echo -e "${GREEN}Starting Brewfile installations...${RESET_COLOR}"
-brew bundle
-echo -e "\n${GREEN}Brewfile install has just completed!!${RESET_COLOR}\n"
-sleep 3s
+# Decide whether to skip brew bundle by checking if all current leaves exist in Brewfile
+BREWFILE="$HOME/dotfiles/Brewfile"
+if [ -f "$BREWFILE" ]; then
+  # collect current leaves (avoid mapfile for macOS bash 3.2 compatibility)
+  LEAVES="$(brew leaves 2>/dev/null | sort -u)"
+  # collect brew entries from Brewfile (formula names only)
+  BREW_PKGS="$(awk -F '"' '/^\s*brew\s+"/{print $2}' "$BREWFILE" | sort -u)"
+
+  ALL_CONTAINED=1
+  if [ -n "$LEAVES" ]; then
+    for leaf in $LEAVES; do
+      if ! echo "$BREW_PKGS" | grep -qx "$leaf"; then
+        ALL_CONTAINED=0
+        break
+      fi
+    done
+  fi
+
+  if [ "$ALL_CONTAINED" -eq 1 ]; then
+    echo -e "${BLUE}All brew leaves are present in Brewfile. Skipping brew bundle.${RESET_COLOR}"
+  else
+    echo -e "${GREEN}Starting Brewfile installations...${RESET_COLOR}"
+    brew bundle
+    echo -e "\n${GREEN}Brewfile install has just completed!!${RESET_COLOR}\n"
+    sleep 3s
+  fi
+else
+  echo -e "${YELLOW}Brewfile not found at $BREWFILE. Running brew bundle in current directory if Brewfile exists here...${RESET_COLOR}"
+  [ -f Brewfile ] && { echo -e "${GREEN}Starting Brewfile installations...${RESET_COLOR}"; brew bundle; echo -e "\n${GREEN}Brewfile install has just completed!!${RESET_COLOR}\n"; sleep 3s; } || echo -e "${RED}No Brewfile found. Skipping brew bundle.${RESET_COLOR}"
+fi
 #=========================================================
 # Create Symlink
 #=========================================================
