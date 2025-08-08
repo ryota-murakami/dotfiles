@@ -1,10 +1,20 @@
+" 既存の if has('vim_starting') の中を安全化
 if has('vim_starting')
+  if isdirectory(expand('~/.vim/bundle/neobundle.vim'))
     set runtimepath+=~/.vim/bundle/neobundle.vim
     call neobundle#begin(expand('~/.vim/bundle'))
-        NeoBundle 'editorconfig/editorconfig-vim'
-        NeoBundle 'dag/vim-fish'
-        NeoBundle 'vim-scripts/grep.vim'
+      NeoBundle 'editorconfig/editorconfig-vim'
+      NeoBundle 'dag/vim-fish'
+      NeoBundle 'vim-scripts/grep.vim'
     call neobundle#end()
+  endif
+endif
+
+" molokai が無いときに止まらないように
+if !empty(globpath(&rtp, 'colors/molokai.vim'))
+  colorscheme molokai
+else
+  silent! colorscheme default
 endif
 
 colorscheme molokai
