@@ -140,7 +140,7 @@
     },
     "zsh": { "path": "/bin/zsh", "args": ["-l"] },
     "fish": {
-      "path": "/usr/local/bin/fish", // keep fish so you can still pick it
+      "path": "/opt/homebrew/bin/fish", // keep fish so you can still pick it
       "args": ["-l"]
     }
   },
