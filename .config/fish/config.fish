@@ -12,12 +12,13 @@ alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
 
+set -x PATH /opt/homebrew/bin  $PATH
+
 zoxide init fish | source
 
 set -gx LSCOLORS "CxGxBxDxCxEgEdxbxgxcxd"
 set -gx EZA_COLORS "di=1;32"
 set -x LESS "-R"
-set -x PATH $HOME/nvim-macos/bin $PATH
 
 set -g __fish_git_prompt_shorten_branch_len 30
 
