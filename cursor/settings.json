@@ -3,14 +3,32 @@
   "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
   "editor.language.brackets": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ]
   ],
   "editor.language.colorizedBracketPairs": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ]
   ],
   "editor.guides.bracketPairs": "active",
   "editor.autoClosingDelete": "always",
@@ -127,7 +145,9 @@
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": ["workbench.colorCustomizations"],
+  "workbench.settings.applyToAllProfiles": [
+    "workbench.colorCustomizations"
+  ],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
@@ -136,12 +156,21 @@
   "terminal.integrated.profiles.osx": {
     "bash": {
       "path": "/bin/bash", // or e.g. "/opt/homebrew/bin/bash"
-      "args": ["-l"] // login shell so you get ~/.bash_profile
+      "args": [
+        "-l"
+      ] // login shell so you get ~/.bash_profile
     },
-    "zsh": { "path": "/bin/zsh", "args": ["-l"] },
+    "zsh": {
+      "path": "/bin/zsh",
+      "args": [
+        "-l"
+      ]
+    },
     "fish": {
       "path": "/opt/homebrew/bin/fish", // keep fish so you can still pick it
-      "args": ["-l"]
+      "args": [
+        "-l"
+      ]
     }
   },
   "terminal.integrated.defaultProfile.osx": "bash",
@@ -236,14 +265,33 @@
     "**/.yarn": true
   },
   "debug.javascript.unmapMissingSources": true,
-  "javascript.preferences.autoImportFileExcludePatterns": ["e2e"],
-  "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "javascript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
-    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
-    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
-    ["classnames\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
-    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"]
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"']([^\"']*).*?[\"']"
+    ],
+    [
+      "daisyui([^]*)",
+      "daisyui=[\"']([^\"']*)"
+    ],
+    [
+      "clsx\\(([^)]*)\\)",
+      "(?:'|\"|`)([^']*)(?:'|\"|`)"
+    ],
+    [
+      "classnames\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*)[\"'`]"
+    ],
+    [
+      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
+      "[`'\"`]([^'\"`;]*)[`'\"`]"
+    ]
   ],
   "surround.custom": {
     "Double Quote": {
@@ -251,14 +299,24 @@
       "disabled": false,
       "description": "\"...\"",
       "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-      "languageIds": ["html", "javascript", "typescript", "markdown"]
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ]
     },
     "Parenthesis": {
       "label": "()",
       "disabled": false,
       "description": "Just parenthesis",
       "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
-      "languageIds": ["html", "javascript", "typescript", "markdown"]
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ]
     }
   },
   "editor.minimap.enabled": true,
@@ -351,7 +409,8 @@
   "cursor.windowSwitcher.sidebarHoverCollapsed": true,
   "diffEditor.maxComputationTime": 0,
   "cursor.terminal.usePreviewBox": true,
-  "[shellscript]": {
-    "editor.defaultFormatter": "mkhl.shfmt"
-  }
+  "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+  "extensions.allowed": "*",
+  "cursor.composer.shouldAutoAcceptDiffs": false,
+  "playwright.updateSnapshots": "no-override",
 }

@@ -2150,10 +2150,6 @@
     "when": "editorHasDocumentSelectionFormattingProvider && editorTextFocus && !editorReadonly"
   },
   {
-    "key": "ctrl+x ctrl+x",
-    "command": "prettier.forceFormatDocument"
-  },
-  {
     "key": "f7",
     "command": "-editor.action.accessibleDiffViewer.next",
     "when": "isInDiffEditor"
@@ -2692,5 +2688,19 @@
   {
     "key": "cmd+e",
     "command": "markdown.showPreview"
+  },
+  {
+    "key": "ctrl+x ctrl+x",
+    "command": "prettier.forceFormatDocument"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "-aipopup.action.modal.generate",
+    "when": "editorFocus && !composerBarIsVisible"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "-editor.action.inlineDiffs.focusEditor",
+    "when": "editorHasPromptBar && editorPromptBarFocused"
   }
 ]
