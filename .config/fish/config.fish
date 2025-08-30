@@ -11,6 +11,7 @@ alias dotfiles="cd ~/dotfiles"
 alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
+alias claudia="cd ~/.claude"
 
 set -x PATH /opt/homebrew/bin  $PATH
 
