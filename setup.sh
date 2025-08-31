@@ -27,6 +27,16 @@ echo -e "${GREEN}Enabling POSIX path in Finder title bar...${RESET_COLOR}"
 defaults write com.apple.finder _FXShowPosixPathInTitle -bool true
 echo -e "${BLUE}POSIX path is now shown in Finder title bar.${RESET_COLOR}"
 
+echo -e "${GREEN}Disabling automatic text transformations to keep typing intentional and eco-friendly...${RESET_COLOR}"
+echo -e "${CYAN}Turning off automatic capitalization, dash/quote substitution, spelling correction and text completion.${RESET_COLOR}"
+defaults write NSGlobalDomain NSAutomaticCapitalizationEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticDashSubstitutionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticQuoteSubstitutionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool false
+defaults write NSGlobalDomain NSAutomaticTextCompletionEnabled -bool false
+echo -e "${BLUE}Automatic text transformations have been disabled.${RESET_COLOR}"
+echo -e "${YELLOW}Tip: These settings reduce accidental edits and unnecessary typing — a small step toward being kinder to your time and device energy use.${RESET_COLOR}"
+
 echo -e "${GREEN}Restarting Finder...${RESET_COLOR}"
 killall Finder
 echo -e "${BLUE}Finder has been restarted.${RESET_COLOR}"
