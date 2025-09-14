@@ -17,3 +17,5 @@ CLAUDE.md
 uploads/
 usage_tracking2.json
 .serena
+.conductor
+.playwright-mcp
