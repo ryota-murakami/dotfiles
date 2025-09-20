@@ -150,3 +150,4 @@ eval "$(zoxide init zsh)"
  source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
+export PATH=$PATH:$HOME/.maestro/bin
