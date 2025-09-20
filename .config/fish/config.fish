@@ -310,6 +310,31 @@ end
 # uv
 fish_add_path "$HOME/.local/bin"
 
+# Java 17 and Android SDK environment variables
+# Try to set JAVA_HOME to Java 17 if available on macOS
+if test -x /usr/libexec/java_home
+    set -l _java17 ( /usr/libexec/java_home -v17 2>/dev/null )
+    if test -n "$_java17"
+        set -x JAVA_HOME "$_java17"
+    end
+end
+
+# Android SDK
+set -x ANDROID_HOME $HOME/Library/Android/sdk
+
+# Add Android emulator and platform-tools to PATH if they exist and aren't already present
+if test -d "$ANDROID_HOME/emulator"
+    if not contains -- "$ANDROID_HOME/emulator" $PATH
+        set -x PATH $PATH $ANDROID_HOME/emulator
+    end
+end
+
+if test -d "$ANDROID_HOME/platform-tools"
+    if not contains -- "$ANDROID_HOME/platform-tools" $PATH
+        set -x PATH $PATH $ANDROID_HOME/platform-tools
+    end
+end
+
 # Lazy load kiro integration
 if status is-interactive; and string match -q "$TERM_PROGRAM" "kiro"
     . (kiro --locate-shell-integration-path fish)

@@ -61,3 +61,4 @@ eval "$(pyenv init -)"
 eval "$(zoxide init bash)"
 
 . "$HOME/.cargo/env"
+export PATH=$PATH:$HOME/.maestro/bin
