@@ -151,6 +151,16 @@ function pid_by_port
     sudo lsof -i :$argv
 end
 
+function kill-port
+    if test -z "$argv[1]"
+        echo "Usage: kill-port <port>"
+        echo "Example: kill-port 3000"
+        return 1
+    end
+    lsof -ti :$argv[1] | xargs kill -9
+    echo "Killed processes on port $argv[1]"
+end
+
 function show_all_commands
     for dir in (echo $PATH | string split " ")
         if test $dir != "$HOME/Library/pnpm"
