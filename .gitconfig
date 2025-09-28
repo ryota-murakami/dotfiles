@@ -30,8 +30,8 @@
 
 
 [user]
-  name = Ryota Murakami
-  email = dojce1048@gmail.com
+	name = Ryota Murakami
+	email = dojce1048@gmail.com
 [push]
   default = current
 [pull]
