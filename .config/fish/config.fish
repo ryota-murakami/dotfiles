@@ -349,3 +349,5 @@ end
 if status is-interactive; and string match -q "$TERM_PROGRAM" "kiro"
     . (kiro --locate-shell-integration-path fish)
 end
+
+source ~/.safe-chain/scripts/init-fish.fish # Safe-chain Fish initialization script
