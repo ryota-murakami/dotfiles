@@ -151,3 +151,5 @@ eval "$(zoxide init zsh)"
 
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 export PATH=$PATH:$HOME/.maestro/bin
+
+source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
