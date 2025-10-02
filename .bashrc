@@ -26,3 +26,5 @@ if [ -d "$HOME/Library/Android/sdk" ]; then
 		*) export PATH="$PATH:$ANDROID_HOME/platform-tools" ;;
 	esac
 fi
+
+source ~/.safe-chain/scripts/init-posix.sh # Safe-chain bash initialization script
