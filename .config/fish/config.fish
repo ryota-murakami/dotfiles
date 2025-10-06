@@ -12,6 +12,7 @@ alias nsx="cd ~/nsx"
 alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
 alias claudia="cd ~/.claude"
+alias corelive="cd ~/corelive"
 
 set -x PATH /opt/homebrew/bin  $PATH
 
