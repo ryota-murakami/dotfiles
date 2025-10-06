@@ -1,11 +1,6 @@
 // Place your key bindings in this file to override the defaults
 [
   {
-    "key": "ctrl+w",
-    "command": "workbench.action.closeWindow",
-    "when": "!editorIsOpen && !multipleEditorGroups"
-  },
-  {
     "key": "esc",
     "command": "workbench.files.action.focusOpenEditorsView"
   },
@@ -772,11 +767,6 @@
   {
     "key": "shift+cmd+k",
     "command": "-editor.action.deleteLines",
-    "when": "textInputFocus && !editorReadonly"
-  },
-  {
-    "key": "ctrl+w",
-    "command": "deleteAllLeft",
     "when": "textInputFocus && !editorReadonly"
   },
   {
@@ -2702,5 +2692,34 @@
     "key": "shift+cmd+k",
     "command": "-editor.action.inlineDiffs.focusEditor",
     "when": "editorHasPromptBar && editorPromptBarFocused"
+  },
+  {
+    "key": "shift+cmd+s",
+    "command": "-workbench.action.openAgentsView",
+    "when": "!isInBackgroundComposerWindow"
+  },
+  {
+    "key": "shift+cmd+s",
+    "command": "-workbench.action.files.saveLocalFile",
+    "when": "remoteFileDialogVisible"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-editor.action.accessibleViewGoToSymbol",
+    "when": "accessibilityHelpIsShown && accessibleViewGoToSymbolSupported || accessibleViewGoToSymbolSupported && accessibleViewIsShown"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-cursor.composer.openAgentWindow",
+    "when": "cursor.appLayoutEnabled && cursor.appLayout != 'agent'"
+  },
+  {
+    "key": "ctrl+w",
+    "command": "deleteAllLeft",
+    "when": "textInputFocus && !editorReadonly"
+  },
+  {
+    "key": "ctrl+w",
+    "command": "workbench.action.switchWindow"
   }
 ]
