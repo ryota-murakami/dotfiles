@@ -13,6 +13,7 @@ alias last="cd ~/laststance"
 alias io="cd ~/laststance/laststance.io"
 alias claudia="cd ~/.claude"
 alias corelive="cd ~/corelive"
+alias yalclist="mkdir -p (yalc dir)/packages; cd (yalc dir)/packages; and e"
 
 set -x PATH /opt/homebrew/bin  $PATH
 
