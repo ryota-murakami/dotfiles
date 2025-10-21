@@ -83,14 +83,31 @@
   "editor.suggest.localityBonus": true,
   "editor.tabSize": 2,
   "editor.tokenColorCustomizations": {
-    "textMateRules": [
-      {
-        "scope": "comment",
-        "settings": {
-          "foreground": "#bafdc16b"
+    "[Default Dark Modern]": {
+      "textMateRules": [
+        {
+          "scope": [
+            "string.quoted.single",
+            "string.quoted.double"
+          ],
+          "settings": {
+            "foreground": "#4FC1FF"
+          }
+        },
+        {
+          "scope": "string.template",
+          "settings": {
+            "foreground": "#4FC1FF"
+          }
+        },
+        {
+          "scope": "comment",
+          "settings": {
+            "foreground": "#bafdc16b"
+          }
         }
-      }
-    ]
+      ]
+    }
   },
   "emmet.includeLanguages": {
     "postcss": "css"
@@ -98,7 +115,7 @@
   "eslint.format.enable": true,
   "eslint.ignoreUntitled": true,
   "eslint.lintTask.enable": true,
-  "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
+  "eslint.lintTask.options": "",
   "eslint.nodePath": "~/.volta/bin/node",
   "eslint.trace.server": "verbose",
   "explorer.compactFolders": false,
@@ -194,7 +211,7 @@
   "workbench.tree.indent": 14,
   "workbench.startupEditor": "none",
   "github.copilot.enable": {
-    "*": false,
+    "*": true,
     "plaintext": false,
     "markdown": false,
     "scminput": false,
@@ -219,67 +236,31 @@
   "github.copilot.chat.languageContext.inline.typescript.enabled": true,
   "github.copilot.chat.languageContext.typescript.enabled": true,
   "github.copilot.chat.codesearch.enabled": true,
-  "colorful-comments-refreshed.tags": [
-    {
-      "tag": "!",
-      "color": "#ADD8E6",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "?",
-      "color": "#0076FF",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "//",
-      "color": "#474747",
-      "strikethrough": true,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "^",
-      "color": "#EAF622",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "*",
-      "color": "#28FF00",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "&",
-      "color": "#FF06A0",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "~",
-      "color": "#BE00FF",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    },
-    {
-      "tag": "todo",
-      "color": "#FF8C00",
-      "strikethrough": false,
-      "backgroundColor": "transparent"
-    }
-  ],
   "chat.agent.maxRequests": 100000,
-  "github.copilot.chat.completionContext.typescript.mode": "sidecar",
   "github.copilot.chat.editor.temporalContext.enabled": true,
   "github.copilot.chat.edits.temporalContext.enabled": true,
   "github.copilot.chat.generateTests.codeLens": true,
   "chat.extensionTools.enabled": false,
   "editor.formatOnSave": true,
-  "chat.mcp.discovery.enabled": false,
+  "chat.mcp.discovery.enabled": {
+    "claude-desktop": false,
+    "windsurf": false,
+    "cursor-global": false,
+    "cursor-workspace": false
+  },
   "chat.mcp.serverSampling": {},
   "github.copilot.nextEditSuggestions.enabled": true,
   "github.copilot.chat.pullRequestDescriptionGeneration.instructions": [],
-  "chat.mcp.enabled": false,
-  "chat.tools.autoApprove": true
+  "chat.tools.terminal.autoApprove": {
+    "git checkout": true,
+    "pnpm": true
+  },
+  "chat.mcp.gallery.enabled": true,
+  "chat.useNestedAgentsMdFiles": true,
+  "github.copilot.chat.agent.thinkingTool": true,
+  "chat.tools.global.autoApprove": true,
+  "tailwindCSS.classFunctions": [
+    "cva",
+    "cx"
+  ]
 }
