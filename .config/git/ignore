@@ -3,3 +3,5 @@
 **/CLAUDE.local.md
 
 **/.claude/settings.local.json
+**/.cursor/.agent-tools
+**/.cursor/.agent-notes
