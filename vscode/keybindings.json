@@ -1,11 +1,6 @@
 // Place your key bindings in this file to override the defaults
 [
   {
-    "key": "ctrl+w",
-    "command": "workbench.action.closeWindow",
-    "when": "!editorIsOpen && !multipleEditorGroups"
-  },
-  {
     "key": "esc",
     "command": "workbench.files.action.focusOpenEditorsView"
   },
@@ -1694,10 +1689,6 @@
     "when": "textInputFocus"
   },
   {
-    "key": "shift+cmd+.",
-    "command": "aichat.close-sidebar"
-  },
-  {
     "key": "alt+cmd+n",
     "command": "-extension.advancedNewFile"
   },
@@ -2482,5 +2473,14 @@
   {
     "key": "cmd+e",
     "command": "markdown.showPreview"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-editor.action.accessibleViewGoToSymbol",
+    "when": "accessibilityHelpIsShown && accessibleViewGoToSymbolSupported || accessibleViewGoToSymbolSupported && accessibleViewIsShown"
+  },
+  {
+    "key": "ctrl+w",
+    "command": "workbench.action.switchWindow"
   }
 ]
