@@ -22,3 +22,5 @@ usage_tracking2.json
 AGENTS.md
 .cursor
 .claude
+**/.cursor/.agent-tools
+**/.cursor/.agent-notes
