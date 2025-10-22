@@ -353,3 +353,6 @@ if status is-interactive; and string match -q "$TERM_PROGRAM" "kiro"
 end
 
 # source ~/.safe-chain/scripts/init-fish.fish # Safe-chain Fish initialization script
+
+# Added by Windsurf
+fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
