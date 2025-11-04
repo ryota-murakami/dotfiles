@@ -353,6 +353,8 @@ if status is-interactive; and string match -q "$TERM_PROGRAM" "kiro"
 end
 
 # source ~/.safe-chain/scripts/init-fish.fish # Safe-chain Fish initialization script
+# https://www.reddit.com/r/MacOS/comments/1no872w/psa_macos_26_bug_leads_to_performance_issues_in/
+launchctl setenv CHROME_HEADLESS 1
 
 # Added by Windsurf
 fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
