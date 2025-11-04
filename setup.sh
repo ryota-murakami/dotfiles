@@ -37,6 +37,9 @@ defaults write NSGlobalDomain NSAutomaticTextCompletionEnabled -bool false
 echo -e "${BLUE}Automatic text transformations have been disabled.${RESET_COLOR}"
 echo -e "${YELLOW}Tip: These settings reduce accidental edits and unnecessary typing — a small step toward being kinder to your time and device energy use.${RESET_COLOR}"
 
+defaults write com.apple.assistant.support 'Siri Enabled' -bool false
+echo -e "${BLUE}Siri has been disabled.${RESET_COLOR}"
+
 echo -e "${GREEN}Restarting Finder...${RESET_COLOR}"
 killall Finder
 echo -e "${BLUE}Finder has been restarted.${RESET_COLOR}"
