@@ -20,7 +20,7 @@
   "typescript.suggest.completeFunctionCalls": true,
   "typescript.tsc.autoDetect": "on",
   "typescript.tsdk": "./node_modules/typescript/lib",
-  "typescript.tsserver.maxTsServerMemory": 4440,
+  "typescript.tsserver.maxTsServerMemory": 12440,
   "typescript.preferences.renameMatchingJsxTags": true,
   "javascript.preferences.renameMatchingJsxTags": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -144,7 +144,7 @@
       "args": ["-l"]
     }
   },
-  "terminal.integrated.defaultProfile.osx": "bash",
+  "terminal.integrated.defaultProfile.osx": "fish",
   "window.zoomLevel": 2,
   "launch": {
     "configurations": [],
@@ -152,7 +152,7 @@
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "outline.collapseItems": "alwaysCollapse",
-  "playwright.reuseBrowser": false,
+  "playwright.reuseBrowser": true,
   "playwright.showTrace": false,
   "cursor.cpp.disabledLanguages": [],
   "editor.formatOnPaste": true,
@@ -162,7 +162,6 @@
   "editor.gotoLocation.alternativeReferenceCommand": "editor.action.explainSymbol",
   "typescript.preferGoToSourceDefinition": true,
   "javascript.preferGoToSourceDefinition": true,
-  "gitlens.plusFeatures.enabled": false,
   "gitlens.virtualRepositories.enabled": false,
   "gitlens.currentLine.pullRequests.enabled": false,
   "gitlens.menus": {
@@ -233,6 +232,8 @@
   "editor.folding": false,
   "gitlens.hovers.enabled": false,
   "files.exclude": {
+    "**/.idea": true,
+    "**/.serena": true,
     "**/.yarn": true
   },
   "debug.javascript.unmapMissingSources": true,
@@ -324,7 +325,6 @@
     "*.sdb": "${capture}.${extname}-*",
     "*.s3db": "${capture}.${extname}-*"
   },
-  "cursor.composer.shouldChimeAfterChatFinishes": true,
   "cursor.composer.shouldAllowCustomModes": true,
   "cursor.composer.collapsePaneInputBoxPills": true,
   "cursor.general.globalCursorIgnoreList": [
@@ -368,6 +368,28 @@
   "[github-actions-workflow]": {
     "editor.defaultFormatter": "redhat.vscode-yaml"
   },
-  "cursor.enable_git_worktrees_setting": true,
   "cursor.agent_layout_browser_beta_setting": true,
+  "files.watcherExclude": {
+    "**/.idea/**": true,
+    "**/.next/**": true,
+    "**/.serena/**": true
+  },
+  "search.exclude": {
+    "**/.idea/**": true
+  },
+  "claude-code.dangerously": true,
+  "cursor.enable_git_worktrees_setting": true,
+  "json.schemaDownload.enable": true,
+  "gitlens.gitkraken.mcp.autoEnabled": false,
+  "cursor.rpcFileLogger.enabled": true,
+  "cursor.composer.usageSummaryDisplay": "always",
+  "cursor.composer.shouldChimeAfterChatFinishes": true,
+  "update.releaseTrack": "prerelease",
+  "emmet.triggerExpansionOnTab": true,
+  "emmet.useInlineCompletions": true,
+  "tailwindCSS.emmetCompletions": true,
+  "claudeCode.environmentVariables": [],
+  "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
+  "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
+  "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false
 }

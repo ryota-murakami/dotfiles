@@ -835,7 +835,7 @@
     "command": "workbench.action.showCommands"
   },
   {
-    "key": "ctrl+i",
+    "key": "ctrl+cmd+i",
     "command": "editor.action.triggerSuggest",
     "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible"
   },
@@ -853,11 +853,6 @@
     "key": "ctrl+space",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "config.terminal.integrated.shellIntegration.suggestEnabled && terminalFocus && terminalShellIntegrationEnabled && !accessibilityModeEnabled && terminalShellType == 'pwsh'"
-  },
-  {
-    "key": "ctrl+i",
-    "command": "focusSuggestion",
-    "when": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
   },
   {
     "key": "ctrl+space",
@@ -1172,7 +1167,7 @@
     "command": "-workbench.action.closeOtherEditors"
   },
   {
-    "key": "ctrl+space",
+    "key": "ctrl+x ctrl+x",
     "command": "eslint.executeAutofix"
   },
   {
@@ -2381,10 +2376,6 @@
     "when": "hasChatProvider && inChat"
   },
   {
-    "key": "cmd+l",
-    "command": "aichat.insertselectionintochat"
-  },
-  {
     "key": "shift+cmd+l",
     "command": "-aichat.insertselectionintochat"
   },
@@ -2501,7 +2492,7 @@
     "when": "workbench.explorer.openEditorsView.active"
   },
   {
-    "key": "alt+cmd+1",
+    "key": "ctrl+x ctrl+1",
     "command": "workbench.action.toggleSidebarVisibility"
   },
   {
@@ -2601,10 +2592,6 @@
     "when": "chatEditingParticipantRegistered && chatIsEnabled && view != 'workbench.panel.chat.view.edits'"
   },
   {
-    "key": "ctrl+cmd+i",
-    "command": "editor.action.marker.nextInFiles"
-  },
-  {
     "key": "ctrl+alt+r",
     "command": "-workbench.action.terminal.runRecentCommand",
     "when": "terminalFocus && terminalHasBeenCreated && !accessibilityModeEnabled || terminalFocus && terminalProcessSupported && !accessibilityModeEnabled"
@@ -2680,7 +2667,7 @@
     "command": "markdown.showPreview"
   },
   {
-    "key": "ctrl+x ctrl+x",
+    "key": "ctrl+space",
     "command": "prettier.forceFormatDocument"
   },
   {
@@ -2721,5 +2708,74 @@
   {
     "key": "ctrl+w",
     "command": "workbench.action.switchWindow"
+  },
+  {
+    "key": "alt+cmd+l",
+    "command": "-toggleSearchEditorContextLines",
+    "when": "inSearchEditor"
+  },
+  {
+    "key": "cmd+l",
+    "command": "workbench.action.toggleAuxiliaryBar"
+  },
+  {
+    "key": "cmd+l",
+    "command": "-composer.sendToAgent",
+    "when": "editorHasPromptBar && editorPromptBarFocused"
+  },
+  {
+    "key": "ctrl+d",
+    "command": "-deleteRight",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+cmd+s",
+    "command": "-workbench.action.toggleUnifiedSidebar",
+    "when": "cursor.agentIdeUnification.enabled && !isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-workbench.action.terminal.chat.start",
+    "when": "chatIsEnabled && terminalChatAgentRegistered && terminalFocusInAny && terminalHasBeenCreated || chatIsEnabled && terminalChatAgentRegistered && terminalFocusInAny && terminalProcessSupported"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-editor.action.triggerSuggest",
+    "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible"
+  },
+  {
+    "key": "alt+escape",
+    "command": "-editor.action.triggerSuggest",
+    "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible"
+  },
+  {
+    "key": "cmd+k m",
+    "command": "-pr.makeSuggestion",
+    "when": "commentEditorFocused"
+  },
+  {
+    "key": "ctrl+shift+space",
+    "command": "-issue.suggestRefresh",
+    "when": "suggestWidgetVisible"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-focusSuggestion",
+    "when": "suggestWidgetVisible && textInputFocus && !suggestWidgetHasFocusedSuggestion"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-workbench.action.terminal.suggestToggleDetails",
+    "when": "simpleSuggestWidgetHasFocusedSuggestion && terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || simpleSuggestWidgetHasFocusedSuggestion && terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-toggleSuggestionDetails",
+    "when": "suggestWidgetHasFocusedSuggestion && suggestWidgetVisible && textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+i",
+    "command": "-workbench.panel.chat",
+    "when": "workbench.panel.chat.view.copilot.active"
   }
 ]
