@@ -100,7 +100,7 @@ do
 
     ln -sf $HOME/dotfiles/$f $HOME/$f
 
-    echo -e "$Created {BLACK_BOLD}${BG_GREEN}${f}${RESET_COLOR} symlink."
+    echo -e "${BLACK_BOLD}${BG_GREEN}Created ${f}${RESET_COLOR} symlink."
 done
 echo -e "${BLACK_BOLD}${BG_GREEN}Symlink creation task completed!${RESET_COLOR}"
 sleep 1s

@@ -357,9 +357,6 @@ end
 launchctl setenv CHROME_HEADLESS 1
 
 # Added by Windsurf
-fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
+fish_add_path "$HOME/.codeium/windsurf/bin"
 # Added by Antigravity
-fish_add_path /Users/ryotamurakami/.antigravity/antigravity/bin
-
-# Added by Windsurf
-fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
+fish_add_path "$HOME/.antigravity/antigravity/bin"
