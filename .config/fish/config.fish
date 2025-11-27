@@ -15,7 +15,13 @@ alias claudia="cd ~/.claude"
 alias corelive="cd ~/corelive"
 alias yalclist="mkdir -p (yalc dir)/packages; cd (yalc dir)/packages; and e"
 
-set -x PATH /opt/homebrew/bin  $PATH
+# =============================================================================
+# PATH CONFIGURATION (synchronized with .path for bash/zsh)
+# =============================================================================
+# Core paths - order: most specific → system defaults
+set -gx PATH /opt/homebrew/bin $PATH
+fish_add_path --prepend "$HOME/.cargo/bin"
+fish_add_path --prepend "$HOME/nvim-macos/bin"
 
 zoxide init fish | source
 
@@ -356,7 +362,14 @@ end
 # https://www.reddit.com/r/MacOS/comments/1no872w/psa_macos_26_bug_leads_to_performance_issues_in/
 launchctl setenv CHROME_HEADLESS 1
 
-# Added by Windsurf
-fish_add_path "$HOME/.codeium/windsurf/bin"
-# Added by Antigravity
-fish_add_path "$HOME/.antigravity/antigravity/bin"
+# =============================================================================
+# CONDITIONAL PATHS (synchronized with .path for bash/zsh)
+# =============================================================================
+# Maestro (for mobile UI testing)
+test -d "$HOME/.maestro/bin"; and fish_add_path "$HOME/.maestro/bin"
+
+# Windsurf (AI-powered IDE)
+test -d "$HOME/.codeium/windsurf/bin"; and fish_add_path "$HOME/.codeium/windsurf/bin"
+
+# Antigravity
+test -d "$HOME/.antigravity/antigravity/bin"; and fish_add_path "$HOME/.antigravity/antigravity/bin"
