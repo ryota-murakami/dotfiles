@@ -1,0 +1,48 @@
+# Shared PATH definitions for bash/zsh
+# This file is sourced by both .bash_profile and .zshrc
+# Fish shell handles PATH separately due to different syntax
+#
+# Philosophy:
+# - Core development tools should be available in all shells
+# - Order matters: earlier entries take precedence
+# - Conditional paths (like Android SDK) are handled in individual shell configs
+
+# =============================================================================
+# TOOL ENVIRONMENTS (must be set before PATH construction)
+# =============================================================================
+export VOLTA_HOME="$HOME/.volta"
+export PNPM_HOME="$HOME/Library/pnpm"
+export BUN_INSTALL="$HOME/.bun"
+export ANDROID_HOME="$HOME/Library/Android/sdk"
+
+# =============================================================================
+# CORE PATH DEFINITION
+# =============================================================================
+# Order: most specific → system defaults
+export PATH="\
+$HOME/.cargo/bin:\
+$HOME/nvim-macos/bin:\
+$VOLTA_HOME/bin:\
+$PNPM_HOME:\
+$BUN_INSTALL/bin:\
+/opt/homebrew/bin:\
+/usr/local/sbin:\
+$HOME/.local/bin:\
+/usr/local/bin:\
+$PATH"
+
+# =============================================================================
+# CONDITIONAL PATHS (only add if directory exists)
+# =============================================================================
+# Android SDK (for mobile development)
+[ -d "$ANDROID_HOME/emulator" ] && export PATH="$PATH:$ANDROID_HOME/emulator"
+[ -d "$ANDROID_HOME/platform-tools" ] && export PATH="$PATH:$ANDROID_HOME/platform-tools"
+
+# Maestro (for mobile UI testing)
+[ -d "$HOME/.maestro/bin" ] && export PATH="$PATH:$HOME/.maestro/bin"
+
+# Windsurf (AI-powered IDE)
+[ -d "$HOME/.codeium/windsurf/bin" ] && export PATH="$PATH:$HOME/.codeium/windsurf/bin"
+
+# Antigravity
+[ -d "$HOME/.antigravity/antigravity/bin" ] && export PATH="$PATH:$HOME/.antigravity/antigravity/bin"
