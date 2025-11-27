@@ -6,7 +6,7 @@ alias ga='git add --all && git commit'
 
 # 環境依存のショートカット
 if [ -r ~/.local_config.sh ]; then
-  source ./.local_config.sh
+  source ~/.local_config.sh
 fi
 
 # lsコマンドのカラー（Fish shellの設定に合わせて更新）

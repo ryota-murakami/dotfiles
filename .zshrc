@@ -99,25 +99,25 @@ source $ZSH/oh-my-zsh.sh
 # Example aliases
 alias zshconfig="mate ~/.zshrc"
 alias ohmyzsh="mate ~/.oh-my-zsh"
-alias c clear
-alias chrome /Applications/Google Chrome.app/Contents/MacOS/Google Chrome --guest
-alias clone 'cd ~/clone'
-alias dotfiles 'cd ~/dotfiles'
-alias exp 'cd ~/react-experimental-workspace'
-alias fork 'cd ~/fork'
-alias geek 'cd ~/laststance/geek-infiltration'
-alias home 'cd ~'
-alias last 'cd ~/laststance'
-alias lf perl -pe 's/n/nn/g'
-alias npbp npm outdated | grep -v Package | awk '{print $1}' | xargs -I% npm install --force %@latest
-alias nsx 'cd ~/nsx'
-alias pr '~/pr'
-alias repo 'cd ~/repository'
-alias utils 'cd ~/utils'
-alias v8 '/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs'
-alias vi /usr/bin/vim
-alias vscode-conf-dir cd $HOME/Library/Application Support/Code/User
-alias wanip 'curl https://ipinfo.io/ip'
+alias c="clear"
+alias chrome="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome --guest"
+alias clone="cd ~/clone"
+alias dotfiles="cd ~/dotfiles"
+alias exp="cd ~/react-experimental-workspace"
+alias fork="cd ~/fork"
+alias geek="cd ~/laststance/geek-infiltration"
+alias home="cd ~"
+alias last="cd ~/laststance"
+alias lf="perl -pe 's/n/nn/g'"
+alias npbp="npm outdated | grep -v Package | awk '{print \$1}' | xargs -I% npm install --force %@latest"
+alias nsx="cd ~/nsx"
+alias pr="~/pr"
+alias repo="cd ~/repository"
+alias utils="cd ~/utils"
+alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs"
+alias vi="/usr/bin/vim"
+alias vscode-conf-dir="cd $HOME/Library/Application Support/Code/User"
+alias wanip="curl https://ipinfo.io/ip"
 
 # Fish shellから移植された環境変数
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
