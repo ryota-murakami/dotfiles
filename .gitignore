@@ -40,3 +40,4 @@ Gemfile.lock
 .yarn/
 .pnpm/
 .cursor
+.gemini-clipboard
