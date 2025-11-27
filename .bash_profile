@@ -9,6 +9,11 @@ if [ -r ~/.local_config.sh ]; then
   source ~/.local_config.sh
 fi
 
+# =============================================================================
+# SHARED PATH CONFIGURATION (synchronized with .zshrc and fish config.fish)
+# =============================================================================
+[ -r ~/.path ] && source ~/.path
+
 # lsコマンドのカラー（Fish shellの設定に合わせて更新）
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
 
@@ -20,14 +25,6 @@ export LESS="-R"
 export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
-
-# ツール設定
-export VOLTA_HOME="$HOME/.volta"
-export PNPM_HOME="$HOME/Library/pnpm"
-export BUN_INSTALL="$HOME/.bun"
-
-# path（Fish shellの設定に合わせて更新）
-export PATH="$HOME/nvim-macos/bin:$VOLTA_HOME/bin:$PNPM_HOME:$BUN_INSTALL/bin:/usr/local/sbin:$HOME/.local/bin:$HOME/node_modules/.bin:$HOME/.composer/vendor/bin:/usr/local/bin:$PATH"
 
 # gitコマンド補完
 source /usr/local/etc/bash_completion.d/git-prompt.sh
@@ -60,5 +57,5 @@ eval "$(direnv hook bash)"
 eval "$(pyenv init -)"
 eval "$(zoxide init bash)"
 
-. "$HOME/.cargo/env"
-export PATH=$PATH:$HOME/.maestro/bin
+# Cargo environment (separate from PATH for proper initialization)
+[ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
