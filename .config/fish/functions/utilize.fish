@@ -1,3 +1,28 @@
+# utilize - Copy files/directories to monorepo package roots
+#
+# USAGE:
+#   utilize <file/dir> <package>
+#
+# ARGUMENTS:
+#   file/dir  - Path to the file or directory to copy
+#   package   - Target package name (browser|react|node|types|universal)
+#
+# PACKAGE MAPPING:
+#   browser   → packages/browser
+#   react     → packages/next-react
+#   node      → packages/node
+#   types     → packages/types
+#   universal → packages/universal
+#
+# REQUIREMENTS:
+#   - ~/utils directory must exist with packages/ subdirectory
+#   - Target package directory must exist
+#
+# EXAMPLES:
+#   utilize ./utils.ts browser      # Copy utils.ts to packages/browser/
+#   utilize ./components react      # Copy components/ dir to packages/next-react/
+#   utilize ./types.d.ts types      # Copy types.d.ts to packages/types/
+#
 function utilize --description 'Copy file or directory to a package root directory'
     # Show help if no arguments
     if test (count $argv) -eq 0
@@ -31,10 +56,10 @@ function utilize --description 'Copy file or directory to a package root directo
         return 1
     end
 
-    # Get workspace root (assuming we're somewhere in the workspace)
-    set workspace_root (git rev-parse --show-toplevel 2>/dev/null)
-    if test $status -ne 0
-        echo "Error: Not in a git repository. Cannot find workspace root." >&2
+    # Set workspace root to ~/utils
+    set workspace_root "$HOME/utils"
+    if not test -d $workspace_root
+        echo "Error: Workspace root '$workspace_root' does not exist." >&2
         return 1
     end
 
