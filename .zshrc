@@ -119,6 +119,11 @@ alias vi="/usr/bin/vim"
 alias vscode-conf-dir="cd $HOME/Library/Application Support/Code/User"
 alias wanip="curl https://ipinfo.io/ip"
 
+# =============================================================================
+# SHARED PATH CONFIGURATION (synchronized with .bash_profile and fish config.fish)
+# =============================================================================
+[ -r ~/.path ] && source ~/.path
+
 # Fish shellから移植された環境変数
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
 export EZA_COLORS="di=1;32"
@@ -129,16 +134,8 @@ export FZF_DEFAULT_COMMAND="fd --hidden --strip-cwd-prefix --exclude .git"
 export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
 export FZF_ALT_C_COMMAND="fd --type=d --hidden --strip-cwd-prefix --exclude .git"
 
-# ツール設定（Fish shellから移植）
-export VOLTA_HOME="$HOME/.volta"
-export PNPM_HOME="$HOME/Library/pnpm"
-export BUN_INSTALL="$HOME/.bun"
-
 # Enabile autocomplete
 autoload -U compinit; compinit
-
-# PATH（Fish shellの設定に合わせて更新）
-export PATH="$HOME/.cargo/bin:$HOME/nvim-macos/bin:$VOLTA_HOME/bin:$PNPM_HOME:$BUN_INSTALL/bin:/usr/local/sbin:$HOME/.local/bin:$PATH"
 
 [ -f ~/.fzf.zsh ] && source ~/.fzf.zsh
 
@@ -147,10 +144,8 @@ eval "$(direnv hook zsh)"
 eval "$(pyenv init -)"
 eval "$(zoxide init zsh)"
 
- source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
-export PATH=$PATH:$HOME/.maestro/bin
-
 
 # source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
