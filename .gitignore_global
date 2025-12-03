@@ -12,6 +12,8 @@ dockerfiles/resources/
 .vscode/settings.json
 tmp/
 .env.production
+
+# AI
 CLAUDE.md
 # by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
 uploads/
@@ -24,3 +26,4 @@ AGENTS.md
 .claude
 **/.cursor/.agent-tools
 **/.cursor/.agent-notes
+.qudo
