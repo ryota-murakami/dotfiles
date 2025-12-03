@@ -27,3 +27,4 @@ AGENTS.md
 **/.cursor/.agent-tools
 **/.cursor/.agent-notes
 .qudo
+.mcp.json
