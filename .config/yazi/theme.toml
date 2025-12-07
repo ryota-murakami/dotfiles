@@ -1,0 +1,40 @@
+# ~/.config/yazi/theme.toml
+
+[manager]
+foreground = "#c0caf5"
+background = "#1a1b26"
+
+# カーソルがあたってる要素
+current = "#7aa2f7"
+
+# 選択中の要素
+selected = "#bb9af7"
+
+# ディレクトリ
+directory = "#7dcfff"
+
+# シンボリックリンク
+symlink = "#e0af68"
+
+# 実行ファイル
+executable = "#9ece6a"
+
+# 隠しファイル
+hidden = "#565f89"
+
+# マークしたファイル
+mark = "#f7768e"
+
+[preview]
+foreground = "#c0caf5"
+background = "#1a1b26"
+
+[status]
+foreground = "#c0caf5"
+background = "#1a1b26"
+mode = "#7aa2f7"
+progress = "#bb9af7"
+
+[select]
+foreground = "#1a1b26"
+background = "#7aa2f7"
