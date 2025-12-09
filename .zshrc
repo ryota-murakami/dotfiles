@@ -149,3 +149,5 @@ source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 [[ "$TERM_PROGRAM" == "kiro" ]] && . "$(kiro --locate-shell-integration-path zsh)"
 
 # source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
+
+source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
