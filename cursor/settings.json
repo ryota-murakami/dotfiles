@@ -352,8 +352,6 @@
   "diffEditor.maxComputationTime": 0,
   "cursor.terminal.usePreviewBox": true,
   "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
-  "extensions.allowed": "*",
-  "cursor.composer.shouldAutoAcceptDiffs": false,
   "playwright.updateSnapshots": "all",
   "playwright.runGlobalSetupOnEachRun": false,
   "editor.experimental.preferTreeSitter.typescript": true,
@@ -368,7 +366,6 @@
   "[github-actions-workflow]": {
     "editor.defaultFormatter": "redhat.vscode-yaml"
   },
-  "cursor.agent_layout_browser_beta_setting": true,
   "files.watcherExclude": {
     "**/.idea/**": true,
     "**/.next/**": true,
@@ -377,8 +374,6 @@
   "search.exclude": {
     "**/.idea/**": true
   },
-  "claude-code.dangerously": true,
-  "cursor.enable_git_worktrees_setting": true,
   "json.schemaDownload.enable": true,
   "gitlens.gitkraken.mcp.autoEnabled": false,
   "cursor.rpcFileLogger.enabled": true,
@@ -387,9 +382,27 @@
   "update.releaseTrack": "prerelease",
   "emmet.triggerExpansionOnTab": true,
   "emmet.useInlineCompletions": true,
+  "emmet.syntaxProfiles": {
+    "html": {
+      "attr_quotes": "double"
+    },
+    "javascriptreact": {
+      "attr_quotes": "double"
+    },
+    "typescriptreact": {
+      "attr_quotes": "double"
+    }
+  },
   "tailwindCSS.emmetCompletions": true,
   "claudeCode.environmentVariables": [],
   "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
   "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
-  "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false
+  "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
+  "claudeCode.preferredLocation": "panel",
+  "npm-intellisense.scanDevDependencies": true,
+  "typescript.suggest.paths": false,
+  "javascript.suggest.paths": false,
+  "cursor.composer.shouldShowMarkdownHoverParticipantActions2": true,
+  "cursor.semanticSearch.includeCommitsWithFiles": true,
+  "editor.autoClosingBrackets": "always"
 }
