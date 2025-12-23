@@ -394,7 +394,9 @@
     }
   },
   "tailwindCSS.emmetCompletions": true,
-  "claudeCode.environmentVariables": [],
+  "claudeCode.environmentVariables": [
+  
+  ],
   "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
   "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
   "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
@@ -404,5 +406,7 @@
   "javascript.suggest.paths": false,
   "cursor.composer.shouldShowMarkdownHoverParticipantActions2": true,
   "cursor.semanticSearch.includeCommitsWithFiles": true,
-  "editor.autoClosingBrackets": "always"
+  "editor.autoClosingBrackets": "always",
+  "claudeCode.initialPermissionMode": "bypassPermissions",
+  "ipynb.experimental.serialization": false
 }
