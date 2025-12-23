@@ -18,7 +18,6 @@
 # LAZY-LOADED TOOLS:
 #   - pyenv (python, pip): Python version manager
 #   - direnv: Directory-specific environment variables
-#   - OrbStack (docker): Docker Desktop alternative
 #   - Kiro: AI terminal integration
 #
 # EXAMPLES:
@@ -27,9 +26,6 @@
 #
 #   # Subsequent calls are instant (pyenv already loaded):
 #   python script.py
-#
-#   # First docker call initializes OrbStack:
-#   docker ps
 #
 # HOW IT WORKS:
 #   1. Wrapper function intercepts the command
@@ -78,23 +74,6 @@ if status is-interactive
         pyenv init - | source
         functions -e pip python  # Remove wrappers after init
         pip $argv
-    end
-
-    # -------------------------------------------------------------------------
-    # OrbStack - Docker Desktop Alternative (Lazy Loaded)
-    # -------------------------------------------------------------------------
-    # OrbStack is a fast, lightweight Docker Desktop replacement for macOS.
-    # The wrapper loads OrbStack's shell integration on first docker command.
-    #
-    # Usage:
-    #   docker ps                # First call initializes OrbStack
-    #   docker-compose up        # Works after initialization
-    #
-    # Install: brew install orbstack
-    function docker --wraps docker
-        source ~/.orbstack/shell/init2.fish 2>/dev/null || :
-        functions -e docker  # Remove wrapper after init
-        docker $argv
     end
 end
 
