@@ -150,4 +150,3 @@ source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
 
-source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
