@@ -20,4 +20,3 @@
 # Note: Fish automatically sources conf.d/*.fish and auto-loads functions/
 # =============================================================================
 
-source ~/.safe-chain/scripts/init-fish.fish # Safe-chain Fish initialization script
