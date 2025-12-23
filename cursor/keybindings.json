@@ -1111,16 +1111,6 @@
     "when": "viewContainer.workbench.view.debug.enabled"
   },
   {
-    "key": "alt+n",
-    "command": "block-travel.jumpDown",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "alt+p",
-    "command": "block-travel.jumpUp",
-    "when": "editorTextFocus"
-  },
-  {
     "key": "cmd+\\",
     "command": "-workbench.action.terminal.split",
     "when": "terminalFocus && terminalProcessSupported || terminalFocus && terminalWebExtensionContributedProfile"
@@ -2185,11 +2175,6 @@
     "when": "editorColumnSelection && textInputFocus"
   },
   {
-    "key": "shift+alt+f",
-    "command": "cursorWordRightSelect",
-    "when": "textInputFocus"
-  },
-  {
     "key": "cmd+b",
     "command": "-mdx.toggleStrong",
     "when": "editorTextFocus && !editorReadonly && editorLangId == 'mdx'"
@@ -2870,5 +2855,60 @@
   {
     "key": "shift+cmd+b",
     "command": "-composer.openBrowserTab"
+  },
+  {
+    "key": "alt+p",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "prevBlankLine",
+      "by": "wrappedLine"
+    },
+  },
+  {
+    "key": "alt+n",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "nextBlankLine",
+      "by": "wrappedLine"
+    }
+  },
+  {
+    "key": "cmd+e",
+    "command": "composer.enhancePrompt",
+    "when": "composerFocused"
+  },
+  {
+    "key": "alt+p",
+    "command": "-composer.enhancePrompt",
+    "when": "composerFocused"
+  },
+  {
+    "key": "ctrl+down",
+    "command": "-quickInput.next",
+    "when": "inQuickInput && quickInputType == 'quickPick'"
+  },
+  {
+    "key": "ctrl+up",
+    "command": "-quickInput.previous",
+    "when": "inQuickInput && quickInputType == 'quickPick'"
+  },
+  {
+    "key": "shift+alt+left",
+    "command": "cursorWordLeftSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+alt+f",
+    "command": "cursorWordRightSelect"
+  },
+  {
+    "key": "shift+alt+right",
+    "command": "cursorWordRightSelect"
+  },
+  {
+    "key": "shift+cmd+p",
+    "command": "editor.action.marker.next"
   }
 ]
