@@ -2491,5 +2491,40 @@
       "to": "nextBlankLine",
       "by": "wrappedLine"
     }
+  },
+  {
+    "key": "shift+cmd+escape",
+    "command": "-claude-vscode.editor.open",
+    "when": "!config.claudeCode.useTerminal"
+  },
+  {
+    "key": "cmd+escape",
+    "command": "-claude-vscode.blur",
+    "when": "!config.claudeCode.useTerminal && !editorTextFocus"
+  },
+  {
+    "key": "cmd+escape",
+    "command": "-claude-vscode.focus",
+    "when": "editorTextFocus && !config.claudeCode.useTerminal"
+  },
+  {
+    "key": "cmd+escape",
+    "command": "-claude-vscode.terminal.open.keyboard",
+    "when": "config.claudeCode.useTerminal"
+  },
+  {
+    "key": "cmd+n",
+    "command": "-claude-vscode.newConversation",
+    "when": "config.claudeCode.enableNewConversationShortcut && activeWebviewPanelId == 'claudeVSCodePanel' || claude-vscode.sideBarActive && config.claudeCode.enableNewConversationShortcut && !editorFocus && !panelFocus"
+  },
+  {
+    "key": "alt+k",
+    "command": "-claude-vscode.insertAtMention",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "alt+cmd+k",
+    "command": "-claude-code.insertAtMentioned",
+    "when": "editorTextFocus"
   }
 ]
