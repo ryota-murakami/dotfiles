@@ -2102,10 +2102,6 @@
     "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported || terminalHasBeenCreated && terminalTabsFocus || terminalProcessSupported && terminalTabsFocus"
   },
   {
-    "key": "ctrl+x shift+cmd+,",
-    "command": "workbench.action.openGlobalKeybindingsFile"
-  },
-  {
     "key": "cmd+r s",
     "command": "-workbench.action.files.saveWithoutFormatting"
   },
@@ -2910,5 +2906,9 @@
   {
     "key": "shift+cmd+p",
     "command": "editor.action.marker.next"
+  },
+  {
+    "key": "cmd+r cmd+s",
+    "command": "-workbench.action.openGlobalKeybindings"
   }
 ]

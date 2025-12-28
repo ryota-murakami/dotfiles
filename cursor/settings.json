@@ -77,7 +77,7 @@
   "editor.indentSize": "tabSize",
   "workbench.list.fastScrollSensitivity": 1,
   "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "vscode.typescript-language-features"
   },
   "typescript.locale": "en",
   "javascript.suggestionActions.enabled": false,
@@ -408,5 +408,8 @@
   "cursor.semanticSearch.includeCommitsWithFiles": true,
   "editor.autoClosingBrackets": "always",
   "claudeCode.initialPermissionMode": "bypassPermissions",
-  "ipynb.experimental.serialization": false
+  "ipynb.experimental.serialization": false,
+  "eslint.nodePath": "",
+  "typescript.tsserver.nodePath": "/Users/ryotamurakami/.local/share/mise/installs/node/24.12.0/bin/node",
+  "prettier.prettierPath": "./node_modules/prettier"
 }
