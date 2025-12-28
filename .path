@@ -10,7 +10,6 @@
 # =============================================================================
 # TOOL ENVIRONMENTS (must be set before PATH construction)
 # =============================================================================
-export VOLTA_HOME="$HOME/.volta"
 export PNPM_HOME="$HOME/Library/pnpm"
 export BUN_INSTALL="$HOME/.bun"
 export ANDROID_HOME="$HOME/Library/Android/sdk"
@@ -22,8 +21,6 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"
 export PATH="\
 $HOME/.cargo/bin:\
 $HOME/nvim-macos/bin:\
-$VOLTA_HOME/bin:\
-$PNPM_HOME:\
 $BUN_INSTALL/bin:\
 /opt/homebrew/bin:\
 /usr/local/sbin:\
