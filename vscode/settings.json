@@ -116,7 +116,7 @@
   "eslint.ignoreUntitled": true,
   "eslint.lintTask.enable": true,
   "eslint.lintTask.options": "",
-  "eslint.nodePath": "~/.volta/bin/node",
+  "eslint.nodePath": "",
   "eslint.trace.server": "verbose",
   "explorer.compactFolders": false,
   "explorer.confirmDelete": false,
@@ -262,5 +262,7 @@
   "tailwindCSS.classFunctions": [
     "cva",
     "cx"
-  ]
+  ],
+  "workbench.colorTheme": "Carbonfox",
+  "claudeCode.preferredLocation": "panel"
 }
