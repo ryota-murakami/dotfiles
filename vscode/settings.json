@@ -264,5 +264,8 @@
     "cx"
   ],
   "workbench.colorTheme": "Carbonfox",
-  "claudeCode.preferredLocation": "panel"
+  "claudeCode.preferredLocation": "sidebar",
+  "claudeCode.allowDangerouslySkipPermissions": true,
+  "chat.useClaudeSkills": true,
+  "chat.viewSessions.orientation": "stacked"
 }
