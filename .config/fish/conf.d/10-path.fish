@@ -11,13 +11,9 @@
 #   Auto-loaded by fish shell on startup. To verify PATH:
 #     echo $PATH | tr ' ' '\n'
 #
-# DEPENDENCIES:
-#   Requires 00-env.fish to be loaded first (for VOLTA_HOME, PNPM_HOME, etc.)
-#
+
 # EXAMPLES:
 #   # Check if a tool is in PATH:
-#   which node        # → ~/.volta/bin/node
-#   which pnpm        # → ~/Library/pnpm/pnpm
 #   which cargo       # → ~/.cargo/bin/cargo
 #
 #   # Verify PATH order:
@@ -27,8 +23,6 @@
 #   1. nvim-macos/bin  - Neovim (custom macOS build)
 #   2. cargo/bin       - Rust tools
 #   3. bun/bin         - Bun runtime
-#   4. volta/bin       - Node.js (via Volta)
-#   5. pnpm            - pnpm package manager
 #   6. homebrew/bin    - Homebrew packages
 #   7. local/bin       - uv and other local tools
 #   8. homebrew/sbin   - System utilities
@@ -52,13 +46,6 @@ fish_add_path --prepend "$HOME/nvim-macos/bin"
 # -----------------------------------------------------------------------------
 # JavaScript Ecosystem
 # -----------------------------------------------------------------------------
-# Volta-managed Node.js, npm, yarn
-set -gx PATH "$VOLTA_HOME/bin" $PATH
-
-# pnpm global packages (only add if not already in PATH)
-if not string match -q -- $PNPM_HOME $PATH
-    set -gx PATH "$PNPM_HOME" $PATH
-end
 
 # Bun runtime and package manager
 set --export PATH $BUN_INSTALL/bin $PATH
