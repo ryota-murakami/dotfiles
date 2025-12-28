@@ -1137,16 +1137,6 @@
     "when": "viewContainer.workbench.view.debug.enabled"
   },
   {
-    "key": "alt+n",
-    "command": "block-travel.jumpDown",
-    "when": "editorTextFocus"
-  },
-  {
-    "key": "alt+p",
-    "command": "block-travel.jumpUp",
-    "when": "editorTextFocus"
-  },
-  {
     "key": "cmd+\\",
     "command": "-workbench.action.terminal.split",
     "when": "terminalFocus && terminalProcessSupported || terminalFocus && terminalWebExtensionContributedProfile"
@@ -1616,11 +1606,6 @@
     "when": "editorTextFocus && !gitlens:disabled && !gitlens:disabledToggleCodeLens && config.gitlens.keymap == 'alternate'"
   },
   {
-    "key": "ctrl+alt+n",
-    "command": "block-travel.selectDown",
-    "when": "editorTextFocus"
-  },
-  {
     "key": "shift+cmd+n",
     "command": "-workbench.action.newWindow"
   },
@@ -2027,11 +2012,6 @@
     "when": "notebookCellListFocused && notebookEditable && !editorHoverFocused && !inputFocus"
   },
   {
-    "key": "ctrl+alt+p",
-    "command": "block-travel.selectUp",
-    "when": "editorTextFocus"
-  },
-  {
     "key": "ctrl+cmd+up",
     "command": "editor.action.insertCursorAbove",
     "when": "editorTextFocus"
@@ -2164,10 +2144,6 @@
     "key": "shift+cmd+\\",
     "command": "-workbench.action.terminal.focusTabs",
     "when": "terminalFocus && terminalHasBeenCreated || terminalFocus && terminalProcessSupported || terminalHasBeenCreated && terminalTabsFocus || terminalProcessSupported && terminalTabsFocus"
-  },
-  {
-    "key": "ctrl+x shift+cmd+,",
-    "command": "workbench.action.openGlobalKeybindingsFile"
   },
   {
     "key": "cmd+r s",
@@ -2482,5 +2458,38 @@
   {
     "key": "ctrl+w",
     "command": "workbench.action.switchWindow"
+  },
+  {
+    "key": "cmd+k cmd+k",
+    "command": "-editor.action.defineKeybinding",
+    "when": "resource == 'vscode-userdata:/Users/ryotamurakami/Library/Application%20Support/Code/User/keybindings.json'"
+  },
+  {
+    "key": "ctrl+alt+s",
+    "command": "-extension.saveTemplate",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "ctrl+alt+o",
+    "command": "-extension.createFromTemplate",
+    "when": "editorTextFocus"
+  },
+  {
+    "key": "alt+p",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "prevBlankLine",
+      "by": "wrappedLine"
+    }
+  },
+  {
+    "key": "alt+n",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "nextBlankLine",
+      "by": "wrappedLine"
+    }
   }
 ]
