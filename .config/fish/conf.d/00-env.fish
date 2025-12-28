@@ -14,12 +14,10 @@
 # DEPENDENCIES:
 #   - fd (for FZF commands)
 #   - eza (for EZA_COLORS)
-#   - volta, pnpm, bun (for JS development)
 #   - Java 17 (optional, for Android development)
 #
 # EXAMPLES:
 #   # Check environment variable values:
-#   echo $VOLTA_HOME     # → /Users/username/.volta
 #   echo $ANDROID_HOME   # → /Users/username/Library/Android/sdk
 #   echo $FZF_DEFAULT_COMMAND  # → fd --hidden --strip-cwd-prefix --exclude .git
 #
@@ -55,9 +53,6 @@ set -gx FZF_ALT_C_COMMAND "fd --type=d --hidden --strip-cwd-prefix --exclude .gi
 # -----------------------------------------------------------------------------
 # JavaScript Development Tools
 # -----------------------------------------------------------------------------
-# Volta: Fast, reliable Node.js version manager
-set -gx VOLTA_HOME "$HOME/.volta"
-
 # pnpm: Fast, disk space efficient package manager
 set -gx PNPM_HOME "$HOME/Library/pnpm"
 
