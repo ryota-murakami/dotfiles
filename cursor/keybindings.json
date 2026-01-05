@@ -2896,12 +2896,14 @@
     "when": "textInputFocus"
   },
   {
-    "key": "ctrl+alt+f",
-    "command": "cursorWordRightSelect"
+    "key": "shift+alt+right",
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus"
   },
   {
     "key": "shift+alt+right",
-    "command": "cursorWordRightSelect"
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus"
   },
   {
     "key": "shift+cmd+p",
@@ -2910,5 +2912,14 @@
   {
     "key": "cmd+r cmd+s",
     "command": "-workbench.action.openGlobalKeybindings"
+  },
+  {
+    "key": "shift+cmd+i",
+    "command": "-composer.newAgentChat"
+  },
+  {
+    "key": "alt+cmd+left",
+    "command": "-composer.selectPreviousComposer",
+    "when": "agentsPaneFocused && cursor.agentIdeUnification.enabled && !editorTextFocus || composerFocused && cursor.agentIdeUnification.enabled && !editorTextFocus"
   }
 ]
