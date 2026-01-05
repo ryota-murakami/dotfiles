@@ -1,0 +1,20 @@
+{
+    "editor.fontSize": 15,
+    "workbench.colorTheme": "Carbonfox",
+    "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+    "files.autoSave": "onFocusChange",
+    "terminal.integrated.fontSize": 15,
+    "git.confirmSync": false,
+    "extensions.ignoreRecommendations": true,
+    "editor.aiStats.enabled": true,
+    "editor.renderWhitespace": "all",
+    "editor.renderControlCharacters": true,
+    "editor.insertSpaces": true,
+    "editor.tabSize": 4,
+    "editor.codeActions.triggerOnFocusChange": true,
+    "editor.experimental.preferTreeSitter.css": true,
+    "editor.experimental.preferTreeSitter.ini": true,
+    "editor.experimental.preferTreeSitter.regex": true,
+    "editor.experimental.preferTreeSitter.typescript": true,
+    "editor.experimental.treeSitterTelemetry": true
+}
