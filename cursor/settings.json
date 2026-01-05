@@ -12,6 +12,11 @@
     ["(", ")"],
     ["{", "}"]
   ],
+  "editor.hover.enabled": true,
+  "editor.hover.delay": 500,
+  "editor.hover.sticky": false,
+  "editor.parameterHints.enabled": true,
+  "editor.parameterHints.cycle": false,
   "editor.guides.bracketPairs": "active",
   "editor.autoClosingDelete": "always",
   "typescript.preferences.importModuleSpecifier": "non-relative",
@@ -101,12 +106,6 @@
   "editor.multiCursorModifier": "alt",
   "editor.mouseWheelScrollSensitivity": 0.7,
   "typescript.updateImportsOnFileMove.enabled": "always",
-  "typescript.format.insertSpaceAfterConstructor": true,
-  "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBrackets": true,
-  "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyParenthesis": true,
-  "typescript.format.insertSpaceAfterOpeningAndBeforeClosingTemplateStringBraces": true,
-  "typescript.format.insertSpaceAfterTypeAssertion": true,
-  "typescript.format.insertSpaceBeforeFunctionParenthesis": true,
   "typescript.format.placeOpenBraceOnNewLineForControlBlocks": true,
   "typescript.format.placeOpenBraceOnNewLineForFunctions": true,
   "typescript.format.semicolons": "remove",
@@ -260,6 +259,17 @@
       "description": "Just parenthesis",
       "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
       "languageIds": ["html", "javascript", "typescript", "markdown"]
+    },
+    "describe": {
+      "label": "describe()",
+      "description": "Wrap with describe block",
+      "snippet": "describe('${1:group name}', () => {\n\t$TM_SELECTED_TEXT\n});",
+      "languageIds": [
+        "javascript",
+        "typescript",
+        "javascriptreact",
+        "typescriptreact"
+      ]
     }
   },
   "editor.minimap.enabled": true,
@@ -377,7 +387,6 @@
   "json.schemaDownload.enable": true,
   "gitlens.gitkraken.mcp.autoEnabled": false,
   "cursor.rpcFileLogger.enabled": true,
-  "cursor.composer.usageSummaryDisplay": "always",
   "cursor.composer.shouldChimeAfterChatFinishes": true,
   "update.releaseTrack": "prerelease",
   "emmet.triggerExpansionOnTab": true,
@@ -394,9 +403,7 @@
     }
   },
   "tailwindCSS.emmetCompletions": true,
-  "claudeCode.environmentVariables": [
-  
-  ],
+  "claudeCode.environmentVariables": [],
   "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
   "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
   "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
@@ -408,8 +415,15 @@
   "cursor.semanticSearch.includeCommitsWithFiles": true,
   "editor.autoClosingBrackets": "always",
   "claudeCode.initialPermissionMode": "bypassPermissions",
-  "ipynb.experimental.serialization": false,
   "eslint.nodePath": "",
   "typescript.tsserver.nodePath": "/Users/ryotamurakami/.local/share/mise/installs/node/24.12.0/bin/node",
-  "prettier.prettierPath": "./node_modules/prettier"
+  "prettier.prettierPath": "./node_modules/prettier",
+  "claudeCode.allowDangerouslySkipPermissions": true,
+  "mcpServers": {},
+  "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
+  "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces": false,
+  "typescript.format.insertSpaceBeforeAndAfterBinaryOperators": false,
+  "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
+  "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
+  "typescript.format.insertSpaceAfterCommaDelimiter": false
 }
