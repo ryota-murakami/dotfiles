@@ -169,7 +169,7 @@
       ]
     }
   },
-  "terminal.integrated.defaultProfile.osx": "bash",
+  "terminal.integrated.defaultProfile.osx": "fish",
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "typescript.format.enable": false,
   "typescript.format.indentSwitchCase": false,
@@ -266,6 +266,6 @@
   "workbench.colorTheme": "Carbonfox",
   "claudeCode.preferredLocation": "sidebar",
   "claudeCode.allowDangerouslySkipPermissions": true,
-  "chat.useClaudeSkills": true,
-  "chat.viewSessions.orientation": "stacked"
+  "chat.viewSessions.orientation": "stacked",
+  "chat.useAgentSkills": true
 }
