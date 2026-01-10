@@ -2526,5 +2526,15 @@
     "key": "alt+cmd+k",
     "command": "-claude-code.insertAtMentioned",
     "when": "editorTextFocus"
+  },
+  {
+    "key": "f5",
+    "when": "inDebugMode",
+    "command": "workbench.action.debug.continue"
+  },
+  {
+    "key": "f5",
+    "when": "!inDebugMode",
+    "command": "workbench.action.debug.start"
   }
 ]
