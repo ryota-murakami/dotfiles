@@ -1,0 +1,48 @@
+# =============================================================================
+# Shared Shell Functions for bash/zsh
+# =============================================================================
+# This file is sourced by both .bashrc and .zshrc
+# Fish shell handles functions separately in .config/fish/functions/
+#
+# Philosophy:
+# - Essential utility functions available in all POSIX-compatible shells
+# - Mirrors Fish functions where applicable for consistency
+
+# =============================================================================
+# kill-port - Kill Processes on a Specific Port
+# =============================================================================
+#
+# DESCRIPTION:
+#   Forcefully terminates all processes listening on a specified port.
+#   Essential for development when a port is stuck (e.g., crashed server,
+#   orphaned process from previous session).
+#
+# USAGE:
+#   kill-port <port>
+#
+# ARGUMENTS:
+#   port - Port number to free (e.g., 3000, 8080)
+#
+# HOW IT WORKS:
+#   1. Uses lsof to find process IDs using the port
+#   2. Pipes PIDs to kill -9 for forceful termination
+#   3. Reports success
+#
+# DEPENDENCIES:
+#   - lsof (pre-installed on macOS)
+#   - xargs (pre-installed on macOS)
+#
+# EXAMPLE:
+#   $ kill-port 3000
+#   Killed processes on port 3000
+#
+# =============================================================================
+kill-port() {
+    if [ -z "$1" ]; then
+        echo "Usage: kill-port <port>"
+        echo "Example: kill-port 3000"
+        return 1
+    fi
+    lsof -ti :"$1" | xargs kill -9 2>/dev/null
+    echo "Killed processes on port $1"
+}
