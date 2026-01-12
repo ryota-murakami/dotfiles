@@ -124,6 +124,11 @@ alias wanip="curl https://ipinfo.io/ip"
 # =============================================================================
 [ -r ~/.path ] && source ~/.path
 
+# =============================================================================
+# SHARED FUNCTIONS (synchronized with .bashrc and fish functions/)
+# =============================================================================
+[ -r ~/.functions ] && source ~/.functions
+
 # Fish shellから移植された環境変数
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
 export EZA_COLORS="di=1;32"
