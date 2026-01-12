@@ -14,7 +14,7 @@
   ],
   "editor.hover.enabled": true,
   "editor.hover.delay": 500,
-  "editor.hover.sticky": false,
+  "editor.hover.sticky": true,
   "editor.parameterHints.enabled": true,
   "editor.parameterHints.cycle": false,
   "editor.guides.bracketPairs": "active",
@@ -300,7 +300,6 @@
     "disabled": false,
     "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
   },
-  "surround.showOnlyUserDefinedSnippets": true,
   "cursor.cpp.enablePartialAccepts": true,
   "tailwindCSS.experimental.configFile": null,
   "typescript.inlayHints.parameterNames.enabled": "literals",
@@ -421,9 +420,10 @@
   "claudeCode.allowDangerouslySkipPermissions": true,
   "mcpServers": {},
   "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
-  "typescript.format.insertSpaceAfterOpeningAndBeforeClosingNonemptyBraces": false,
   "typescript.format.insertSpaceBeforeAndAfterBinaryOperators": false,
   "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
   "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
-  "typescript.format.insertSpaceAfterCommaDelimiter": false
+  "typescript.format.insertSpaceAfterCommaDelimiter": false,
+  "mdx.trace.server.format": "json",
+  "cursor.composer.usageSummaryDisplay": "always"
 }
