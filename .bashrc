@@ -1,3 +1,8 @@
+# =============================================================================
+# SHARED FUNCTIONS (synchronized with .zshrc and fish functions/)
+# =============================================================================
+[ -r ~/.functions ] && source ~/.functions
+
 [ -f ~/.fzf.bash ] && source ~/.fzf.bash
 eval "$(pyenv init -)"
 . "$HOME/.cargo/env"
