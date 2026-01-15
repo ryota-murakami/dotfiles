@@ -425,5 +425,6 @@
   "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
   "typescript.format.insertSpaceAfterCommaDelimiter": false,
   "mdx.trace.server.format": "json",
-  "cursor.composer.usageSummaryDisplay": "always"
+  "cursor.composer.usageSummaryDisplay": "always",
+  "terminal.integrated.enablePersistentSessions": false
 }
