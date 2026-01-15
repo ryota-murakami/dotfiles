@@ -75,3 +75,8 @@ end
 # -----------------------------------------------------------------------------
 # Android SDK location (installed via Android Studio)
 set -x ANDROID_HOME $HOME/Library/Android/sdk
+
+# Local environment variables
+if test -f ~/.config/fish/conf.d/00-env.local.fish
+    source ~/.config/fish/conf.d/00-env.local.fish
+end
