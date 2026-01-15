@@ -267,5 +267,7 @@
   "claudeCode.preferredLocation": "sidebar",
   "claudeCode.allowDangerouslySkipPermissions": true,
   "chat.viewSessions.orientation": "stacked",
-  "chat.useAgentSkills": true
+  "chat.useAgentSkills": true,
+  "mcpServer.confirmationUI": "statusBar",
+  "terminal.integrated.enablePersistentSessions": false
 }
