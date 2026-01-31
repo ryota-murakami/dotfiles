@@ -5,4 +5,4 @@ SETUVAR __fish_init_2_39_8:\x1d
 SETUVAR __fish_init_2_3_0:\x1d
 SETUVAR __fish_initialized:4300
 SETUVAR fish_greeting:Welcome\x20to\x20fish\x2c\x20the\x20friendly\x20interactive\x20shell
-SETUVAR fish_user_paths:/Users/ryotamurakami/\x2emaestro/bin\x1e/Users/ryotamurakami/\x2ecargo/bin\x1e/Users/ryotamurakami/\x2eantigravity/antigravity/bin\x1e/Users/ryotamurakami/\x2ecodeium/windsurf/bin\x1e/opt/homebrew/opt/openjdk\x4017/bin\x1e/Users/ryotamurakami/\x2elocal/bin
+SETUVAR fish_user_paths:/Users/ryotamurakami/Library/pnpm\x1e/Users/ryotamurakami/\x2emaestro/bin\x1e/Users/ryotamurakami/\x2ecargo/bin\x1e/Users/ryotamurakami/\x2eantigravity/antigravity/bin\x1e/Users/ryotamurakami/\x2ecodeium/windsurf/bin\x1e/opt/homebrew/opt/openjdk\x4017/bin\x1e/Users/ryotamurakami/\x2elocal/bin
