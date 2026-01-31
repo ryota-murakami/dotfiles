@@ -47,6 +47,10 @@ fish_add_path --prepend "$HOME/nvim-macos/bin"
 # JavaScript Ecosystem
 # -----------------------------------------------------------------------------
 
+# pnpm global packages
+set -gx PNPM_HOME "$HOME/Library/pnpm"
+fish_add_path --prepend "$PNPM_HOME"
+
 # Bun runtime and package manager
 set --export PATH $BUN_INSTALL/bin $PATH
 
