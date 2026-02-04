@@ -1,13 +1,18 @@
 # Ghostty Config
 
 # Font size (in points)
-font-size = 18
+font-size = 21
 
 # Background opacity (0.0 to 1.0)
 # 1.0 = opaque, 0.0 = fully transparent
-background-opacity = 0.8
+background-opacity = 0.9
 
 # Background color (change as you like)
 # background = 1e1e2e
 
 background-blur = 16
+
+cursor-style = block
+cursor-style-blink = false
+cursor-invert-fg-bg = true
+shell-integration-features = no-cursor
