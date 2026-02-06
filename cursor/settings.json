@@ -151,8 +151,8 @@
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "outline.collapseItems": "alwaysCollapse",
-  "playwright.reuseBrowser": true,
-  "playwright.showTrace": false,
+  "playwright.reuseBrowser": false,
+  "playwright.showTrace": true,
   "cursor.cpp.disabledLanguages": [],
   "editor.formatOnPaste": true,
   "jest.jestCommandLine": "./node_modules/.bin/jest",
@@ -426,5 +426,28 @@
   "typescript.format.insertSpaceAfterCommaDelimiter": false,
   "mdx.trace.server.format": "json",
   "cursor.composer.usageSummaryDisplay": "always",
-  "terminal.integrated.enablePersistentSessions": false
+  "terminal.integrated.enablePersistentSessions": false,
+  "copyTo.presets": [
+    
+      {
+        "label": "Universal",
+        "path": "/Users/ryotamurakami/utils/packages/universal"
+      },
+      {
+        "label": "Node",
+        "path": "/Users/ryotamurakami/utils/packages/node"
+      },
+      {
+        "label": "Next React",
+        "path": "/Users/ryotamurakami/utils/packages/next-react"
+      },
+      {
+        "label": "Browser",
+        "path": "/Users/ryotamurakami/utils/packages/browser"
+      },
+      {
+        "label": "Type",
+        "path": "/Users/ryotamurakami/utils/packages/type"
+      }
+  ]
 }
