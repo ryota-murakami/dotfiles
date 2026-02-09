@@ -8,5 +8,6 @@ function npm_global_install
         envinfo \
         ralph-tui \
         skills \
-        vercel
+        vercel \
+        npm-check-updates
 end
