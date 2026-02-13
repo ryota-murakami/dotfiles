@@ -16,5 +16,12 @@
     "editor.experimental.preferTreeSitter.ini": true,
     "editor.experimental.preferTreeSitter.regex": true,
     "editor.experimental.preferTreeSitter.typescript": true,
-    "editor.experimental.treeSitterTelemetry": true
+    "editor.experimental.treeSitterTelemetry": true,
+    "claudeCode.preferredLocation": "panel",
+    "terminal.integrated.tabs.location": "left",
+    "claudeCode.allowDangerouslySkipPermissions": true,
+    "claudeCode.initialPermissionMode": "bypassPermissions",
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnPaste": true,
+    "editor.formatOnSave": true
 }
