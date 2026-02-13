@@ -2825,5 +2825,13 @@
     "key": "shift+cmd+i",
     "command": "-windsurf.triggerCascade",
     "when": "true"
+  },
+  {
+    "key": "cmd+j",
+    "command": "workbench.action.openWindsurfSettings"
+  },
+  {
+    "key": "cmd+,",
+    "command": "-workbench.action.openWindsurfSettings"
   }
 ]

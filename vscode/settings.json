@@ -211,9 +211,9 @@
   "workbench.tree.indent": 14,
   "workbench.startupEditor": "none",
   "github.copilot.enable": {
-    "*": true,
-    "plaintext": false,
-    "markdown": false,
+    "*": false,
+    "plaintext": true,
+    "markdown": true,
     "scminput": false,
     "typescriptreact": true
   },
@@ -241,7 +241,6 @@
   "github.copilot.chat.edits.temporalContext.enabled": true,
   "github.copilot.chat.generateTests.codeLens": true,
   "chat.extensionTools.enabled": false,
-  "editor.formatOnSave": true,
   "chat.mcp.discovery.enabled": {
     "claude-desktop": false,
     "windsurf": false,
@@ -266,8 +265,9 @@
   "workbench.colorTheme": "Carbonfox",
   "claudeCode.preferredLocation": "sidebar",
   "claudeCode.allowDangerouslySkipPermissions": true,
-  "chat.viewSessions.orientation": "stacked",
   "chat.useAgentSkills": true,
   "mcpServer.confirmationUI": "statusBar",
-  "terminal.integrated.enablePersistentSessions": false
+  "terminal.integrated.enablePersistentSessions": false,
+  "editor.formatOnSave": true,
+  "claudeCode.initialPermissionMode": "bypassPermissions"
 }
