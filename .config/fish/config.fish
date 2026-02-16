@@ -26,3 +26,9 @@
 source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 
 fish_add_path -gm /Users/ryotamurakami/go/bin
+
+# OpenClaw Completion
+source "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"
+
+# The next line updates PATH for the Google Cloud SDK.
+if [ -f '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc' ]; . '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc'; end
