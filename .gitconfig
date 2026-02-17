@@ -32,6 +32,7 @@
 [user]
 	name = Ryota Murakami
 	email = dojce1048@gmail.com
+	signingkey = ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC5KdvG3A2HlcsrHtsgKtkBFBwYH0w23cKpxsSLOIRRr5IFFZKt7Uao/1QaGuyw3M1ICdeApahwhLvjdTrmVPSxu2bM9Wzouyq6DGrxlzp0lK498bMqy0h7HbXQPBderpNgd0Ha7Xctt8xKEv/VK0TfumUrVwvQb1L+auxfJygXvO10iW8iQgRD5nJLR7FSLPkwaANnERty+TXB9CnucDnF9NccucSQVZsVMVDBFXP6/yJT5IU7soXEizAOApU90ds4fGs9sn/oL1wBi0DjEmPPJQFodq2buAgt0D1yaj1oupq2JKEa96V1i8/TARuaw+RbG4tXyHSVkElK9SvN6WV1
 [push]
   default = current
 [pull]
@@ -67,3 +68,15 @@
   conflictstyle = diff3
 [diff]
   colorMoved = default
+[gpg]
+	format = ssh
+[gpg "ssh"]
+	program = /Applications/1Password.app/Contents/MacOS/op-ssh-sign
+[commit]
+	gpgsign = true
+[credential "https://github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
+[credential "https://gist.github.com"]
+	helper = 
+	helper = !/opt/homebrew/bin/gh auth git-credential
