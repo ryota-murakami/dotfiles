@@ -1163,7 +1163,7 @@
     "command": "-workbench.action.closeOtherEditors"
   },
   {
-    "key": "ctrl+space",
+    "key": "ctrl+x ctrl+x",
     "command": "eslint.executeAutofix"
   },
   {
@@ -2145,7 +2145,7 @@
     "when": "editorHasDocumentSelectionFormattingProvider && editorTextFocus && !editorReadonly"
   },
   {
-    "key": "ctrl+x ctrl+x",
+    "key": "ctrl+space",
     "command": "prettier.forceFormatDocument"
   },
   {
