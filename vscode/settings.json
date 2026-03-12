@@ -255,9 +255,16 @@
     "pnpm": true
   },
   "chat.mcp.gallery.enabled": true,
-  "chat.useNestedAgentsMdFiles": true,
+  "chat.useAgentsMdFile": true,
+  "chat.useNestedAgentsMdFiles": false,
+  "chat.useClaudeMd": false,
   "github.copilot.chat.agent.thinkingTool": true,
   "chat.tools.global.autoApprove": true,
+  "chat.promptFiles": false,
+  "chat.agentSkillsLocations": {
+    "~/.copilot/skills": true,
+    "~/.claude/skills": false
+  },
   "tailwindCSS.classFunctions": [
     "cva",
     "cx"
@@ -269,5 +276,7 @@
   "mcpServer.confirmationUI": "statusBar",
   "terminal.integrated.enablePersistentSessions": false,
   "editor.formatOnSave": true,
-  "claudeCode.initialPermissionMode": "bypassPermissions"
+  "claudeCode.initialPermissionMode": "bypassPermissions",
+  "workbench.browser.enableChatTools": true,
+  "chat.viewSessions.orientation": "stacked"
 }
