@@ -7,7 +7,7 @@
   {
     "key": "escape",
     "command": "workbench.action.focusActiveEditorGroup",
-    "when": "!editorTextFocus"
+    "when": "!editorTextFocus",
   },
   {
     "key": "enter",
@@ -1147,7 +1147,7 @@
     "command": "-workbench.action.closeOtherEditors",
   },
   {
-    "key": "ctrl+space",
+    "key": "ctrl+x ctrl+x",
     "command": "eslint.executeAutofix",
   },
   {
@@ -2628,7 +2628,7 @@
     "command": "markdown.showPreview",
   },
   {
-    "key": "ctrl+x ctrl+x",
+    "key": "ctrl+space",
     "command": "prettier.forceFormatDocument",
   },
   {
@@ -2981,5 +2981,10 @@
     "key": "cmd+1",
     "command": "workbench.action.toggleSidebarVisibility",
     "when": "explorerViewletFocus"
+  },
+  {
+    "key": "shift+cmd+,",
+    "command": "-workbench.action.terminal.configureSuggestSettings",
+    "when": "terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
   },
 ]
