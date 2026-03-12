@@ -1,0 +1,166 @@
+{
+  "categories": [
+    {
+      "category": "Move Cursor",
+      "keybinds": [
+        { "action": "Cursor Right", "shortcut": "⌃F" },
+        { "action": "Cursor Left", "shortcut": "⌃B" },
+        { "action": "Cursor Top", "shortcut": "⌃P" },
+        { "action": "Cursor Down", "shortcut": "⌃N" },
+        { "action": "Cursor Right Word", "shortcut": "⌥F" },
+        { "action": "Cursor Left Word", "shortcut": "⌥B" },
+        { "action": "Cursor Top Block", "shortcut": "⌥P" },
+        { "action": "Cursor Down Block", "shortcut": "⌥N" },
+        { "action": "Move Cursor to Line Start", "shortcut": "⌃A" },
+        { "action": "Move Cursor to Line End", "shortcut": "⌃E" }
+      ]
+    },
+    {
+      "category": "Selection",
+      "keybinds": [
+        { "action": "Right with Selection", "shortcut": "⌃F⌘" },
+        { "action": "Left with Selection", "shortcut": "⌃B⌘" },
+        { "action": "Up with Selection", "shortcut": "⌃P⌘" },
+        { "action": "Down with Selection", "shortcut": "⌃N⌘" },
+        { "action": "cursorEndSelect", "shortcut": "⌃E⌘" },
+        { "action": "cursorStartSelect", "shortcut": "⌃A⌘" },
+        { "action": "cursorRightWordSelect", "shortcut": "⌃F⌥" },
+        { "action": "cursorLeftWordSelect", "shortcut": "⌃B⌥" },
+        { "action": "cursorTopBlockSelect", "shortcut": "⌃P⌥" },
+        { "action": "cursorBottomBlockSelect", "shortcut": "⌃N⌥" },
+        { "action": "Rectangular Selection on Mouse Drag", "shortcut": "⌥Click" },
+        { "action": "Select Inner Bracket (Cursor)", "shortcut": "⌃⌘M" },
+        { "action": "Toggle Sticky Selection (WebStorm)", "shortcut": "⌥A" },
+        { "action": "Select bracket (Cursor)", "shortcut": "⌥A" }
+      ]
+    },
+    {
+      "category": "Scroll",
+      "keybinds": [
+        { "action": "cursorPageDown", "shortcut": "⌃V" },
+        { "action": "cursorPageUp", "shortcut": "⌥V" },
+        { "action": "cursorTop", "shortcut": "⌃X ⌃[" },
+        { "action": "cursorBottom", "shortcut": "⌃X ⌃]" },
+        { "action": "Scroll to Center (WebStorm)", "shortcut": "⌃X L" }
+      ]
+    },
+    {
+      "category": "Code Edit",
+      "keybinds": [
+        { "action": "Delete single character", "shortcut": "Delete" },
+        { "action": "Copy", "shortcut": "⌘C" },
+        { "action": "Paste", "shortcut": "⌘V" },
+        { "action": "Undo", "shortcut": "⌘Z" },
+        { "action": "Redo", "shortcut": "⌘⇧Z" },
+        { "action": "Duplicate Line", "shortcut": "⌘D" },
+        { "action": "Insert line Above (Cursor)", "shortcut": "⌃⌘↩" },
+        { "action": "Insert line Below (Cursor)", "shortcut": "⌘↩" },
+        { "action": "Delete matched bracket or tag", "shortcut": "⌃X ⌃M" },
+        { "action": "Cut All Right", "shortcut": "⌃K" },
+        { "action": "Rename selected symbol", "shortcut": "⌃R" },
+        { "action": "Surround With", "shortcut": "⇧⌘T" },
+        { "action": "Wrapping selected HTML Tag", "shortcut": "⌃S" },
+        { "action": "Delete Parent HTML Tag (WebStorm)", "shortcut": "⌃⌘D" }
+      ]
+    },
+    {
+      "category": "Find",
+      "keybinds": [
+        { "action": "Find text in current single file", "shortcut": "⌘F" },
+        { "action": "Find in Project or any Folder", "shortcut": "⌘⇧F" },
+        { "action": "Replace text in current single file", "shortcut": "⌘R" },
+        { "action": "Replace text in Folder", "shortcut": "⌘⇧R" }
+      ]
+    },
+    {
+      "category": "Split Editor Window",
+      "keybinds": [
+        { "action": "Split Right", "shortcut": "⌃X ⌃F" },
+        { "action": "Split Down", "shortcut": "⌃X ⌃N" },
+        { "action": "Split Up", "shortcut": "⌃X ⌃P" },
+        { "action": "Move Focus Window Right", "shortcut": "⌃X ⌃J" },
+        { "action": "Move Focus Window Left", "shortcut": "⌃X ⌃H" }
+      ]
+    },
+    {
+      "category": "Code Jump",
+      "keybinds": [
+        { "action": "Go to Implementation", "shortcut": "⌘B" },
+        { "action": "Go to Definition", "shortcut": "⌘⌥B" },
+        { "action": "Go to Type declaration", "shortcut": "⌘T" },
+        { "action": "Go to Matching Pair Brace/Bracket", "shortcut": "⌃M" },
+        { "action": "Go to Matching HTML/JSX Tag (Cursor)", "shortcut": "⌃⌘M" },
+        { "action": "prev code jump history", "shortcut": "⌘[" },
+        { "action": "next code jump history", "shortcut": "⌘]" },
+        { "action": "Next HighLight Symbol", "shortcut": "⌘G" },
+        { "action": "Prev HighLight Symbol", "shortcut": "⇧⌘G" },
+        { "action": "Next Problem", "shortcut": "⇧⌘P" }
+      ]
+    },
+    {
+      "category": "IntelliSense",
+      "keybinds": [
+        { "action": "Show type based completion", "shortcut": "⌃I" }
+      ]
+    },
+    {
+      "category": "File Explorer",
+      "keybinds": [
+        { "action": "Toggle Explorer", "shortcut": "⌘1" },
+        { "action": "Toggle Outline", "shortcut": "⌘2" },
+        { "action": "Focus Editor", "shortcut": "Esc" },
+        { "action": "New File", "shortcut": "⌘N" },
+        { "action": "New Folder", "shortcut": "⌘D" },
+        { "action": "Rename", "shortcut": "⌃R" },
+        { "action": "Delete", "shortcut": "Delete" },
+        { "action": "Copy Relative File Path", "shortcut": "⌘⇧C" }
+      ]
+    },
+    {
+      "category": "IDE Feature",
+      "keybinds": [
+        { "action": "Command Palette", "shortcut": "⌘P" },
+        { "action": "Open filename Search", "shortcut": "⌘O" },
+        { "action": "Open Go to Symbol Search", "shortcut": "⌘⇧O" },
+        { "action": "Open refactor menu selected code", "shortcut": "⌃T" },
+        { "action": "Show Reference/Usage", "shortcut": "⌘U" },
+        { "action": "Show Context Menu", "shortcut": "⌃C ⌃C" },
+        { "action": "Toggle Terminal", "shortcut": "⌃\\" },
+        { "action": "Reload Window", "shortcut": "⌃X ⌃R" },
+        { "action": "Open Settings", "shortcut": "⌃⌘," },
+        { "action": "ESLint —fix", "shortcut": "⌃Space" },
+        { "action": "Format with Prettier", "shortcut": "⌃X ⌃X" },
+        { "action": "Keyboard Shortcut", "shortcut": "⇧⌘," },
+        { "action": "Open Cursor Settings", "shortcut": "⇧⌘J" },
+        { "action": "Show Markdown Preview", "shortcut": "⌘E" },
+        { "action": "Switch Project", "shortcut": "⌃W" },
+        { "action": "Toggle Primary Side Bar", "shortcut": "⌃X ⌃1" }
+      ]
+    },
+    {
+      "category": "AI",
+      "keybinds": [
+        { "action": "Toggle Chat Tab", "shortcut": "⌘L" },
+        { "action": "New AI Chat", "shortcut": "⌘⇧L" },
+        { "action": "Toggle Cursor Tab", "shortcut": "⌃X ⌃C" }
+      ]
+    },
+    {
+      "category": "Git",
+      "keybinds": [
+        { "action": "Git Blame (WebStorm)", "shortcut": "⌃G ⌃B" }
+      ]
+    },
+    {
+      "category": "Multiple Cursor",
+      "keybinds": [
+        { "action": "Rectangular Multiple Cursor Select (WebStorm)", "shortcut": "⌥Drag" },
+        { "action": "Rectangular Multiple Cursor Select (Cursor)", "shortcut": "⇧Drag" },
+        { "action": "Add or Remove caret", "shortcut": "⌘Click" },
+        { "action": "Clone Cursor Above", "shortcut": "⌥⌘↑" },
+        { "action": "Clone Cursor Below", "shortcut": "⌥⌘↓" },
+        { "action": "Vertical cursor fill-in (Cursor)", "shortcut": "⌘⇧Mouse" }
+      ]
+    }
+  ]
+}
