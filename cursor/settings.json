@@ -3,14 +3,32 @@
   "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
   "editor.language.brackets": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ],
   ],
   "editor.language.colorizedBracketPairs": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"]
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ],
   ],
   "editor.hover.enabled": true,
   "editor.hover.delay": 500,
@@ -19,6 +37,7 @@
   "editor.parameterHints.cycle": false,
   "editor.guides.bracketPairs": "active",
   "editor.autoClosingDelete": "always",
+  "editor.semanticHighlighting.enabled": true,
   "typescript.preferences.importModuleSpecifier": "non-relative",
   "typescript.referencesCodeLens.showOnAllFunctions": true,
   "typescript.reportStyleChecksAsWarnings": false,
@@ -33,10 +52,10 @@
     "editorWhitespace.foreground": "#3f3f46",
     "statusBar.background": "#0a0a0a",
     "[Cursor Dark]": {},
-    "terminal.background": "#00000000"
+    "terminal.background": "#00000000",
   },
   "[jsonc]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "vscode.json-language-features",
   },
   "editor.fontSize": 15,
   "eslint.format.enable": true,
@@ -47,16 +66,45 @@
   "editor.tokenColorCustomizations": {
     "textMateRules": [
       {
-        "scope": "comment",
+        "scope": [
+          "comment.block.documentation",
+          "comment.block.documentation.ts",
+          "comment.block.documentation.js",
+        ],
         "settings": {
-          "foreground": "#bafdc16b"
-        }
-      }
-    ]
+          "foreground": "#7FAF8F",
+        },
+      },
+      {
+        "name": "JSDoc tags (@param, @example, etc.)",
+        "scope": [
+          "storage.type.class.jsdoc",
+          "entity.name.tag.jsdoc",
+          "punctuation.definition.block.tag.jsdoc",
+          "keyword.other.documentation.tag.js",
+          "keyword.other.documentation.tag.ts",
+          "punctuation.definition.tag.jsdoc",
+        ],
+        "settings": {
+          "foreground": "#C7A6FF",
+          "fontStyle": "bold",
+        },
+      },
+      {
+        "name": "JSDoc tag parameters",
+        "scope": [
+          "variable.other.jsdoc",
+          "entity.name.variable.jsdoc",
+        ],
+        "settings": {
+          "foreground": "#E0CCFF",
+        },
+      },
+    ],
   },
   "editor.semanticTokenColorCustomizations": {
     "enabled": true,
-    "rules": {}
+    "rules": {},
   },
   "extensions.ignoreRecommendations": true,
   "javascript.inlayHints.parameterNames.enabled": "all",
@@ -82,7 +130,7 @@
   "editor.indentSize": "tabSize",
   "workbench.list.fastScrollSensitivity": 1,
   "[typescript]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
+    "editor.defaultFormatter": "vscode.typescript-language-features",
   },
   "typescript.locale": "en",
   "javascript.suggestionActions.enabled": false,
@@ -93,12 +141,12 @@
   "editor.guides.bracketPairsHorizontal": true,
   "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
   "emmet.includeLanguages": {
-    "postcss": "css"
+    "postcss": "css",
   },
   "editor.inlineSuggest.showToolbar": "always",
   "editor.inlineSuggest.suppressSuggestions": true,
   "editor.quickSuggestions": {
-    "strings": "on"
+    "strings": "on",
   },
   "editor.suggest.localityBonus": true,
   "editor.linkedEditing": true,
@@ -119,35 +167,46 @@
   "eslint.lintTask.enable": true,
   "javascript.updateImportsOnFileMove.enabled": "always",
   "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "vscode.json-language-features",
   },
   "json.schemas": [],
   "explorer.confirmDelete": false,
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": ["workbench.colorCustomizations"],
+  "workbench.settings.applyToAllProfiles": [
+    "workbench.colorCustomizations"
+  ],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
   },
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.profiles.osx": {
     "bash": {
       "path": "/bin/bash", // or e.g. "/opt/homebrew/bin/bash"
-      "args": ["-l"] // login shell so you get ~/.bash_profile
+      "args": [
+        "-l"
+      ], // login shell so you get ~/.bash_profile
     },
-    "zsh": { "path": "/bin/zsh", "args": ["-l"] },
+    "zsh": {
+      "path": "/bin/zsh",
+      "args": [
+        "-l"
+      ],
+    },
     "fish": {
       "path": "/usr/local/bin/fish", // keep fish so you can still pick it
-      "args": ["-l"]
-    }
+      "args": [
+        "-l"
+      ],
+    },
   },
   "terminal.integrated.defaultProfile.osx": "fish",
   "window.zoomLevel": 2,
   "launch": {
     "configurations": [],
-    "compounds": []
+    "compounds": [],
   },
   "typescript.enablePromptUseWorkspaceTsdk": true,
   "outline.collapseItems": "alwaysCollapse",
@@ -169,54 +228,54 @@
       "clipboard": true,
       "compare": true,
       "history": true,
-      "remote": true
+      "remote": true,
     },
     "editorGroup": {
       "blame": true,
-      "compare": true
+      "compare": true,
     },
     "editorGutter": {
       "compare": false,
       "remote": false,
-      "share": false
+      "share": false,
     },
     "editorTab": {
       "clipboard": true,
       "compare": true,
       "history": true,
-      "remote": true
+      "remote": true,
     },
     "explorer": {
       "clipboard": false,
       "compare": false,
       "history": false,
-      "remote": false
+      "remote": false,
     },
     "ghpr": {
-      "worktree": true
+      "worktree": true,
     },
     "scm": {
-      "graph": true
+      "graph": true,
     },
     "scmRepositoryInline": {
       "graph": true,
-      "stash": false
+      "stash": false,
     },
     "scmRepository": {
       "authors": true,
       "generateCommitMessage": true,
-      "graph": false
+      "graph": false,
     },
     "scmGroupInline": {
-      "stash": true
+      "stash": true,
     },
     "scmGroup": {
       "compare": true,
       "openClose": true,
-      "stash": true
+      "stash": true,
     },
     "scmItemInline": {
-      "stash": false
+      "stash": false,
     },
     "scmItem": {
       "clipboard": true,
@@ -224,8 +283,8 @@
       "history": true,
       "remote": true,
       "share": true,
-      "stash": true
-    }
+      "stash": true,
+    },
   },
   "gitlens.gitCommands.search.showResultsInSideBar": false,
   "editor.folding": false,
@@ -233,17 +292,36 @@
   "files.exclude": {
     "**/.idea": true,
     "**/.serena": true,
-    "**/.yarn": true
+    "**/.yarn": true,
   },
   "debug.javascript.unmapMissingSources": true,
-  "javascript.preferences.autoImportFileExcludePatterns": ["e2e"],
-  "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "javascript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
-    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
-    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
-    ["classnames\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
-    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"]
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"']([^\"']*).*?[\"']"
+    ],
+    [
+      "daisyui([^]*)",
+      "daisyui=[\"']([^\"']*)"
+    ],
+    [
+      "clsx\\(([^)]*)\\)",
+      "(?:'|\"|`)([^']*)(?:'|\"|`)"
+    ],
+    [
+      "classnames\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*)[\"'`]"
+    ],
+    [
+      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
+      "[`'\"`]([^'\"`;]*)[`'\"`]"
+    ],
   ],
   "surround.custom": {
     "Double Quote": {
@@ -251,14 +329,24 @@
       "disabled": false,
       "description": "\"...\"",
       "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-      "languageIds": ["html", "javascript", "typescript", "markdown"]
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ],
     },
     "Parenthesis": {
       "label": "()",
       "disabled": false,
       "description": "Just parenthesis",
       "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
-      "languageIds": ["html", "javascript", "typescript", "markdown"]
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ],
     },
     "describe": {
       "label": "describe()",
@@ -268,9 +356,9 @@
         "javascript",
         "typescript",
         "javascriptreact",
-        "typescriptreact"
-      ]
-    }
+        "typescriptreact",
+      ],
+    },
   },
   "editor.minimap.enabled": true,
   "gitlens.launchpad.indicator.enabled": false,
@@ -281,7 +369,7 @@
   "prettier.configPath": ".prettierrc",
   "typescript.tsserver.watchOptions": {
     "watchFile": "useFsEvents",
-    "watchDirectory": "useFsEvents"
+    "watchDirectory": "useFsEvents",
   },
   "typescript.preferences.importModuleSpecifierEnding": "minimal",
   "typescript.tsserver.experimental.enableProjectDiagnostics": true,
@@ -291,14 +379,14 @@
     "label": "arrowFunction",
     "description": "const $name = ($params) => { ... }",
     "disabled": false,
-    "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0"
+    "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0",
   },
   "editor.dragAndDrop": false,
   "surround.with.templateLiteral": {
     "label": "Template Literal",
     "description": "`...` (Also replaces single and double quotes with backtick)",
     "disabled": false,
-    "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
+    "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0",
   },
   "cursor.cpp.enablePartialAccepts": true,
   "tailwindCSS.experimental.configFile": null,
@@ -316,8 +404,8 @@
       "typescriptreact",
       "javascriptreact",
       "jsx",
-      "markdown"
-    ]
+      "markdown",
+    ],
   },
   "security.promptForLocalFileProtocolHandling": false,
   "explorer.fileNesting.patterns": {
@@ -353,7 +441,7 @@
     "**/*.cer",
     "**/id_rsa",
     "**/id_dsa",
-    "**/.ssh/id_*"
+    "**/.ssh/id_*",
   ],
   "window.titleBarStyle": "custom",
   "git.enableSmartCommit": true,
@@ -370,18 +458,18 @@
     "editor.insertSpaces": true,
     "editor.tabSize": 2,
     "editor.autoIndent": "advanced",
-    "editor.defaultFormatter": "redhat.vscode-yaml"
+    "editor.defaultFormatter": "redhat.vscode-yaml",
   },
   "[github-actions-workflow]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml"
+    "editor.defaultFormatter": "redhat.vscode-yaml",
   },
   "files.watcherExclude": {
     "**/.idea/**": true,
     "**/.next/**": true,
-    "**/.serena/**": true
+    "**/.serena/**": true,
   },
   "search.exclude": {
-    "**/.idea/**": true
+    "**/.idea/**": true,
   },
   "json.schemaDownload.enable": true,
   "gitlens.gitkraken.mcp.autoEnabled": false,
@@ -392,14 +480,14 @@
   "emmet.useInlineCompletions": true,
   "emmet.syntaxProfiles": {
     "html": {
-      "attr_quotes": "double"
+      "attr_quotes": "double",
     },
     "javascriptreact": {
-      "attr_quotes": "double"
+      "attr_quotes": "double",
     },
     "typescriptreact": {
-      "attr_quotes": "double"
-    }
+      "attr_quotes": "double",
+    },
   },
   "tailwindCSS.emmetCompletions": true,
   "claudeCode.environmentVariables": [],
@@ -408,8 +496,8 @@
   "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
   "claudeCode.preferredLocation": "panel",
   "npm-intellisense.scanDevDependencies": true,
-  "typescript.suggest.paths": false,
-  "javascript.suggest.paths": false,
+  "typescript.suggest.paths": true,
+  "javascript.suggest.paths": true,
   "cursor.composer.shouldShowMarkdownHoverParticipantActions2": true,
   "cursor.semanticSearch.includeCommitsWithFiles": true,
   "editor.autoClosingBrackets": "always",
@@ -418,36 +506,35 @@
   "typescript.tsserver.nodePath": "/Users/ryotamurakami/.local/share/mise/installs/node/24.12.0/bin/node",
   "prettier.prettierPath": "./node_modules/prettier",
   "claudeCode.allowDangerouslySkipPermissions": true,
-  "mcpServers": {},
   "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
   "typescript.format.insertSpaceBeforeAndAfterBinaryOperators": false,
   "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
   "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
   "typescript.format.insertSpaceAfterCommaDelimiter": false,
   "mdx.trace.server.format": "json",
+  "mdx.server.enable": false,
   "cursor.composer.usageSummaryDisplay": "always",
   "terminal.integrated.enablePersistentSessions": false,
   "copyTo.presets": [
-    
-      {
-        "label": "Universal",
-        "path": "/Users/ryotamurakami/utils/packages/universal"
-      },
-      {
-        "label": "Node",
-        "path": "/Users/ryotamurakami/utils/packages/node"
-      },
-      {
-        "label": "Next React",
-        "path": "/Users/ryotamurakami/utils/packages/next-react"
-      },
-      {
-        "label": "Browser",
-        "path": "/Users/ryotamurakami/utils/packages/browser"
-      },
-      {
-        "label": "Type",
-        "path": "/Users/ryotamurakami/utils/packages/type"
-      }
-  ]
+    {
+      "label": "Universal",
+      "path": "/Users/ryotamurakami/utils/packages/universal",
+    },
+    {
+      "label": "Node",
+      "path": "/Users/ryotamurakami/utils/packages/node",
+    },
+    {
+      "label": "Next React",
+      "path": "/Users/ryotamurakami/utils/packages/next-react",
+    },
+    {
+      "label": "Browser",
+      "path": "/Users/ryotamurakami/utils/packages/browser",
+    },
+    {
+      "label": "Type",
+      "path": "/Users/ryotamurakami/utils/packages/type",
+    },
+  ],
 }
