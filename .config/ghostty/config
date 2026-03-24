@@ -1,7 +1,10 @@
 # Ghostty Config
 
-# Font size (in points)
-font-size = 21
+# Font
+font-family = JetBrainsMono Nerd Font
+font-family = Hiragino Sans
+font-size = 20
+theme = TokyoNight Moon
 
 # Background opacity (0.0 to 1.0)
 # 1.0 = opaque, 0.0 = fully transparent
