@@ -2,33 +2,11 @@
   "editor.inlineSuggest.enabled": true,
   "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
-  "editor.language.brackets": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ],
-  ],
+  "editor.language.brackets": ["[", "]"],
   "editor.language.colorizedBracketPairs": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ],
+    ["[", "]"],
+    ["(", ")"],
+    ["{", "}"],
   ],
   "editor.hover.enabled": true,
   "editor.hover.delay": 500,
@@ -92,10 +70,7 @@
       },
       {
         "name": "JSDoc tag parameters",
-        "scope": [
-          "variable.other.jsdoc",
-          "entity.name.variable.jsdoc",
-        ],
+        "scope": ["variable.other.jsdoc", "entity.name.variable.jsdoc"],
         "settings": {
           "foreground": "#E0CCFF",
         },
@@ -174,9 +149,7 @@
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": [
-    "workbench.colorCustomizations"
-  ],
+  "workbench.settings.applyToAllProfiles": ["workbench.colorCustomizations"],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -184,22 +157,16 @@
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.profiles.osx": {
     "bash": {
-      "path": "/bin/bash", // or e.g. "/opt/homebrew/bin/bash"
-      "args": [
-        "-l"
-      ], // login shell so you get ~/.bash_profile
+      "path": "/bin/bash",
+      "args": ["-l"],
     },
     "zsh": {
       "path": "/bin/zsh",
-      "args": [
-        "-l"
-      ],
+      "args": ["-l"],
     },
     "fish": {
-      "path": "/usr/local/bin/fish", // keep fish so you can still pick it
-      "args": [
-        "-l"
-      ],
+      "path": "/usr/local/bin/fish",
+      "args": ["-l"],
     },
   },
   "terminal.integrated.defaultProfile.osx": "fish",
@@ -217,7 +184,7 @@
   "jest.jestCommandLine": "./node_modules/.bin/jest",
   "jest.runMode": "on-demand",
   "editor.gotoLocation.alternativeImplementationCommand": "editor.action.goToImplementation",
-  "editor.gotoLocation.alternativeReferenceCommand": "editor.action.explainSymbol",
+  "editor.gotoLocation.alternativeReferenceCommand": "editor.action.goToReferences",
   "typescript.preferGoToSourceDefinition": true,
   "javascript.preferGoToSourceDefinition": true,
   "gitlens.virtualRepositories.enabled": false,
@@ -295,33 +262,14 @@
     "**/.yarn": true,
   },
   "debug.javascript.unmapMissingSources": true,
-  "javascript.preferences.autoImportFileExcludePatterns": [
-    "e2e"
-  ],
-  "typescript.preferences.autoImportFileExcludePatterns": [
-    "e2e"
-  ],
+  "javascript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
   "tailwindCSS.experimental.classRegex": [
-    [
-      "cva\\(([^)]*)\\)",
-      "[\"']([^\"']*).*?[\"']"
-    ],
-    [
-      "daisyui([^]*)",
-      "daisyui=[\"']([^\"']*)"
-    ],
-    [
-      "clsx\\(([^)]*)\\)",
-      "(?:'|\"|`)([^']*)(?:'|\"|`)"
-    ],
-    [
-      "classnames\\(([^)]*)\\)",
-      "[\"'`]([^\"'`]*)[\"'`]"
-    ],
-    [
-      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
-      "[`'\"`]([^'\"`;]*)[`'\"`]"
-    ],
+    ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
+    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
+    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
+    ["classnames\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
+    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"],
   ],
   "surround.custom": {
     "Double Quote": {
@@ -329,24 +277,14 @@
       "disabled": false,
       "description": "\"...\"",
       "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-      "languageIds": [
-        "html",
-        "javascript",
-        "typescript",
-        "markdown"
-      ],
+      "languageIds": ["html", "javascript", "typescript", "markdown"],
     },
     "Parenthesis": {
       "label": "()",
       "disabled": false,
       "description": "Just parenthesis",
-      "snippet": "$($TM_SELECTED_TEXT)$0", // <-- snippet goes here.
-      "languageIds": [
-        "html",
-        "javascript",
-        "typescript",
-        "markdown"
-      ],
+      "snippet": "$($TM_SELECTED_TEXT)$0",
+      "languageIds": ["html", "javascript", "typescript", "markdown"],
     },
     "describe": {
       "label": "describe()",
@@ -420,7 +358,7 @@
     "*.sqlite3": "${capture}.${extname}-*",
     "*.db3": "${capture}.${extname}-*",
     "*.sdb": "${capture}.${extname}-*",
-    "*.s3db": "${capture}.${extname}-*"
+    "*.s3db": "${capture}.${extname}-*",
   },
   "cursor.composer.shouldAllowCustomModes": true,
   "cursor.composer.collapsePaneInputBoxPills": true,
@@ -453,7 +391,6 @@
   "playwright.runGlobalSetupOnEachRun": false,
   "editor.experimental.preferTreeSitter.typescript": true,
   "typescript.preferences.useAliasesForRenames": false,
-  "workbench.editor.enablePreview": false,
   "[dockercompose]": {
     "editor.insertSpaces": true,
     "editor.tabSize": 2,
@@ -489,6 +426,7 @@
       "attr_quotes": "double",
     },
   },
+  "tailwindCSS.classFunctions": ["cn", "clsx", "cva", "twMerge", "twJoin"],
   "tailwindCSS.emmetCompletions": true,
   "claudeCode.environmentVariables": [],
   "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
@@ -507,13 +445,11 @@
   "prettier.prettierPath": "./node_modules/prettier",
   "claudeCode.allowDangerouslySkipPermissions": true,
   "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
-  "typescript.format.insertSpaceBeforeAndAfterBinaryOperators": false,
   "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
   "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
   "typescript.format.insertSpaceAfterCommaDelimiter": false,
   "mdx.trace.server.format": "json",
   "mdx.server.enable": false,
-  "cursor.composer.usageSummaryDisplay": "always",
   "terminal.integrated.enablePersistentSessions": false,
   "copyTo.presets": [
     {
@@ -537,4 +473,31 @@
       "path": "/Users/ryotamurakami/utils/packages/type",
     },
   ],
+  "gitlens.gitCommands.skipConfirmations": [
+    "fetch:command",
+    "stash-push:command",
+    "switch:command",
+  ],
+  "windsurf.instructions.global": true,
+  "windsurf.instructions.path": "/Users/ryotamurakami/.windsurf/instructions.md",
+  "gitlens.views.scm.grouped.views": {
+    "commits": true,
+    "branches": true,
+    "remotes": true,
+    "stashes": true,
+    "tags": true,
+    "worktrees": true,
+    "contributors": true,
+    "fileHistory": true,
+    "repositories": true,
+    "searchAndCompare": false,
+    "launchpad": false,
+  },
+  "typescript.format.insertSpaceAfterTypeAssertion": true,
+  "workbench.editor.enablePreview": false,
+  "code-runner.executorMap": {
+    "typescript": "npx tsx",
+  },
+  "code-runner.runInTerminal": true,
+  "code-runner.clearPreviousOutput": true,
 }
