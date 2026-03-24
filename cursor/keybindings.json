@@ -1976,7 +1976,7 @@
     "when": "editorTextFocus",
   },
   {
-    "key": "ctrl+cmd+up",
+    "key": "alt+cmd+up",
     "command": "editor.action.insertCursorAbove",
     "when": "editorTextFocus",
   },
@@ -1986,7 +1986,7 @@
     "when": "editorTextFocus",
   },
   {
-    "key": "ctrl+cmd+down",
+    "key": "alt+cmd+down",
     "command": "editor.action.insertCursorBelow",
     "when": "editorTextFocus",
   },
@@ -2284,7 +2284,7 @@
     "command": "-workbench.action.moveEditorLeftInGroup",
   },
   {
-    "key": "ctrl+x ctrl+s",
+    "key": "ctrl+cmd+t",
     "command": "editor.action.surroundWithSnippet",
   },
   {
@@ -2911,7 +2911,7 @@
     "when": "textInputFocus",
   },
   {
-    "key": "shift+alt+right",
+    "key": "ctrl+alt+f",
     "command": "cursorWordRightSelect",
     "when": "textInputFocus",
   },
@@ -2986,5 +2986,24 @@
     "key": "shift+cmd+,",
     "command": "-workbench.action.terminal.configureSuggestSettings",
     "when": "terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
+  },
+  {
+    "key": "alt+cmd+s",
+    "command": "workbench.action.toggleUnifiedSidebarFromKeyboard",
+    "when": "cursor.agentIdeUnification.enabled == true && !isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "f12",
+    "command": "editor.action.revealDefinition"
+  },
+  {
+    "key": "f8",
+    "command": "daykey.previousLesson",
+    "when": "daykey.lessonNavigationEnabled && editorTextFocus"
+  },
+  {
+    "key": "f9",
+    "command": "daykey.nextLesson",
+    "when": "daykey.lessonNavigationEnabled && editorTextFocus"
   },
 ]
