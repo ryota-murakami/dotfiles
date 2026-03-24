@@ -32,3 +32,6 @@ source "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc' ]; . '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc'; end
+
+# Rust/Cargo
+fish_add_path ~/.cargo/bin
