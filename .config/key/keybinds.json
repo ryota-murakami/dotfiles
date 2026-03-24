@@ -156,7 +156,7 @@
       "keybinds": [
         { "action": "Rectangular Multiple Cursor Select (WebStorm)", "shortcut": "⌥Drag" },
         { "action": "Rectangular Multiple Cursor Select (Cursor)", "shortcut": "⇧Drag" },
-        { "action": "Add or Remove caret", "shortcut": "⌘Click" },
+        { "action": "Add or Remove caret", "shortcut": "⌥Click" },
         { "action": "Clone Cursor Above", "shortcut": "⌥⌘↑" },
         { "action": "Clone Cursor Below", "shortcut": "⌥⌘↓" },
         { "action": "Vertical cursor fill-in (Cursor)", "shortcut": "⌘⇧Mouse" }
