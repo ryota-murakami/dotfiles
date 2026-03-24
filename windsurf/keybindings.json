@@ -2746,10 +2746,6 @@
     "when": "workbench.panel.chat.view.copilot.active",
   },
   {
-    "key": "shift+cmd+l",
-    "command": "windsurf.prioritized.chat.open",
-  },
-  {
     "key": "cmd+l",
     "command": "-windsurf.prioritized.chat.open",
     "when": "!terminalFocus && !windsurf.deepwikiPanel.focused",
@@ -2994,5 +2990,19 @@
   {
     "key": "ctrl+space",
     "command": "prettier.forceFormatDocument",
+  },
+  {
+    "key": "shift+cmd+l",
+    "command": "-windsurf.prioritized.chat.openNewConversation",
+    "when": "!terminalFocus && !windsurf.deepwikiPanel.focused",
+  },
+  {
+    "key": "shift+cmd+c",
+    "command": "-windsurf.openCodeMapView",
+    "when": "codemapsEnabled",
+  },
+  {
+    "key": "shift+cmd+l",
+    "command": "workbench.view.codemaps",
   },
 ]
