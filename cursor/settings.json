@@ -412,7 +412,7 @@
   "gitlens.gitkraken.mcp.autoEnabled": false,
   "cursor.rpcFileLogger.enabled": true,
   "cursor.composer.shouldChimeAfterChatFinishes": true,
-  "update.releaseTrack": "prerelease",
+  "update.releaseTrack": "dev",
   "emmet.triggerExpansionOnTab": true,
   "emmet.useInlineCompletions": true,
   "emmet.syntaxProfiles": {
