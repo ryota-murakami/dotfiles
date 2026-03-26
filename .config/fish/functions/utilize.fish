@@ -58,7 +58,7 @@ function utilize --description 'Copy file or directory to a package root directo
     set source_paths (string split ',' $source_paths_str)
 
     # Set workspace root to ~/utils
-    set workspace_root "$HOME/utils"
+    set workspace_root "$HOME/laststance/utils"
     if not test -d $workspace_root
         echo "Error: Workspace root '$workspace_root' does not exist." >&2
         return 1
