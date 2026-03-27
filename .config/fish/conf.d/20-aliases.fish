@@ -54,6 +54,8 @@ alias wanip="curl https://ipinfo.io/ip"
 # Flags: auto-open-devtools, incognito mode, disable XSS warnings
 alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs --incognito --unsafely-disable-devtools-self-xss-warnings"
 
+# warp: Open Warp that AI powered terminal
+alias warp='open -a Warp .'
 # -----------------------------------------------------------------------------
 # Directory Navigation
 # -----------------------------------------------------------------------------
