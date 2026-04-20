@@ -63,11 +63,11 @@ alias warp='open -a Warp .'
 # Usage: Just type the alias to cd to that directory
 
 alias dotfiles="cd ~/dotfiles"       # This dotfiles repository
-alias nsx="cd ~/nsx"                 # NSX project
+alias nsx="cd ~/laststance/nsx"                 # NSX project
 alias last="cd ~/laststance"         # Laststance organization projects
 alias io="cd ~/laststance/laststance.io"  # Laststance.io website
 alias claudia="cd ~/.claude"         # Claude Code configuration
-alias corelive="cd ~/corelive"       # CoreLive project
+alias corelive="cd ~/laststance/corelive"       # CoreLive project
 alias skills-dir="cd ~/.agents/skills"
 
 # yalclist: Navigate to yalc packages directory and list contents
