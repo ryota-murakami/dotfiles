@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "theme": "aurora",
+  "layout": "cards",
+  "exampleStyle": "guided",
+  "githubLinkStrategy": "strict",
+  "cacheTtlHours": 72
+}
