@@ -25,7 +25,9 @@ usage_tracking2.json
 .serena
 .conductor
 .playwright-mcp
+.playwright-cli
 AGENTS.md
+.agents
 .cursor
 .claude
 **/.cursor/.agent-tools
