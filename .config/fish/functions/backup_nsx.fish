@@ -31,7 +31,7 @@
 #
 # =============================================================================
 function backup_nsx
-    cd ~/nsx
+    cd ~/laststance/nsx
     bash -c './scripts/backup'
     mv backup_*.sql ~/repository/backup-files/nsx/
     cd ~/repository/backup-files/nsx
