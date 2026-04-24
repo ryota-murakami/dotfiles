@@ -119,7 +119,8 @@ run_cmd defaults write NSGlobalDomain NSAutomaticSpellingCorrectionEnabled -bool
 run_cmd defaults write NSGlobalDomain NSAutomaticTextCompletionEnabled -bool false
 echo -e "${BLUE}Automatic text transformations have been disabled.${RESET_COLOR}"
 echo -e "${YELLOW}Tip: These settings reduce accidental edits and unnecessary typing — a small step toward being kinder to your time and device energy use.${RESET_COLOR}"
-
+run_cmd defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 70 '<dict><key>enabled</key><false/></dict>'
+echo -e "${BLUE}ctrl+cmd+D Dictionary shortcut has been disabled.${RESET_COLOR}"
 run_cmd defaults write com.apple.assistant.support 'Siri Enabled' -bool false
 echo -e "${BLUE}Siri has been disabled.${RESET_COLOR}"
 
