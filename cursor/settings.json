@@ -2,11 +2,23 @@
   "editor.inlineSuggest.enabled": true,
   "editor.scrollBeyondLastLine": true,
   "editor.scrollBeyondLastColumn": 10,
-  "editor.language.brackets": ["[", "]"],
+  "editor.language.brackets": [
+    "[",
+    "]"
+  ],
   "editor.language.colorizedBracketPairs": [
-    ["[", "]"],
-    ["(", ")"],
-    ["{", "}"],
+    [
+      "[",
+      "]"
+    ],
+    [
+      "(",
+      ")"
+    ],
+    [
+      "{",
+      "}"
+    ],
   ],
   "editor.hover.enabled": true,
   "editor.hover.delay": 500,
@@ -48,6 +60,10 @@
           "comment.block.documentation",
           "comment.block.documentation.ts",
           "comment.block.documentation.js",
+          "comment.block.ts",
+          "comment.block.js",
+          "comment.block.tsx",
+          "comment.block.jsx",
         ],
         "settings": {
           "foreground": "#7FAF8F",
@@ -70,7 +86,10 @@
       },
       {
         "name": "JSDoc tag parameters",
-        "scope": ["variable.other.jsdoc", "entity.name.variable.jsdoc"],
+        "scope": [
+          "variable.other.jsdoc",
+          "entity.name.variable.jsdoc"
+        ],
         "settings": {
           "foreground": "#E0CCFF",
         },
@@ -149,7 +168,9 @@
   "editor.accessibilitySupport": "off",
   "explorer.fileNesting.expand": false,
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": ["workbench.colorCustomizations"],
+  "workbench.settings.applyToAllProfiles": [
+    "workbench.colorCustomizations"
+  ],
   "workbench.tree.indent": 14,
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode",
@@ -158,15 +179,21 @@
   "terminal.integrated.profiles.osx": {
     "bash": {
       "path": "/bin/bash",
-      "args": ["-l"],
+      "args": [
+        "-l"
+      ],
     },
     "zsh": {
       "path": "/bin/zsh",
-      "args": ["-l"],
+      "args": [
+        "-l"
+      ],
     },
     "fish": {
       "path": "/usr/local/bin/fish",
-      "args": ["-l"],
+      "args": [
+        "-l"
+      ],
     },
   },
   "terminal.integrated.defaultProfile.osx": "fish",
@@ -262,14 +289,33 @@
     "**/.yarn": true,
   },
   "debug.javascript.unmapMissingSources": true,
-  "javascript.preferences.autoImportFileExcludePatterns": ["e2e"],
-  "typescript.preferences.autoImportFileExcludePatterns": ["e2e"],
+  "javascript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
+  "typescript.preferences.autoImportFileExcludePatterns": [
+    "e2e"
+  ],
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"']([^\"']*).*?[\"']"],
-    ["daisyui([^]*)", "daisyui=[\"']([^\"']*)"],
-    ["clsx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
-    ["classnames\\(([^)]*)\\)", "[\"'`]([^\"'`]*)[\"'`]"],
-    ["(?:twMerge|twJoin)\\(([^;]*)[\\);]", "[`'\"`]([^'\"`;]*)[`'\"`]"],
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"']([^\"']*).*?[\"']"
+    ],
+    [
+      "daisyui([^]*)",
+      "daisyui=[\"']([^\"']*)"
+    ],
+    [
+      "clsx\\(([^)]*)\\)",
+      "(?:'|\"|`)([^']*)(?:'|\"|`)"
+    ],
+    [
+      "classnames\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*)[\"'`]"
+    ],
+    [
+      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
+      "[`'\"`]([^'\"`;]*)[`'\"`]"
+    ],
   ],
   "surround.custom": {
     "Double Quote": {
@@ -277,14 +323,24 @@
       "disabled": false,
       "description": "\"...\"",
       "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-      "languageIds": ["html", "javascript", "typescript", "markdown"],
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ],
     },
     "Parenthesis": {
       "label": "()",
       "disabled": false,
       "description": "Just parenthesis",
       "snippet": "$($TM_SELECTED_TEXT)$0",
-      "languageIds": ["html", "javascript", "typescript", "markdown"],
+      "languageIds": [
+        "html",
+        "javascript",
+        "typescript",
+        "markdown"
+      ],
     },
     "describe": {
       "label": "describe()",
@@ -389,7 +445,7 @@
   "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
   "playwright.updateSnapshots": "all",
   "playwright.runGlobalSetupOnEachRun": false,
-  "editor.experimental.preferTreeSitter.typescript": true,
+  "editor.experimental.preferTreeSitter.typescript": false,
   "typescript.preferences.useAliasesForRenames": false,
   "[dockercompose]": {
     "editor.insertSpaces": true,
@@ -412,7 +468,6 @@
   "gitlens.gitkraken.mcp.autoEnabled": false,
   "cursor.rpcFileLogger.enabled": true,
   "cursor.composer.shouldChimeAfterChatFinishes": true,
-  "update.releaseTrack": "dev",
   "emmet.triggerExpansionOnTab": true,
   "emmet.useInlineCompletions": true,
   "emmet.syntaxProfiles": {
@@ -426,7 +481,13 @@
       "attr_quotes": "double",
     },
   },
-  "tailwindCSS.classFunctions": ["cn", "clsx", "cva", "twMerge", "twJoin"],
+  "tailwindCSS.classFunctions": [
+    "cn",
+    "clsx",
+    "cva",
+    "twMerge",
+    "twJoin"
+  ],
   "tailwindCSS.emmetCompletions": true,
   "claudeCode.environmentVariables": [],
   "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
@@ -500,4 +561,7 @@
   },
   "code-runner.runInTerminal": true,
   "code-runner.clearPreviousOutput": true,
+  "cursor.composer.usageSummaryDisplay": "always",
+  "update.mode": "silentlyApplyOnQuit",
+  "update.releaseTrack": "dev",
 }
