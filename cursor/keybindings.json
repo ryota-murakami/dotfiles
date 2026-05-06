@@ -2088,10 +2088,6 @@
     "command": "-workbench.action.focusThirdEditorGroup",
   },
   {
-    "key": "cmd+2",
-    "command": "outline.toggleVisibility",
-  },
-  {
     "key": "ctrl+l",
     "command": "-workbench.action.chat.clear",
     "when": "hasChatProvider && inChat",
@@ -2790,10 +2786,6 @@
     "when": "cursor.agentIdeUnification.enabled && !isAuxiliaryWindowFocusedContext",
   },
   {
-    "key": "ctrl+\\",
-    "command": "workbench.action.togglePanel",
-  },
-  {
     "key": "alt+cmd+z",
     "command": "-workbench.action.backgroundComposer.toggleControlPanelExpand",
     "when": "backgroundComposerEnabled",
@@ -2988,22 +2980,45 @@
     "when": "terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
   },
   {
-    "key": "alt+cmd+s",
-    "command": "workbench.action.toggleUnifiedSidebarFromKeyboard",
-    "when": "!isAuxiliaryWindowFocusedContext"
-  },
-  {
     "key": "f12",
     "command": "editor.action.revealDefinition"
   },
   {
-    "key": "f8",
+    "key": "f10",
     "command": "daykey.previousLesson",
     "when": "daykey.lessonNavigationEnabled && editorTextFocus"
   },
   {
-    "key": "f9",
+    "key": "f11",
     "command": "daykey.nextLesson",
     "when": "daykey.lessonNavigationEnabled && editorTextFocus"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "workbench.action.gotoLine"
+  },
+  {
+    "key": "cmd+j",
+    "command": "-glass.toggleTerminal",
+    "when": "isGlassAgentWorkspace"
+  },
+  {
+    "key": "cmd+,",
+    "command": "-aiSettings.action.open",
+    "when": "cursor.cmdCommaOpensCursorSettings"
+  },
+  {
+    "key": "shift+cmd+,",
+    "command": "-cursor.openVSCodeSettingsFromMenu",
+    "when": "cursor.cmdCommaOpensCursorSettings && !editorFocus"
+  },
+  {
+    "key": "ctrl+`",
+    "command": "-glass.toggleTerminal",
+    "when": "isGlassAgentWorkspace"
+  },
+  {
+    "key": "cmd+2",
+    "command": "workbench.action.terminal.toggleTerminal"
   },
 ]
