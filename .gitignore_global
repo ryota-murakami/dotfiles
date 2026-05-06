@@ -24,6 +24,7 @@ uploads/
 usage_tracking2.json
 .serena
 .conductor
+.playwright
 .playwright-mcp
 .playwright-cli
 AGENTS.md
@@ -35,3 +36,4 @@ AGENTS.md
 .qudo
 .mcp.json
 .nogic
+.context
