@@ -35,3 +35,7 @@ if [ -f '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc' ]; . '/U
 
 # Rust/Cargo
 fish_add_path ~/.cargo/bin
+
+# try CLI (Homebrew)
+fish_add_path /opt/homebrew/opt/ruby/bin
+eval (try init ~/src/tries | string collect)
