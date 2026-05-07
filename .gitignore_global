@@ -37,3 +37,6 @@ AGENTS.md
 .mcp.json
 .nogic
 .context
+.agents
+.codex
+AGENTS.override.md
