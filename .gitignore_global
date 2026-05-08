@@ -40,3 +40,5 @@ AGENTS.md
 .agents
 .codex
 AGENTS.override.md
+.claude/goal.json
+.claude/goal-notes.md
