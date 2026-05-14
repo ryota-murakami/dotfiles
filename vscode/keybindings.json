@@ -1261,11 +1261,6 @@
     "when": "codeActionMenuVisible"
   },
   {
-    "key": "ctrl+cmd+b",
-    "command": "cursorColumnSelectLeft",
-    "when": "textInputFocus"
-  },
-  {
     "key": "shift+alt+cmd+left",
     "command": "-cursorColumnSelectLeft",
     "when": "textInputFocus"
@@ -1327,11 +1322,6 @@
   {
     "key": "ctrl+cmd+a",
     "command": "cursorHomeSelect",
-    "when": "textInputFocus"
-  },
-  {
-    "key": "ctrl+cmd+f",
-    "command": "cursorColumnSelectRight",
     "when": "textInputFocus"
   },
   {
@@ -1512,11 +1502,6 @@
     "key": "shift+cmd+v",
     "command": "-markdown.showPreview",
     "when": "!notebookEditorFocused && editorLangId == 'markdown'"
-  },
-  {
-    "key": "ctrl+cmd+enter",
-    "command": "editor.action.insertLineBefore",
-    "when": "editorTextFocus && !editorReadonly"
   },
   {
     "key": "shift+cmd+enter",
@@ -2122,10 +2107,6 @@
     "command": "-workbench.action.focusThirdEditorGroup"
   },
   {
-    "key": "cmd+2",
-    "command": "outline.toggleVisibility"
-  },
-  {
     "key": "ctrl+l",
     "command": "-workbench.action.chat.clear",
     "when": "hasChatProvider && inChat"
@@ -2319,11 +2300,6 @@
     "key": "cmd+f9",
     "command": "-workbench.action.chat.nextFileTree",
     "when": "hasChatProvider && inChat"
-  },
-  {
-    "key": "ctrl+shift+`",
-    "command": "-workbench.action.terminal.new",
-    "when": "terminalProcessSupported || terminalWebExtensionContributedProfile"
   },
   {
     "key": "cmd+l",
@@ -2656,10 +2632,6 @@
     "when": "cursor.agentIdeUnification.enabled && !isAuxiliaryWindowFocusedContext"
   },
   {
-    "key": "ctrl+\\",
-    "command": "workbench.action.togglePanel"
-  },
-  {
     "key": "cmd+r alt+cmd+c",
     "command": "-workbench.action.addComment",
     "when": "activeCursorHasCommentingRange"
@@ -2791,5 +2763,82 @@
     "key": "cmd+1",
     "command": "workbench.action.toggleSidebarVisibility",
     "when": "explorerViewletFocus"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-inlineChat.askInChat",
+    "when": "config.inlineChat.askInChat && editorFocus && inlineChatFileBelongsToChat && inlineChatHasEditsAgent && inlineChatPossible && !editorReadonly && !editorSimpleInput || config.inlineChat.askInChat && editorFocus && inlineChatFileBelongsToChat && inlineChatHasNotebookAgent && inlineChatPossible && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || config.inlineChat.askInChat && editorFocus && inlineChatFileBelongsToChat && inlineChatHasNotebookInline && inlineChatPossible && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook'"
+  },
+  {
+    "key": "alt+cmd+enter",
+    "command": "-workbench.action.terminal.chat.insertCommand",
+    "when": "chatIsEnabled && terminalChatResponseContainsCodeBlock && terminalHasBeenCreated && !terminalChatActiveRequest && !terminalChatResponseContainsMultipleCodeBlocks || chatIsEnabled && terminalChatResponseContainsCodeBlock && terminalProcessSupported && !terminalChatActiveRequest && !terminalChatResponseContainsMultipleCodeBlocks"
+  },
+  {
+    "key": "alt+enter",
+    "command": "-workbench.action.terminal.chat.insertCommand",
+    "when": "chatIsEnabled && terminalChatResponseContainsCodeBlock && terminalHasBeenCreated && !terminalChatActiveRequest && !terminalChatResponseContainsMultipleCodeBlocks || chatIsEnabled && terminalChatResponseContainsCodeBlock && terminalProcessSupported && !terminalChatActiveRequest && !terminalChatResponseContainsMultipleCodeBlocks"
+  },
+  {
+    "key": "alt+cmd+enter",
+    "command": "-workbench.action.terminal.chat.insertFirstCommand",
+    "when": "chatIsEnabled && terminalChatResponseContainsMultipleCodeBlocks && terminalHasBeenCreated && !terminalChatActiveRequest || chatIsEnabled && terminalChatResponseContainsMultipleCodeBlocks && terminalProcessSupported && !terminalChatActiveRequest"
+  },
+  {
+    "key": "alt+enter",
+    "command": "-workbench.action.terminal.chat.insertFirstCommand",
+    "when": "chatIsEnabled && terminalChatResponseContainsMultipleCodeBlocks && terminalHasBeenCreated && !terminalChatActiveRequest || chatIsEnabled && terminalChatResponseContainsMultipleCodeBlocks && terminalProcessSupported && !terminalChatActiveRequest"
+  },
+  {
+    "key": "cmd+i",
+    "command": "-inlineChat.start",
+    "when": "editorFocus && inlineChatHasEditsAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput || editorFocus && inlineChatHasEditsAgent && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat || editorFocus && inlineChatHasEditsAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat || editorFocus && inlineChatHasNotebookAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookAgent && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookInline && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookAgent && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookInline && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookAgent && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookAgent && inlineChatHasNotebookInline && inlineChatPossible && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookAgent && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasEditsAgent && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook' || editorFocus && inlineChatHasNotebookAgent && inlineChatHasNotebookInline && inlineChatPossible && !config.inlineChat.askInChat && !editorReadonly && !editorSimpleInput && !inlineChatFileBelongsToChat && activeEditor == 'workbench.editor.notebook'"
+  },
+  {
+    "key": "shift+cmd+f2",
+    "command": "-editor.action.linkedEditing",
+    "when": "editorHasRenameProvider && editorTextFocus && !editorReadonly"
+  },
+  {
+    "key": "alt+f9",
+    "command": "-testing.coverage.goToNextMissedLine",
+    "when": "activeEditor && testing.hasCoverageInFile"
+  },
+  {
+    "key": "shift+alt+f9",
+    "command": "-testing.coverage.goToPreviousMissedLine",
+    "when": "activeEditor && testing.hasCoverageInFile"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "workbench.action.gotoLine"
+  },
+  {
+    "key": "cmd+2",
+    "command": "workbench.action.togglePanel"
+  },
+  {
+    "key": "cmd+j",
+    "command": "-workbench.action.togglePanel"
+  },
+  {
+    "key": "ctrl+cmd+f",
+    "command": "cursorRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+right",
+    "command": "-cursorRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+b",
+    "command": "cursorLeftSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "shift+right",
+    "command": "cursorRightSelect",
+    "when": "textInputFocus"
   }
 ]
