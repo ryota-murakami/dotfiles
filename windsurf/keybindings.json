@@ -2851,10 +2851,6 @@
     "when": "cursor.agentIdeUnification.enabled && !isAuxiliaryWindowFocusedContext",
   },
   {
-    "key": "ctrl+\\",
-    "command": "workbench.action.togglePanel",
-  },
-  {
     "key": "cmd+r alt+cmd+c",
     "command": "-workbench.action.addComment",
     "when": "activeCursorHasCommentingRange",
@@ -3004,5 +3000,23 @@
   {
     "key": "shift+cmd+l",
     "command": "workbench.view.codemaps",
+  },
+  {
+    "key": "ctrl+cmd+b",
+    "command": "cursorLeftSelect",
+    "when": "textInputFocus",
+  },
+  {
+    "key": "ctrl+cmd+f",
+    "command": "cursorRightSelect",
+    "when": "textInputFocus",
+  },
+  {
+    "key": "cmd+2",
+    "command": "workbench.action.terminal.toggleTerminal",
+  },
+  {
+    "key": "cmd+3",
+    "command": "outline.toggleVisibility",
   },
 ]
