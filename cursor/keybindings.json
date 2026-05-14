@@ -1241,11 +1241,6 @@
     "when": "codeActionMenuVisible",
   },
   {
-    "key": "ctrl+cmd+b",
-    "command": "cursorColumnSelectLeft",
-    "when": "textInputFocus",
-  },
-  {
     "key": "shift+alt+cmd+left",
     "command": "-cursorColumnSelectLeft",
     "when": "textInputFocus",
@@ -1307,11 +1302,6 @@
   {
     "key": "ctrl+cmd+a",
     "command": "cursorHomeSelect",
-    "when": "textInputFocus",
-  },
-  {
-    "key": "ctrl+cmd+f",
-    "command": "cursorColumnSelectRight",
     "when": "textInputFocus",
   },
   {
@@ -1617,11 +1607,6 @@
     "key": "shift+cmd+left",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "terminalFocus && terminalShellType == 'pwsh'",
-  },
-  {
-    "key": "shift+cmd+left",
-    "command": "cursorLineStartSelect",
-    "when": "textInputFocus",
   },
   {
     "key": "ctrl+shift+g",
@@ -3020,5 +3005,64 @@
   {
     "key": "cmd+2",
     "command": "workbench.action.terminal.toggleTerminal"
+  },
+  {
+    "key": "ctrl+cmd+b",
+    "command": "cursorLeftSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+f",
+    "command": "cursorRightSelect",
+    "when": "textInputFocus"
+  },
+  {
+    "key": "ctrl+cmd+f",
+    "command": "-glass.toggleFullScreen",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+enter",
+    "command": "code-runner.run"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-glass.openInstanceSelector",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "composerMode.chat"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "-glass.scrollAgentPanelUp",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+left",
+    "command": "cursorLineStartSelect"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "-aiSettings.action.open"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "cursor.openOrFocusGlassWindow"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "glass.openIde",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "-glass.openIde",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "aiSettings.action.open"
   },
 ]
