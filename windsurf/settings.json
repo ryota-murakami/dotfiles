@@ -24,16 +24,6 @@
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.formatOnPaste": true,
   "editor.formatOnSave": true,
-  "typescript.suggest.autoImports": true,
-  "typescript.updateImportsOnFileMove.enabled": "always",
-  "typescript.preferences.includePackageJsonAutoImports": "on",
-  "typescript.referencesCodeLens.enabled": true,
-  "typescript.suggest.completeFunctionCalls": true,
-  "typescript.inlayHints.parameterNames.enabled": "all",
-  "typescript.inlayHints.parameterTypes.enabled": true,
-  "typescript.inlayHints.variableTypes.enabled": true,
-  "typescript.inlayHints.propertyDeclarationTypes.enabled": true,
-  "typescript.inlayHints.functionLikeReturnTypes.enabled": true,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit",
     "source.organizeImports": "explicit"
@@ -41,5 +31,15 @@
   "editor.showFoldingControls": "always",
   "editor.gotoLocation.multipleDefinitions": "goto",
   "editor.gotoLocation.multipleImplementations": "goto",
-  "editor.gotoLocation.multipleReferences": "goto"
+  "editor.gotoLocation.multipleReferences": "goto",
+  "gitlens.ai.model": "gitkraken",
+  "gitlens.ai.gitkraken.model": "gemini:gemini-2.5-flash",
+  "gitlens.graph.minimap.enabled": false,
+  "windsurf.autoContinue": 0,
+  "windsurf.allowCascadeAccessGitignoreFiles": true,
+  "workbench.colorCustomizations": {
+    "editor.selectionBackground": "#6d4c7d",
+    "editor.wordHighlightBackground": "#575757b3",
+    "editor.wordHighlightStrongBackground": "#4a4a4a80"
+  }
 }
