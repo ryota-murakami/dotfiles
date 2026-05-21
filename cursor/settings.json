@@ -1,573 +1,626 @@
 {
-  "editor.inlineSuggest.enabled": true,
-  "editor.scrollBeyondLastLine": true,
-  "editor.scrollBeyondLastColumn": 10,
-  "editor.language.brackets": [
-    "[",
-    "]"
-  ],
-  "editor.language.colorizedBracketPairs": [
-    [
-      "[",
-      "]"
-    ],
-    [
-      "(",
-      ")"
-    ],
-    [
-      "{",
-      "}"
-    ],
-  ],
-  "editor.hover.enabled": true,
-  "editor.hover.delay": 500,
-  "editor.hover.sticky": true,
-  "editor.parameterHints.enabled": true,
-  "editor.parameterHints.cycle": false,
-  "editor.guides.bracketPairs": "active",
-  "editor.autoClosingDelete": "always",
-  "editor.semanticHighlighting.enabled": true,
-  "editor.gotoLocation.multipleDefinitions": "goto",
-  "editor.gotoLocation.multipleTypeDefinitions": "goto",
-  "editor.gotoLocation.multipleDeclarations": "goto",
-  "editor.gotoLocation.multipleImplementations": "goto",
-  "editor.gotoLocation.multipleReferences": "goto",
-  "editor.definitionLinkOpensInPeek": false,
-  "typescript.preferences.importModuleSpecifier": "non-relative",
-  "typescript.referencesCodeLens.showOnAllFunctions": true,
-  "typescript.reportStyleChecksAsWarnings": false,
-  "typescript.suggest.completeFunctionCalls": true,
-  "typescript.tsc.autoDetect": "on",
-  "typescript.tsdk": "./node_modules/typescript/lib",
-  "typescript.tsserver.maxTsServerMemory": 12440,
-  "typescript.preferences.renameMatchingJsxTags": true,
-  "javascript.preferences.renameMatchingJsxTags": true,
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  // Window
+  "window.autoDetectColorScheme": false,
+  "window.titleBarStyle": "custom",
+  "window.zoomLevel": 2,
+  // Workbench
+  "workbench.agentsWindowButton.enabled": false,
   "workbench.colorCustomizations": {
-    "editorWhitespace.foreground": "#3f3f46",
-    "statusBar.background": "#0a0a0a",
-    "[Cursor Dark]": {},
-    "terminal.background": "#00000000",
-  },
-  "[jsonc]": {
-    "editor.defaultFormatter": "vscode.json-language-features",
-  },
-  "editor.fontSize": 15,
-  "eslint.format.enable": true,
-  "files.autoSave": "onFocusChange",
-  "editor.renderWhitespace": "all",
-  "editor.scrollbar.verticalScrollbarSize": 6,
-  "editor.scrollbar.horizontalScrollbarSize": 6,
-  "editor.tokenColorCustomizations": {
-    "textMateRules": [
-      {
-        "scope": [
-          "comment.block.documentation",
-          "comment.block.documentation.ts",
-          "comment.block.documentation.js",
-          "comment.block.ts",
-          "comment.block.js",
-          "comment.block.tsx",
-          "comment.block.jsx",
-        ],
-        "settings": {
-          "foreground": "#7FAF8F",
-        },
-      },
-      {
-        "name": "JSDoc tags (@param, @example, etc.)",
-        "scope": [
-          "storage.type.class.jsdoc",
-          "entity.name.tag.jsdoc",
-          "punctuation.definition.block.tag.jsdoc",
-          "keyword.other.documentation.tag.js",
-          "keyword.other.documentation.tag.ts",
-          "punctuation.definition.tag.jsdoc",
-        ],
-        "settings": {
-          "foreground": "#C7A6FF",
-          "fontStyle": "bold",
-        },
-      },
-      {
-        "name": "JSDoc tag parameters",
-        "scope": [
-          "variable.other.jsdoc",
-          "entity.name.variable.jsdoc"
-        ],
-        "settings": {
-          "foreground": "#E0CCFF",
-        },
-      },
-    ],
-  },
-  "editor.semanticTokenColorCustomizations": {
-    "enabled": true,
-    "rules": {},
-  },
-  "extensions.ignoreRecommendations": true,
-  "javascript.inlayHints.parameterNames.enabled": "all",
-  "css.lint.emptyRules": "ignore",
-  "less.lint.emptyRules": "ignore",
-  "scss.lint.emptyRules": "ignore",
-  "css.lint.unknownAtRules": "error",
-  "css.lint.unknownProperties": "error",
-  "css.lint.unknownVendorSpecificProperties": "error",
-  "css.lint.vendorPrefix": "ignore",
-  "less.lint.unknownAtRules": "ignore",
-  "less.lint.unknownProperties": "ignore",
-  "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
-  "editor.defaultColorDecorators": "auto",
-  "git.autofetch": true,
-  "editor.tabSize": 2,
-  "css.lint.propertyIgnoredDueToDisplay": "ignore",
-  "scss.lint.propertyIgnoredDueToDisplay": "ignore",
-  "prettier.withNodeModules": true,
-  "editor.codeActionsOnSave": {},
-  "editor.indentSize": "tabSize",
+      "editorWhitespace.foreground": "#3f3f46",
+      "statusBar.background": "#0a0a0a",
+      "[Cursor Dark]": {},
+      "terminal.background": "#00000000",
+      "editor.selectionBackground": "#22c55e59",
+      "editor.inactiveSelectionBackground": "#22c55e33"
+    },
+  "workbench.editor.enablePreview": false,
   "workbench.list.fastScrollSensitivity": 1,
-  "[typescript]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features",
-  },
-  "typescript.locale": "en",
-  "javascript.suggestionActions.enabled": false,
-  "redhat.telemetry.enabled": true,
-  "eslint.ignoreUntitled": true,
-  "eslint.trace.server": "verbose",
-  "git.openRepositoryInParentFolders": "never",
+  "workbench.settings.applyToAllProfiles": [
+      "workbench.colorCustomizations"
+    ],
+  "workbench.tree.indent": 14,
+  // Outline
+  "outline.collapseItems": "alwaysCollapse",
+  // Editor — general
+  "editor.accessibilitySupport": "off",
+  "editor.codeActionsOnSave": {},
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.dragAndDrop": false,
+  "editor.experimental.preferTreeSitter.typescript": false,
+  "editor.folding": false,
+  "editor.fontSize": 15,
+  "editor.formatOnPaste": true,
+  "editor.indentSize": "tabSize",
+  "editor.minimap.enabled": true,
+  "editor.mouseWheelScrollSensitivity": 0.7,
+  "editor.multiCursorModifier": "alt",
+  "editor.renderWhitespace": "all",
+  "editor.scrollBeyondLastColumn": 10,
+  "editor.scrollBeyondLastLine": true,
+  "editor.scrollbar.horizontalScrollbarSize": 6,
+  "editor.scrollbar.verticalScrollbarSize": 6,
+  "editor.tabSize": 2,
+  // Editor — brackets & guides
+  "editor.autoClosingBrackets": "always",
+  "editor.autoClosingDelete": "always",
+  "editor.guides.bracketPairs": "active",
   "editor.guides.bracketPairsHorizontal": true,
-  "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
-  "emmet.includeLanguages": {
-    "postcss": "css",
-  },
+  // Editor — suggestions & inline
+  "editor.inlineSuggest.enabled": true,
   "editor.inlineSuggest.showToolbar": "always",
   "editor.inlineSuggest.suppressSuggestions": true,
-  "editor.quickSuggestions": {
-    "strings": "on",
-  },
-  "editor.suggest.localityBonus": true,
   "editor.linkedEditing": true,
-  "search.actionsPosition": "auto",
-  "editor.multiCursorModifier": "alt",
-  "editor.mouseWheelScrollSensitivity": 0.7,
-  "typescript.updateImportsOnFileMove.enabled": "always",
+  "editor.quickSuggestions": {
+      "strings": "on"
+    },
+  "editor.suggest.localityBonus": true,
+  // Editor — hover, parameters & inlay hints
+  "editor.hover.delay": 500,
+  "editor.hover.enabled": true,
+  "editor.hover.sticky": true,
+  "editor.inlayHints.enabled": "off",
+  "editor.inlayHints.fontSize": 15,
+  "editor.parameterHints.cycle": false,
+  "editor.parameterHints.enabled": true,
+  // Editor — go to definition / references
+  "editor.definitionLinkOpensInPeek": false,
+  "editor.gotoLocation.alternativeImplementationCommand": "editor.action.goToImplementation",
+  "editor.gotoLocation.alternativeReferenceCommand": "editor.action.goToReferences",
+  "editor.gotoLocation.multipleDeclarations": "goto",
+  "editor.gotoLocation.multipleDefinitions": "goto",
+  "editor.gotoLocation.multipleImplementations": "goto",
+  "editor.gotoLocation.multipleReferences": "goto",
+  "editor.gotoLocation.multipleTypeDefinitions": "goto",
+  // Editor — colors & semantic highlighting
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+  "editor.defaultColorDecorators": "auto",
+  "editor.language.brackets": [
+      [
+        "[",
+        "]"
+      ],
+      [
+        "(",
+        ")"
+      ],
+      [
+        "{",
+        "}"
+      ]
+    ],
+  "editor.language.colorizedBracketPairs": [
+      [
+        "[",
+        "]"
+      ],
+      [
+        "(",
+        ")"
+      ],
+      [
+        "{",
+        "}"
+      ]
+    ],
+  "editor.semanticHighlighting.enabled": true,
+  "editor.semanticTokenColorCustomizations": {
+      "enabled": true,
+      "rules": {}
+    },
+  "editor.tokenColorCustomizations": {
+      "textMateRules": [
+        {
+          "scope": [
+            "comment.block.documentation",
+            "comment.block.documentation.ts",
+            "comment.block.documentation.js",
+            "comment.block.ts",
+            "comment.block.js",
+            "comment.block.tsx",
+            "comment.block.jsx"
+          ],
+          "settings": {
+            "foreground": "#7FAF8F"
+          }
+        },
+        {
+          "name": "JSDoc tags (@param, @example, etc.)",
+          "scope": [
+            "storage.type.class.jsdoc",
+            "entity.name.tag.jsdoc",
+            "punctuation.definition.block.tag.jsdoc",
+            "keyword.other.documentation.tag.js",
+            "keyword.other.documentation.tag.ts",
+            "punctuation.definition.tag.jsdoc"
+          ],
+          "settings": {
+            "foreground": "#C7A6FF",
+            "fontStyle": "bold"
+          }
+        },
+        {
+          "name": "JSDoc tag parameters",
+          "scope": [
+            "variable.other.jsdoc",
+            "entity.name.variable.jsdoc"
+          ],
+          "settings": {
+            "foreground": "#E0CCFF"
+          }
+        },
+        {
+          "name": "Line comments — same green as doc blocks (#7FAF8F)",
+          "scope": [
+            "comment.line",
+            "comment.line.double-slash",
+            "comment.line.double-slash.js",
+            "comment.line.double-slash.ts",
+            "comment.line.double-slash.tsx",
+            "comment.line.double-slash.jsx"
+          ],
+          "settings": {
+            "foreground": "#7FAF8F"
+          }
+        }
+      ]
+    },
+  // Diff editor
+  "diffEditor.ignoreTrimWhitespace": false,
+  "diffEditor.maxComputationTime": 0,
+  "diffEditor.renderSideBySide": false,
+  // Language-specific overrides
+  "[dockercompose]": {
+      "editor.insertSpaces": true,
+      "editor.tabSize": 2,
+      "editor.autoIndent": "advanced",
+      "editor.defaultFormatter": "redhat.vscode-yaml"
+    },
+  "[github-actions-workflow]": {
+      "editor.defaultFormatter": "redhat.vscode-yaml"
+    },
+  "[json]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+  "[jsonc]": {
+      "editor.defaultFormatter": "vscode.json-language-features"
+    },
+  "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+  // TypeScript & JavaScript
+  "javascript.format.insertSpaceAfterOpeningAndBeforeClosingJsxExpressionBraces": true,
+  "javascript.inlayHints.parameterNames.enabled": "all",
+  "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
+  "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
+  "javascript.preferGoToSourceDefinition": true,
+  "javascript.preferences.autoImportFileExcludePatterns": [
+      "e2e"
+    ],
+  "javascript.preferences.importModuleSpecifier": "non-relative",
+  "javascript.preferences.renameMatchingJsxTags": true,
+  "javascript.suggest.paths": true,
+  "javascript.suggestionActions.enabled": false,
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "js/ts.implicitProjectConfig.strictFunctionTypes": false,
+  "js/ts.implicitProjectConfig.strictNullChecks": false,
+  "typescript.format.insertSpaceAfterCommaDelimiter": false,
+  "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
+  "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
+  "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
+  "typescript.format.insertSpaceAfterTypeAssertion": true,
   "typescript.format.placeOpenBraceOnNewLineForControlBlocks": true,
   "typescript.format.placeOpenBraceOnNewLineForFunctions": true,
   "typescript.format.semicolons": "remove",
   "typescript.implementationsCodeLens.enabled": true,
+  "typescript.implementationsCodeLens.showOnInterfaceMethods": true,
+  "typescript.inlayHints.parameterNames.enabled": "literals",
+  "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
+  "typescript.locale": "en",
+  "typescript.preferGoToSourceDefinition": true,
+  "typescript.preferences.autoImportFileExcludePatterns": [
+      "e2e"
+    ],
+  "typescript.preferences.importModuleSpecifier": "non-relative",
+  "typescript.preferences.importModuleSpecifierEnding": "minimal",
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "typescript.preferences.renameMatchingJsxTags": true,
+  "typescript.preferences.useAliasesForRenames": false,
   "typescript.referencesCodeLens.enabled": true,
-  "typescript.tsserver.enableTracing": true,
-  "js/ts.implicitProjectConfig.strictFunctionTypes": false,
-  "js/ts.implicitProjectConfig.strictNullChecks": false,
-  "git.suggestSmartCommit": true,
-  "git.confirmSync": false,
+  "typescript.referencesCodeLens.showOnAllFunctions": true,
+  "typescript.reportStyleChecksAsWarnings": false,
+  "typescript.suggest.completeFunctionCalls": true,
+  "typescript.suggest.paths": true,
+  "typescript.tsserver.maxTsServerMemory": 12440,
+  "typescript.tsserver.watchOptions": {
+      "watchFile": "useFsEvents",
+      "watchDirectory": "useFsEvents"
+    },
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  // CSS / Less / SCSS lint
+  "css.lint.emptyRules": "ignore",
+  "css.lint.propertyIgnoredDueToDisplay": "ignore",
+  "css.lint.unknownAtRules": "error",
+  "css.lint.unknownProperties": "error",
+  "css.lint.unknownVendorSpecificProperties": "error",
+  "css.lint.vendorPrefix": "ignore",
+  "less.lint.emptyRules": "ignore",
+  "less.lint.unknownAtRules": "ignore",
+  "less.lint.unknownProperties": "ignore",
+  "scss.lint.emptyRules": "ignore",
+  "scss.lint.propertyIgnoredDueToDisplay": "ignore",
+  // ESLint & Prettier
+  "eslint.format.enable": true,
+  "eslint.ignoreUntitled": true,
   "eslint.lintTask.enable": true,
-  "javascript.updateImportsOnFileMove.enabled": "always",
-  "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features",
-  },
-  "json.schemas": [],
-  "explorer.confirmDelete": false,
-  "editor.accessibilitySupport": "off",
-  "explorer.fileNesting.expand": false,
+  "eslint.lintTask.options": ". --ext .ts,.tsx,.js,jsx --fix",
+  "eslint.nodePath": "",
+  "eslint.trace.server": "verbose",
+  "prettier.configPath": ".prettierrc",
+  "prettier.prettierPath": "./node_modules/prettier",
+  "prettier.withNodeModules": true,
+  // Files & search
+  "files.autoSave": "onFocusChange",
+  "files.exclude": {
+      "**/.idea": true,
+      "**/.serena": true,
+      "**/.yarn": true
+    },
+  "files.watcherExclude": {
+      "**/.idea/**": true,
+      "**/.next/**": true,
+      "**/.serena/**": true
+    },
+  "search.actionsPosition": "auto",
+  "search.exclude": {
+      "**/.idea/**": true
+    },
+  // Explorer
   "explorer.compactFolders": false,
-  "workbench.settings.applyToAllProfiles": [
-    "workbench.colorCustomizations"
-  ],
-  "workbench.tree.indent": 14,
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode",
-  },
+  "explorer.confirmDelete": false,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+      "*.ts": "${capture}.js",
+      "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+      "*.jsx": "${capture}.js",
+      "*.tsx": "${capture}.ts",
+      "tsconfig.json": "tsconfig.*.json",
+      "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb",
+      "*.sqlite": "${capture}.${extname}-*",
+      "*.db": "${capture}.${extname}-*",
+      "*.sqlite3": "${capture}.${extname}-*",
+      "*.db3": "${capture}.${extname}-*",
+      "*.sdb": "${capture}.${extname}-*",
+      "*.s3db": "${capture}.${extname}-*"
+    },
+  // Git
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+  "git.openRepositoryInParentFolders": "never",
+  "git.suggestSmartCommit": true,
+  // GitLens
+  "gitlens.ai.gitkraken.model": "gemini:gemini-2.5-flash",
+  "gitlens.ai.model": "gitkraken",
+  "gitlens.currentLine.pullRequests.enabled": false,
+  "gitlens.gitCommands.search.showResultsInSideBar": false,
+  "gitlens.gitCommands.skipConfirmations": [
+      "fetch:command",
+      "stash-push:command",
+      "switch:command"
+    ],
+  "gitlens.gitkraken.mcp.autoEnabled": false,
+  "gitlens.hovers.enabled": false,
+  "gitlens.launchpad.indicator.enabled": false,
+  "gitlens.menus": {
+      "editor": {
+        "blame": true,
+        "clipboard": true,
+        "compare": true,
+        "history": true,
+        "remote": true
+      },
+      "editorGroup": {
+        "blame": true,
+        "compare": true
+      },
+      "editorGutter": {
+        "compare": false,
+        "remote": false,
+        "share": false
+      },
+      "editorTab": {
+        "clipboard": true,
+        "compare": true,
+        "history": true,
+        "remote": true
+      },
+      "explorer": {
+        "clipboard": false,
+        "compare": false,
+        "history": false,
+        "remote": false
+      },
+      "ghpr": {
+        "worktree": true
+      },
+      "scm": {
+        "graph": true
+      },
+      "scmRepositoryInline": {
+        "graph": true,
+        "stash": false
+      },
+      "scmRepository": {
+        "authors": true,
+        "generateCommitMessage": true,
+        "graph": false
+      },
+      "scmGroupInline": {
+        "stash": true
+      },
+      "scmGroup": {
+        "compare": true,
+        "openClose": true,
+        "stash": true
+      },
+      "scmItemInline": {
+        "stash": false
+      },
+      "scmItem": {
+        "clipboard": true,
+        "compare": true,
+        "history": true,
+        "remote": true,
+        "share": true,
+        "stash": true
+      }
+    },
+  "gitlens.views.commitDetails.files.compact": true,
+  "gitlens.views.commitDetails.files.icon": "type",
+  "gitlens.views.commitDetails.files.layout": "tree",
+  "gitlens.views.commitDetails.files.threshold": 5,
+  "gitlens.views.scm.grouped.views": {
+      "commits": true,
+      "branches": true,
+      "remotes": true,
+      "stashes": true,
+      "tags": true,
+      "worktrees": true,
+      "contributors": true,
+      "fileHistory": true,
+      "repositories": true,
+      "searchAndCompare": false,
+      "launchpad": false
+    },
+  "gitlens.virtualRepositories.enabled": false,
+  // Terminal
+  "terminal.integrated.defaultProfile.osx": "fish",
+  "terminal.integrated.enablePersistentSessions": false,
   "terminal.integrated.fontSize": 14,
   "terminal.integrated.profiles.osx": {
-    "bash": {
-      "path": "/bin/bash",
-      "args": [
-        "-l"
-      ],
+      "bash": {
+        "path": "/bin/bash",
+        "args": [
+          "-l"
+        ]
+      },
+      "zsh": {
+        "path": "/bin/zsh",
+        "args": [
+          "-l"
+        ]
+      },
+      "fish": {
+        "path": "/usr/local/bin/fish",
+        "args": [
+          "-l"
+        ]
+      }
     },
-    "zsh": {
-      "path": "/bin/zsh",
-      "args": [
-        "-l"
-      ],
+  // Emmet
+  "emmet.includeLanguages": {
+      "postcss": "css"
     },
-    "fish": {
-      "path": "/usr/local/bin/fish",
-      "args": [
-        "-l"
-      ],
+  "emmet.syntaxProfiles": {
+      "html": {
+        "attr_quotes": "double"
+      },
+      "javascriptreact": {
+        "attr_quotes": "double"
+      },
+      "typescriptreact": {
+        "attr_quotes": "double"
+      }
     },
-  },
-  "terminal.integrated.defaultProfile.osx": "fish",
-  "window.zoomLevel": 2,
-  "launch": {
-    "configurations": [],
-    "compounds": [],
-  },
-  "typescript.enablePromptUseWorkspaceTsdk": true,
-  "outline.collapseItems": "alwaysCollapse",
-  "playwright.reuseBrowser": false,
-  "playwright.showTrace": true,
-  "cursor.cpp.disabledLanguages": [],
-  "editor.formatOnPaste": true,
-  "jest.jestCommandLine": "./node_modules/.bin/jest",
-  "jest.runMode": "on-demand",
-  "editor.gotoLocation.alternativeImplementationCommand": "editor.action.goToImplementation",
-  "editor.gotoLocation.alternativeReferenceCommand": "editor.action.goToReferences",
-  "typescript.preferGoToSourceDefinition": true,
-  "javascript.preferGoToSourceDefinition": true,
-  "gitlens.virtualRepositories.enabled": false,
-  "gitlens.currentLine.pullRequests.enabled": false,
-  "gitlens.menus": {
-    "editor": {
-      "blame": true,
-      "clipboard": true,
-      "compare": true,
-      "history": true,
-      "remote": true,
-    },
-    "editorGroup": {
-      "blame": true,
-      "compare": true,
-    },
-    "editorGutter": {
-      "compare": false,
-      "remote": false,
-      "share": false,
-    },
-    "editorTab": {
-      "clipboard": true,
-      "compare": true,
-      "history": true,
-      "remote": true,
-    },
-    "explorer": {
-      "clipboard": false,
-      "compare": false,
-      "history": false,
-      "remote": false,
-    },
-    "ghpr": {
-      "worktree": true,
-    },
-    "scm": {
-      "graph": true,
-    },
-    "scmRepositoryInline": {
-      "graph": true,
-      "stash": false,
-    },
-    "scmRepository": {
-      "authors": true,
-      "generateCommitMessage": true,
-      "graph": false,
-    },
-    "scmGroupInline": {
-      "stash": true,
-    },
-    "scmGroup": {
-      "compare": true,
-      "openClose": true,
-      "stash": true,
-    },
-    "scmItemInline": {
-      "stash": false,
-    },
-    "scmItem": {
-      "clipboard": true,
-      "compare": true,
-      "history": true,
-      "remote": true,
-      "share": true,
-      "stash": true,
-    },
-  },
-  "gitlens.gitCommands.search.showResultsInSideBar": false,
-  "editor.folding": false,
-  "gitlens.hovers.enabled": false,
-  "files.exclude": {
-    "**/.idea": true,
-    "**/.serena": true,
-    "**/.yarn": true,
-  },
-  "debug.javascript.unmapMissingSources": true,
-  "javascript.preferences.autoImportFileExcludePatterns": [
-    "e2e"
-  ],
-  "typescript.preferences.autoImportFileExcludePatterns": [
-    "e2e"
-  ],
-  "tailwindCSS.experimental.classRegex": [
-    [
-      "cva\\(([^)]*)\\)",
-      "[\"']([^\"']*).*?[\"']"
-    ],
-    [
-      "daisyui([^]*)",
-      "daisyui=[\"']([^\"']*)"
-    ],
-    [
-      "clsx\\(([^)]*)\\)",
-      "(?:'|\"|`)([^']*)(?:'|\"|`)"
-    ],
-    [
-      "classnames\\(([^)]*)\\)",
-      "[\"'`]([^\"'`]*)[\"'`]"
-    ],
-    [
-      "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
-      "[`'\"`]([^'\"`;]*)[`'\"`]"
-    ],
-  ],
-  "surround.custom": {
-    "Double Quote": {
-      "label": "double quote",
-      "disabled": false,
-      "description": "\"...\"",
-      "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
-      "languageIds": [
-        "html",
-        "javascript",
-        "typescript",
-        "markdown"
-      ],
-    },
-    "Parenthesis": {
-      "label": "()",
-      "disabled": false,
-      "description": "Just parenthesis",
-      "snippet": "$($TM_SELECTED_TEXT)$0",
-      "languageIds": [
-        "html",
-        "javascript",
-        "typescript",
-        "markdown"
-      ],
-    },
-    "describe": {
-      "label": "describe()",
-      "description": "Wrap with describe block",
-      "snippet": "describe('${1:group name}', () => {\n\t$TM_SELECTED_TEXT\n});",
-      "languageIds": [
-        "javascript",
-        "typescript",
-        "javascriptreact",
-        "typescriptreact",
-      ],
-    },
-  },
-  "editor.minimap.enabled": true,
-  "gitlens.launchpad.indicator.enabled": false,
-  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
-  "typescript.preferences.preferTypeOnlyAutoImports": true,
-  "cursor.general.enableShadowWorkspace": true,
-  "javascript.preferences.importModuleSpecifier": "non-relative",
-  "prettier.configPath": ".prettierrc",
-  "typescript.tsserver.watchOptions": {
-    "watchFile": "useFsEvents",
-    "watchDirectory": "useFsEvents",
-  },
-  "typescript.preferences.importModuleSpecifierEnding": "minimal",
-  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
-  "editor.inlayHints.fontSize": 15,
-  "diffEditor.ignoreTrimWhitespace": true,
-  "surround.with.arrowFunction": {
-    "label": "arrowFunction",
-    "description": "const $name = ($params) => { ... }",
-    "disabled": false,
-    "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0",
-  },
-  "editor.dragAndDrop": false,
-  "surround.with.templateLiteral": {
-    "label": "Template Literal",
-    "description": "`...` (Also replaces single and double quotes with backtick)",
-    "disabled": false,
-    "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0",
-  },
-  "cursor.cpp.enablePartialAccepts": true,
-  "tailwindCSS.experimental.configFile": null,
-  "typescript.inlayHints.parameterNames.enabled": "literals",
-  "typescript.tsserver.web.typeAcquisition.enabled": true,
-  "typescript.implementationsCodeLens.showOnInterfaceMethods": true,
-  "editor.inlayHints.enabled": "off",
-  "surround.with.element": {
-    "label": "<element></element>",
-    "description": "<element>...</element>",
-    "disabled": false,
-    "snippet": "<${1}$2>$TM_SELECTED_TEXT</$1>$0",
-    "languageIds": [
-      "html",
-      "typescriptreact",
-      "javascriptreact",
-      "jsx",
-      "markdown",
-    ],
-  },
-  "security.promptForLocalFileProtocolHandling": false,
-  "explorer.fileNesting.patterns": {
-    "*.ts": "${capture}.js",
-    "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
-    "*.jsx": "${capture}.js",
-    "*.tsx": "${capture}.ts",
-    "tsconfig.json": "tsconfig.*.json",
-    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb",
-    "*.sqlite": "${capture}.${extname}-*",
-    "*.db": "${capture}.${extname}-*",
-    "*.sqlite3": "${capture}.${extname}-*",
-    "*.db3": "${capture}.${extname}-*",
-    "*.sdb": "${capture}.${extname}-*",
-    "*.s3db": "${capture}.${extname}-*",
-  },
-  "cursor.composer.shouldAllowCustomModes": true,
-  "cursor.composer.collapsePaneInputBoxPills": true,
-  "cursor.general.globalCursorIgnoreList": [
-    ".next/**/*",
-    "node_modules/**/*",
-    "dist/**/*",
-    "build/**/*",
-    "storybook-static",
-    ".idea/**/*",
-    "**/secret.json",
-    "**/secrets.json",
-    "**/*.key",
-    "**/*.pem",
-    "**/*.pfx",
-    "**/*.p12",
-    "**/*.crt",
-    "**/*.cer",
-    "**/id_rsa",
-    "**/id_dsa",
-    "**/.ssh/id_*",
-  ],
-  "window.titleBarStyle": "custom",
-  "git.enableSmartCommit": true,
-  "cursor.windowSwitcher.sidebarHoverCollapsed": true,
-  "diffEditor.maxComputationTime": 0,
-  "cursor.terminal.usePreviewBox": true,
-  "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
-  "playwright.updateSnapshots": "all",
-  "playwright.runGlobalSetupOnEachRun": false,
-  "editor.experimental.preferTreeSitter.typescript": false,
-  "typescript.preferences.useAliasesForRenames": false,
-  "[dockercompose]": {
-    "editor.insertSpaces": true,
-    "editor.tabSize": 2,
-    "editor.autoIndent": "advanced",
-    "editor.defaultFormatter": "redhat.vscode-yaml",
-  },
-  "[github-actions-workflow]": {
-    "editor.defaultFormatter": "redhat.vscode-yaml",
-  },
-  "files.watcherExclude": {
-    "**/.idea/**": true,
-    "**/.next/**": true,
-    "**/.serena/**": true,
-  },
-  "search.exclude": {
-    "**/.idea/**": true,
-  },
-  "json.schemaDownload.enable": true,
-  "gitlens.gitkraken.mcp.autoEnabled": false,
-  "cursor.rpcFileLogger.enabled": true,
-  "cursor.composer.shouldChimeAfterChatFinishes": true,
   "emmet.triggerExpansionOnTab": true,
   "emmet.useInlineCompletions": true,
-  "emmet.syntaxProfiles": {
-    "html": {
-      "attr_quotes": "double",
-    },
-    "javascriptreact": {
-      "attr_quotes": "double",
-    },
-    "typescriptreact": {
-      "attr_quotes": "double",
-    },
-  },
+  // Tailwind CSS
   "tailwindCSS.classFunctions": [
-    "cn",
-    "clsx",
-    "cva",
-    "twMerge",
-    "twJoin"
-  ],
+      "cn",
+      "clsx",
+      "cva",
+      "twMerge",
+      "twJoin"
+    ],
   "tailwindCSS.emmetCompletions": true,
-  "claudeCode.environmentVariables": [],
-  "javascript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
-  "javascript.inlayHints.variableTypes.suppressWhenTypeMatchesName": false,
-  "typescript.inlayHints.parameterNames.suppressWhenArgumentMatchesName": false,
-  "claudeCode.preferredLocation": "sidebar",
-  "npm-intellisense.scanDevDependencies": true,
-  "typescript.suggest.paths": true,
-  "javascript.suggest.paths": true,
+  "tailwindCSS.experimental.classRegex": [
+      [
+        "cva\\(([^)]*)\\)",
+        "[\"']([^\"']*).*?[\"']"
+      ],
+      [
+        "daisyui([^]*)",
+        "daisyui=[\"']([^\"']*)"
+      ],
+      [
+        "clsx\\(([^)]*)\\)",
+        "(?:'|\"|`)([^']*)(?:'|\"|`)"
+      ],
+      [
+        "classnames\\(([^)]*)\\)",
+        "[\"'`]([^\"'`]*)[\"'`]"
+      ],
+      [
+        "(?:twMerge|twJoin)\\(([^;]*)[\\);]",
+        "[`'\"`]([^'\"`;]*)[`'\"`]"
+      ]
+    ],
+  "tailwindCSS.experimental.configFile": null,
+  // JSON
+  "json.schemaDownload.enable": true,
+  "json.schemas": [],
+  // Debug
+  "debug.javascript.unmapMissingSources": true,
+  // Extensions
+  "extensions.gallery.serviceUrl": "https://marketplace.visualstudio.com/_apis/public/gallery",
+  "extensions.ignoreRecommendations": true,
+  // Cursor
+  "cursor.composer.shouldChimeAfterChatFinishes": true,
   "cursor.composer.shouldShowMarkdownHoverParticipantActions2": true,
-  "cursor.semanticSearch.includeCommitsWithFiles": true,
-  "editor.autoClosingBrackets": "always",
-  "claudeCode.initialPermissionMode": "bypassPermissions",
-  "eslint.nodePath": "",
-  "typescript.tsserver.nodePath": "/Users/ryotamurakami/.local/share/mise/installs/node/24.12.0/bin/node",
-  "prettier.prettierPath": "./node_modules/prettier",
-  "claudeCode.allowDangerouslySkipPermissions": true,
-  "typescript.format.insertSpaceAfterFunctionKeywordForAnonymousFunctions": false,
-  "typescript.format.insertSpaceAfterSemicolonInForStatements": false,
-  "typescript.format.insertSpaceAfterKeywordsInControlFlowStatements": false,
-  "typescript.format.insertSpaceAfterCommaDelimiter": false,
-  "mdx.trace.server.format": "json",
-  "mdx.server.enable": false,
-  "terminal.integrated.enablePersistentSessions": false,
-  "copyTo.presets": [
-    {
-      "label": "Universal",
-      "path": "/Users/ryotamurakami/utils/packages/universal",
-    },
-    {
-      "label": "Node",
-      "path": "/Users/ryotamurakami/utils/packages/node",
-    },
-    {
-      "label": "Next React",
-      "path": "/Users/ryotamurakami/utils/packages/next-react",
-    },
-    {
-      "label": "Browser",
-      "path": "/Users/ryotamurakami/utils/packages/browser",
-    },
-    {
-      "label": "Type",
-      "path": "/Users/ryotamurakami/utils/packages/type",
-    },
-  ],
-  "gitlens.gitCommands.skipConfirmations": [
-    "fetch:command",
-    "stash-push:command",
-    "switch:command",
-  ],
-  "windsurf.instructions.global": true,
-  "windsurf.instructions.path": "/Users/ryotamurakami/.windsurf/instructions.md",
-  "gitlens.views.scm.grouped.views": {
-    "commits": true,
-    "branches": true,
-    "remotes": true,
-    "stashes": true,
-    "tags": true,
-    "worktrees": true,
-    "contributors": true,
-    "fileHistory": true,
-    "repositories": true,
-    "searchAndCompare": false,
-    "launchpad": false,
-  },
-  "typescript.format.insertSpaceAfterTypeAssertion": true,
-  "workbench.editor.enablePreview": false,
-  "code-runner.executorMap": {
-    "typescript": "npx tsx",
-  },
-  "code-runner.runInTerminal": true,
-  "code-runner.clearPreviousOutput": true,
   "cursor.composer.usageSummaryDisplay": "always",
+  "cursor.cpp.disabledLanguages": [],
+  "cursor.cpp.enablePartialAccepts": true,
+  "cursor.general.globalCursorIgnoreList": [
+      ".next/**/*",
+      "node_modules/**/*",
+      "dist/**/*",
+      "build/**/*",
+      "storybook-static",
+      ".idea/**/*",
+      "**/secret.json",
+      "**/secrets.json",
+      "**/*.key",
+      "**/*.pem",
+      "**/*.pfx",
+      "**/*.p12",
+      "**/*.crt",
+      "**/*.cer",
+      "**/id_rsa",
+      "**/id_dsa",
+      "**/.ssh/id_*"
+    ],
+  "cursor.rpcFileLogger.enabled": true,
+  "cursor.semanticSearch.includeCommitsWithFiles": true,
+  "cursor.terminal.usePreviewBox": true,
+  "cursor.windowSwitcher.sidebarHoverCollapsed": true,
+  // Claude Code
+  "claudeCode.environmentVariables": [],
+  "claudeCode.preferredLocation": "sidebar",
+  // Playwright
+  "playwright.reuseBrowser": false,
+  "playwright.runGlobalSetupOnEachRun": false,
+  "playwright.showTrace": true,
+  "playwright.updateSnapshots": "all",
+  // Jest
+  "jest.jestCommandLine": "./node_modules/.bin/jest",
+  "jest.runMode": "on-demand",
+  // Surround
+  "surround.custom": {
+      "Double Quote": {
+        "label": "double quote",
+        "disabled": false,
+        "description": "\"...\"",
+        "snippet": "\"${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}\"$0",
+        "languageIds": [
+          "html",
+          "javascript",
+          "typescript",
+          "markdown"
+        ]
+      },
+      "Parenthesis": {
+        "label": "()",
+        "disabled": false,
+        "description": "Just parenthesis",
+        "snippet": "$($TM_SELECTED_TEXT)$0",
+        "languageIds": [
+          "html",
+          "javascript",
+          "typescript",
+          "markdown"
+        ]
+      },
+      "describe": {
+        "label": "describe()",
+        "description": "Wrap with describe block",
+        "snippet": "describe('${1:group name}', () => {\n\t$TM_SELECTED_TEXT\n});",
+        "languageIds": [
+          "javascript",
+          "typescript",
+          "javascriptreact",
+          "typescriptreact"
+        ]
+      }
+    },
+  "surround.with.arrowFunction": {
+      "label": "arrowFunction",
+      "description": "const $name = ($params) => { ... }",
+      "disabled": false,
+      "snippet": "const ${1:fnName} = (${2:params}) => {\n\t$TM_SELECTED_TEXT\n}$0"
+    },
+  "surround.with.element": {
+      "label": "<element></element>",
+      "description": "<element>...</element>",
+      "disabled": false,
+      "snippet": "<${1}$2>$TM_SELECTED_TEXT</$1>$0",
+      "languageIds": [
+        "html",
+        "typescriptreact",
+        "javascriptreact",
+        "jsx",
+        "markdown"
+      ]
+    },
+  "surround.with.templateLiteral": {
+      "label": "Template Literal",
+      "description": "`...` (Also replaces single and double quotes with backtick)",
+      "disabled": false,
+      "snippet": "`${TM_SELECTED_TEXT/['\"](.*?)['\"]/$1/g}`$0"
+    },
+  // Copy To
+  "copyTo.presets": [
+      {
+        "label": "Universal",
+        "path": "/Users/ryotamurakami/utils/packages/universal"
+      },
+      {
+        "label": "Node",
+        "path": "/Users/ryotamurakami/utils/packages/node"
+      },
+      {
+        "label": "Next React",
+        "path": "/Users/ryotamurakami/utils/packages/next-react"
+      },
+      {
+        "label": "Browser",
+        "path": "/Users/ryotamurakami/utils/packages/browser"
+      },
+      {
+        "label": "Type",
+        "path": "/Users/ryotamurakami/utils/packages/type"
+      }
+    ],
+  // Code Runner
+  "code-runner.clearPreviousOutput": true,
+  "code-runner.executorMap": {
+      "typescript": "npx tsx"
+    },
+  "code-runner.runInTerminal": true,
+  // Launch
+  "launch": {
+      "configurations": [],
+      "compounds": []
+    },
+  // Security
+  "security.promptForLocalFileProtocolHandling": false,
+  // Updates
   "update.mode": "silentlyApplyOnQuit",
   "update.releaseTrack": "dev",
-  "window.autoDetectColorScheme": false,
+  // GitHub Pull Requests
   "githubPullRequests.pullBranch": "never",
+  // npm IntelliSense
+  "npm-intellisense.scanDevDependencies": true,
+  // Red Hat
+  "redhat.telemetry.enabled": true,
+  "editor.codeLensFontSize": 5
 }
