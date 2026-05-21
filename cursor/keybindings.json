@@ -3065,4 +3065,8 @@
     "key": "shift+cmd+n",
     "command": "aiSettings.action.open"
   },
+  {
+    "key": "cmd+3",
+    "command": "editor.action.addSelectionToNextFindMatch"
+  },
 ]
