@@ -129,6 +129,11 @@ alias wanip="curl https://ipinfo.io/ip"
 # =============================================================================
 [ -r ~/.functions ] && source ~/.functions
 
+# =============================================================================
+# SOCKET FIREWALL ALIASES (synchronized with fish conf.d/21-sfw.fish)
+# =============================================================================
+[ -r ~/.aliases-sfw ] && source ~/.aliases-sfw
+
 # Fish shellから移植された環境変数
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
 export EZA_COLORS="di=1;32"
