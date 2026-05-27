@@ -14,6 +14,11 @@ fi
 # =============================================================================
 [ -r ~/.path ] && source ~/.path
 
+# =============================================================================
+# SOCKET FIREWALL ALIASES (synchronized with fish conf.d/21-sfw.fish)
+# =============================================================================
+[ -r ~/.aliases-sfw ] && source ~/.aliases-sfw
+
 # lsコマンドのカラー（Fish shellの設定に合わせて更新）
 export LSCOLORS="CxGxBxDxCxEgEdxbxgxcxd"
 
