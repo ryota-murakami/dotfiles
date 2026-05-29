@@ -69,6 +69,7 @@ alias io="cd ~/laststance/laststance.io"  # Laststance.io website
 alias claudia="cd ~/.claude"         # Claude Code configuration
 alias corelive="cd ~/laststance/corelive"       # CoreLive project
 alias skills-dir="cd ~/.agents/skills"
+alias obsidian="cd /Users/ryotamurakami/Documents/Laststance"
 
 # yalclist: Navigate to yalc packages directory and list contents
 # yalc is a local package publishing tool for testing npm packages
