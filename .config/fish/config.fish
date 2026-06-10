@@ -39,3 +39,6 @@ fish_add_path ~/.cargo/bin
 # try CLI (Homebrew)
 fish_add_path /opt/homebrew/opt/ruby/bin
 eval (try init ~/src/tries | string collect)
+
+# Added by Devin
+fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
