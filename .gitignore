@@ -42,3 +42,4 @@ Gemfile.lock
 .cursor
 .gemini-clipboard
 .logs
+.zshenv
