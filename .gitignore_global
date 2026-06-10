@@ -44,3 +44,6 @@ AGENTS.override.md
 .claude/goal-notes.md
 browser-dnd-coordinate-qa.mdc
 .understand-anything
+outputs
+.remotion
+.auth.json
