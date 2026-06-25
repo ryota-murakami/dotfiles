@@ -42,3 +42,6 @@ eval (try init ~/src/tries | string collect)
 
 # Added by Devin
 fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
+
+# Keep Homebrew's dependency-only Node out of fish even when inherited.
+set -gx PATH (string match -v /opt/homebrew/opt/node/bin $PATH)
