@@ -1,3 +1,93 @@
 {
-  "version": 1
+  "version": 1,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostCompaction": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if [ -x '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh' ]; then /bin/sh '/Users/ryotamurakami/.orca/agent-hooks/devin-hook.sh'; fi",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
 }
