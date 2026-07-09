@@ -45,3 +45,6 @@ fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
 
 # Keep Homebrew's dependency-only Node out of fish even when inherited.
 set -gx PATH (string match -v /opt/homebrew/opt/node/bin $PATH)
+
+# Homebrew: disable interactive confirmation on upgrade/install prompts.
+set -Ux HOMEBREW_NO_ASK 1
