@@ -1,51 +1,59 @@
+# OS / Editor
 *~
 .DS_Store
-node_modules/
-bower_components/
-deployment-config.json
 .idea/
+.vscode/settings.json
+
+# Dependencies / cache
+bower_components/
+node_modules/
 .sass-cache
 yarn-error.log
-.envrc
-dump.rdb
-dockerfiles/resources/
-.vscode/settings.json
-tmp/
-.env.production
 
-# AI
-CLAUDE.md
-PROJECT_INDEX.md 
-PROJECT_INDEX.json
-mcp.json
+# Environment / secrets / local config
+.auth.json
+.env.production
+.envrc
+deployment-config.json
+dockerfiles/resources/
+dump.rdb
+
+# Temp / logs
 logs
-# by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
+outputs
+tmp/
 uploads/
-usage_tracking2.json
-.serena
-.conductor
-.playwright
-.playwright-mcp
-.playwright-cli
-AGENTS.md
+
+# AI / Agents
 .agents
-.cursor
 .claude
-**/.cursor/.agent-tools
+.claude/goal-notes.md
+.claude/goal.json
+.codex
+.conductor
+.context
+.cursor
 **/.cursor/.agent-notes
-.qudo
+**/.cursor/.agent-tools
+.gstack
+.junie
 .mcp.json
 .nogic
-.context
-.agents
-.codex
-AGENTS.override.md
-.claude/goal.json
-.claude/goal-notes.md
-browser-dnd-coordinate-qa.mdc
-.understand-anything
-outputs
+.playwright
+.playwright-cli
+.playwright-mcp
+.qudo
 .remotion
-.auth.json
+.serena
+.understand-anything
 _trials
-.gstack
+AGENTS.md
+AGENTS.override.md
+browser-dnd-coordinate-qa.mdc
+CLAUDE.md
+mcp.json
+PROJECT_INDEX.json
+PROJECT_INDEX.md
+tours
+# by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
+usage_tracking2.json
