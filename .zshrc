@@ -160,3 +160,7 @@ source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 
 # source ~/.safe-chain/scripts/init-posix.sh # Safe-chain Zsh initialization script
 
+
+# Vite+ bin (https://viteplus.dev)
+. "$HOME/.vite-plus/env"
+export PATH="/Users/ryotamurakami/.local/share/sentry-devenv/bin:$PATH"

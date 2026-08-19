@@ -27,8 +27,6 @@ source ~/.orbstack/shell/init2.fish 2>/dev/null || :
 
 fish_add_path -gm /Users/ryotamurakami/go/bin
 
-# OpenClaw Completion
-source "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"
 
 # The next line updates PATH for the Google Cloud SDK.
 if [ -f '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc' ]; . '/Users/ryotamurakami/Downloads/google-cloud-sdk/path.fish.inc'; end
@@ -48,3 +46,6 @@ set -gx PATH (string match -v /opt/homebrew/opt/node/bin $PATH)
 
 # Homebrew: disable interactive confirmation on upgrade/install prompts.
 set -Ux HOMEBREW_NO_ASK 1
+
+# Hermes Agent — ensure ~/.local/bin is on PATH
+fish_add_path "$HOME/.local/bin"

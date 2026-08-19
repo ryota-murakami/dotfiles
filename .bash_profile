@@ -64,3 +64,7 @@ eval "$(zoxide init bash)"
 
 # Cargo environment (separate from PATH for proper initialization)
 [ -r "$HOME/.cargo/env" ] && . "$HOME/.cargo/env"
+
+# Vite+ bin (https://viteplus.dev)
+. "$HOME/.vite-plus/env"
+export PATH="/Users/ryotamurakami/.local/share/sentry-devenv/bin:$PATH"
