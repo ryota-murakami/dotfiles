@@ -40,3 +40,7 @@ fi
 
 # source ~/.safe-chain/scripts/init-posix.sh # Safe-chain bash initialization script
 
+
+# Vite+ bin (https://viteplus.dev)
+. "$HOME/.vite-plus/env"
+export PATH="/Users/ryotamurakami/.local/share/sentry-devenv/bin:$PATH"
