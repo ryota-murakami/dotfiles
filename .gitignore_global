@@ -5,9 +5,9 @@
 .vscode/settings.json
 
 # Dependencies / cache
+.sass-cache
 bower_components/
 node_modules/
-.sass-cache
 yarn-error.log
 
 # Environment / secrets / local config
@@ -25,16 +25,16 @@ tmp/
 uploads/
 
 # AI / Agents
+**/.cursor/.agent-notes
+**/.cursor/.agent-tools
 .agents
 .claude
-.claude/goal-notes.md
 .claude/goal.json
+.claude/goal-notes.md
 .codex
 .conductor
 .context
 .cursor
-**/.cursor/.agent-notes
-**/.cursor/.agent-tools
 .gstack
 .junie
 .mcp.json
@@ -44,16 +44,16 @@ uploads/
 .playwright-mcp
 .qudo
 .remotion
+.serena
 .understand-anything
-_trials
 AGENTS.md
 AGENTS.override.md
-browser-dnd-coordinate-qa.mdc
 CLAUDE.md
-mcp.json
 PROJECT_INDEX.json
 PROJECT_INDEX.md
+_trials
+browser-dnd-coordinate-qa.mdc
+mcp.json
 tours
-.serena
 # by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
 usage_tracking2.json
