@@ -49,3 +49,6 @@ set -Ux HOMEBREW_NO_ASK 1
 
 # Hermes Agent — ensure ~/.local/bin is on PATH
 fish_add_path "$HOME/.local/bin"
+
+# OpenClaw Completion
+test -f "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"; and source "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"
