@@ -44,7 +44,6 @@ uploads/
 .playwright-mcp
 .qudo
 .remotion
-.serena
 .understand-anything
 _trials
 AGENTS.md
@@ -55,5 +54,6 @@ mcp.json
 PROJECT_INDEX.json
 PROJECT_INDEX.md
 tours
+.serena
 # by claude-monitor https://github.com/Maciek-roboblog/Claude-Code-Usage-Monitor
 usage_tracking2.json
