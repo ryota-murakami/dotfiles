@@ -1,6 +1,9 @@
 {
+  "alwaysOnTop" : false,
+  "backgroundOpacity" : 1,
   "fontSize" : 16,
   "globalShortcut" : "⌘⇧.",
-  "windowHeight" : 850,
-  "windowWidth" : 1400
+  "selectedProfile" : "emacs",
+  "windowHeight" : 595,
+  "windowWidth" : 636
 }

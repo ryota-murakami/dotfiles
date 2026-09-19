@@ -1,0 +1,148 @@
+{
+  "categories": [
+    {
+      "category": "Site Wide",
+      "keybinds": [
+        { "action": "Focus Search", "shortcut": "s or /" },
+        { "action": "Go to Notifications", "shortcut": "g n" },
+        { "action": "Go to Dashboard", "shortcut": "g d" },
+        { "action": "Command Palette", "shortcut": "⌘K" },
+        { "action": "Show Shortcuts Help", "shortcut": "?" },
+        { "action": "Close Hovercard", "shortcut": "Esc" },
+        { "action": "Move Focus to Hovercard", "shortcut": "⌥↑" }
+      ]
+    },
+    {
+      "category": "Repositories",
+      "keybinds": [
+        { "action": "Go to Code", "shortcut": "g c" },
+        { "action": "Go to Issues", "shortcut": "g i" },
+        { "action": "Go to Pull Requests", "shortcut": "g p" },
+        { "action": "Go to Actions", "shortcut": "g a" },
+        { "action": "Go to Wiki", "shortcut": "g w" },
+        { "action": "Go to Discussions", "shortcut": "g g" },
+        { "action": "Go to Security", "shortcut": "g s" }
+      ]
+    },
+    {
+      "category": "Source Code Browse",
+      "keybinds": [
+        { "action": "File Finder", "shortcut": "t" },
+        { "action": "Jump to Line", "shortcut": "l" },
+        { "action": "Switch Branch or Tag", "shortcut": "w" },
+        { "action": "Canonical / Permalink URL", "shortcut": "y" },
+        { "action": "Toggle Diff Comments", "shortcut": "i" },
+        { "action": "Toggle Diff Annotations", "shortcut": "a" },
+        { "action": "Open Blame View", "shortcut": "b" },
+        { "action": "Open github.dev", "shortcut": "." },
+        { "action": "Open github.dev in New Tab", "shortcut": ">" }
+      ]
+    },
+    {
+      "category": "Source Code Edit",
+      "keybinds": [
+        { "action": "Edit File", "shortcut": "e" },
+        { "action": "Find in Editor", "shortcut": "⌘F" },
+        { "action": "Find Next", "shortcut": "⌘G" },
+        { "action": "Find Previous", "shortcut": "⌘⇧G" },
+        { "action": "Replace", "shortcut": "⌘⌥F" },
+        { "action": "Replace All", "shortcut": "⌘⇧⌥F" },
+        { "action": "Jump to Line", "shortcut": "⌥G" },
+        { "action": "Undo", "shortcut": "⌘Z" },
+        { "action": "Redo", "shortcut": "⌘Y" },
+        { "action": "Toggle Edit / Preview", "shortcut": "⌘⇧P" },
+        { "action": "Commit Changes", "shortcut": "⌘S" }
+      ]
+    },
+    {
+      "category": "Markdown",
+      "keybinds": [
+        { "action": "Bold", "shortcut": "⌘B" },
+        { "action": "Italic", "shortcut": "⌘I" },
+        { "action": "Inline Code", "shortcut": "⌘E" },
+        { "action": "Insert Link", "shortcut": "⌘K" },
+        { "action": "Ordered List", "shortcut": "⌘⇧7" },
+        { "action": "Unordered List", "shortcut": "⌘⇧8" },
+        { "action": "Quote", "shortcut": "⌘⇧." }
+      ]
+    },
+    {
+      "category": "Issue & PR Lists",
+      "keybinds": [
+        { "action": "Create Issue", "shortcut": "c" },
+        { "action": "Focus List Search", "shortcut": "⌘/" },
+        { "action": "Filter by Author", "shortcut": "u" },
+        { "action": "Filter by Labels", "shortcut": "l" },
+        { "action": "Filter by Milestones", "shortcut": "m" },
+        { "action": "Filter by Assignee", "shortcut": "a" },
+        { "action": "Open Selection", "shortcut": "o or ⏎" }
+      ]
+    },
+    {
+      "category": "Issues & Pull Requests",
+      "keybinds": [
+        { "action": "Request Reviewer", "shortcut": "q" },
+        { "action": "Set Milestone", "shortcut": "m" },
+        { "action": "Apply Label", "shortcut": "l" },
+        { "action": "Set Assignee", "shortcut": "a" },
+        { "action": "Link Issue or PR", "shortcut": "x" },
+        { "action": "Toggle Write / Preview", "shortcut": "⌘⇧P" },
+        { "action": "Create Sub-issue", "shortcut": "⌥⇧C" },
+        { "action": "Add Existing Sub-issue", "shortcut": "⌥⇧A" },
+        { "action": "Edit Parent Issue", "shortcut": "⌥⇧P" }
+      ]
+    },
+    {
+      "category": "Comments",
+      "keybinds": [
+        { "action": "Submit Comment", "shortcut": "⌘⏎" },
+        { "action": "Quote Reply", "shortcut": "r" },
+        { "action": "Insert Suggestion", "shortcut": "⌘G" },
+        { "action": "Paste Link as Text", "shortcut": "⌘⇧V" },
+        { "action": "Saved Replies Menu", "shortcut": "⌃. then ⌃{n}" }
+      ]
+    },
+    {
+      "category": "Files Changed",
+      "keybinds": [
+        { "action": "Filter Commits", "shortcut": "c" },
+        { "action": "Filter Changed Files", "shortcut": "t" },
+        { "action": "Submit Review Comment", "shortcut": "⌘⇧⏎" },
+        { "action": "Expand / Collapse Outdated", "shortcut": "⌥Click" },
+        { "action": "Comment on Line Range", "shortcut": "Click then ⇧Click" }
+      ]
+    },
+    {
+      "category": "Notifications",
+      "keybinds": [
+        { "action": "Mark as Done", "shortcut": "e" },
+        { "action": "Mark as Unread", "shortcut": "⇧U" },
+        { "action": "Mark as Read", "shortcut": "⇧I" },
+        { "action": "Unsubscribe", "shortcut": "⇧M" }
+      ]
+    },
+    {
+      "category": "Actions",
+      "keybinds": [
+        { "action": "Workflow Suggestions", "shortcut": "⌘Space" },
+        { "action": "Go to Workflow File", "shortcut": "g f" },
+        { "action": "Toggle Log Timestamps", "shortcut": "t" },
+        { "action": "Toggle Full-screen Logs", "shortcut": "f" },
+        { "action": "Exit Full-screen Logs", "shortcut": "Esc" }
+      ]
+    },
+    {
+      "category": "Projects",
+      "keybinds": [
+        { "action": "Focus Filter", "shortcut": "⌘F" },
+        { "action": "Move Focus", "shortcut": "← → ↑ ↓" },
+        { "action": "Edit Cell", "shortcut": "⏎" },
+        { "action": "Cancel Edit", "shortcut": "Esc" },
+        { "action": "Select Item", "shortcut": "⇧Space" },
+        { "action": "Open Selected Item", "shortcut": "Space" },
+        { "action": "Archive Selected", "shortcut": "e" },
+        { "action": "Row Actions Menu", "shortcut": "⌘⇧\\" }
+      ]
+    }
+  ]
+}
