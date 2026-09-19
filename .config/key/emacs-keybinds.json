@@ -1,0 +1,150 @@
+{
+  "categories": [
+    {
+      "category": "Motion",
+      "keybinds": [
+        { "action": "Forward Char", "shortcut": "⌃F" },
+        { "action": "Backward Char", "shortcut": "⌃B" },
+        { "action": "Next Line", "shortcut": "⌃N" },
+        { "action": "Previous Line", "shortcut": "⌃P" },
+        { "action": "Forward Word", "shortcut": "⌥F" },
+        { "action": "Backward Word", "shortcut": "⌥B" },
+        { "action": "Beginning of Line", "shortcut": "⌃A" },
+        { "action": "End of Line", "shortcut": "⌃E" },
+        { "action": "Beginning of Buffer", "shortcut": "⌥<" },
+        { "action": "End of Buffer", "shortcut": "⌥>" }
+      ]
+    },
+    {
+      "category": "Editing",
+      "keybinds": [
+        { "action": "Delete Char", "shortcut": "⌃D" },
+        { "action": "Backward Delete", "shortcut": "⌫" },
+        { "action": "Open Line", "shortcut": "⌃O" },
+        { "action": "New Line / Indent", "shortcut": "⌃J" },
+        { "action": "Transpose Chars", "shortcut": "⌃T" },
+        { "action": "Transpose Words", "shortcut": "⌥T" },
+        { "action": "Upcase Word", "shortcut": "⌥U" },
+        { "action": "Downcase Word", "shortcut": "⌥L" },
+        { "action": "Capitalize Word", "shortcut": "⌥C" },
+        { "action": "Fill Paragraph", "shortcut": "⌥Q" }
+      ]
+    },
+    {
+      "category": "Kill & Yank",
+      "keybinds": [
+        { "action": "Kill Line", "shortcut": "⌃K" },
+        { "action": "Kill Word", "shortcut": "⌥D" },
+        { "action": "Backward Kill Word", "shortcut": "⌥⌫" },
+        { "action": "Kill Region", "shortcut": "⌃W" },
+        { "action": "Copy Region", "shortcut": "⌥W" },
+        { "action": "Yank", "shortcut": "⌃Y" },
+        { "action": "Yank Pop", "shortcut": "⌥Y" },
+        { "action": "Kill Whole Line", "shortcut": "⌃⇧⌫" }
+      ]
+    },
+    {
+      "category": "Region",
+      "keybinds": [
+        { "action": "Set Mark", "shortcut": "⌃Space" },
+        { "action": "Exchange Point and Mark", "shortcut": "⌃X ⌃X" },
+        { "action": "Mark Whole Buffer", "shortcut": "⌃X H" },
+        { "action": "Mark Paragraph", "shortcut": "⌥H" },
+        { "action": "Mark Word", "shortcut": "⌥@" },
+        { "action": "Keyboard Quit", "shortcut": "⌃G" }
+      ]
+    },
+    {
+      "category": "Search",
+      "keybinds": [
+        { "action": "Isearch Forward", "shortcut": "⌃S" },
+        { "action": "Isearch Backward", "shortcut": "⌃R" },
+        { "action": "Regexp Isearch Forward", "shortcut": "⌃⌥S" },
+        { "action": "Regexp Isearch Backward", "shortcut": "⌃⌥R" },
+        { "action": "Query Replace", "shortcut": "⌥%" },
+        { "action": "Query Replace Regexp", "shortcut": "⌃⌥%" }
+      ]
+    },
+    {
+      "category": "Files",
+      "keybinds": [
+        { "action": "Find File", "shortcut": "⌃X ⌃F" },
+        { "action": "Save Buffer", "shortcut": "⌃X ⌃S" },
+        { "action": "Write File", "shortcut": "⌃X ⌃W" },
+        { "action": "Save Some Buffers", "shortcut": "⌃X S" },
+        { "action": "Insert File", "shortcut": "⌃X I" },
+        { "action": "Save and Quit", "shortcut": "⌃X ⌃C" }
+      ]
+    },
+    {
+      "category": "Buffers",
+      "keybinds": [
+        { "action": "Switch Buffer", "shortcut": "⌃X B" },
+        { "action": "List Buffers", "shortcut": "⌃X ⌃B" },
+        { "action": "Kill Buffer", "shortcut": "⌃X K" },
+        { "action": "Next Buffer", "shortcut": "⌃X →" },
+        { "action": "Previous Buffer", "shortcut": "⌃X ←" },
+        { "action": "Revert Buffer", "shortcut": "⌥X revert-buffer" }
+      ]
+    },
+    {
+      "category": "Windows",
+      "keybinds": [
+        { "action": "Split Below", "shortcut": "⌃X 2" },
+        { "action": "Split Right", "shortcut": "⌃X 3" },
+        { "action": "Delete Window", "shortcut": "⌃X 0" },
+        { "action": "Delete Other Windows", "shortcut": "⌃X 1" },
+        { "action": "Other Window", "shortcut": "⌃X O" },
+        { "action": "Enlarge Window", "shortcut": "⌃X ^" },
+        { "action": "Shrink Window Horizontally", "shortcut": "⌃X {" },
+        { "action": "Enlarge Window Horizontally", "shortcut": "⌃X }" }
+      ]
+    },
+    {
+      "category": "Scroll",
+      "keybinds": [
+        { "action": "Scroll Up", "shortcut": "⌃V" },
+        { "action": "Scroll Down", "shortcut": "⌥V" },
+        { "action": "Recenter", "shortcut": "⌃L" },
+        { "action": "Scroll Other Window", "shortcut": "⌃⌥V" },
+        { "action": "Forward Paragraph", "shortcut": "⌥}" },
+        { "action": "Backward Paragraph", "shortcut": "⌥{" }
+      ]
+    },
+    {
+      "category": "Commands & Help",
+      "keybinds": [
+        { "action": "Execute Command", "shortcut": "⌥X" },
+        { "action": "Universal Argument", "shortcut": "⌃U" },
+        { "action": "Undo", "shortcut": "⌃/ or ⌃X U" },
+        { "action": "Help Prefix", "shortcut": "⌃H" },
+        { "action": "Describe Key", "shortcut": "⌃H K" },
+        { "action": "Describe Function", "shortcut": "⌃H F" },
+        { "action": "Describe Variable", "shortcut": "⌃H V" },
+        { "action": "Apropos Command", "shortcut": "⌃H A" }
+      ]
+    },
+    {
+      "category": "Code",
+      "keybinds": [
+        { "action": "Forward Sexp", "shortcut": "⌃⌥F" },
+        { "action": "Backward Sexp", "shortcut": "⌃⌥B" },
+        { "action": "Kill Sexp", "shortcut": "⌃⌥K" },
+        { "action": "Down List", "shortcut": "⌃⌥D" },
+        { "action": "Comment Region", "shortcut": "⌃X ⌃;" },
+        { "action": "Indent Region", "shortcut": "⌃⌥\\" }
+      ]
+    },
+    {
+      "category": "Registers & Macros",
+      "keybinds": [
+        { "action": "Start Keyboard Macro", "shortcut": "⌃X (" },
+        { "action": "End Keyboard Macro", "shortcut": "⌃X )" },
+        { "action": "Call Keyboard Macro", "shortcut": "⌃X E" },
+        { "action": "Point to Register", "shortcut": "⌃X R Space" },
+        { "action": "Jump to Register", "shortcut": "⌃X R J" },
+        { "action": "Copy to Register", "shortcut": "⌃X R S" }
+      ]
+    }
+  ]
+}

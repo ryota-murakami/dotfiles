@@ -1,0 +1,167 @@
+{
+  "categories": [
+    {
+      "category": "Motion",
+      "keybinds": [
+        { "action": "Left", "shortcut": "h" },
+        { "action": "Down", "shortcut": "j" },
+        { "action": "Up", "shortcut": "k" },
+        { "action": "Right", "shortcut": "l" },
+        { "action": "File Start", "shortcut": "gg" },
+        { "action": "File End", "shortcut": "G" },
+        { "action": "Go to Line", "shortcut": "{n}G" },
+        { "action": "Screen Top", "shortcut": "H" },
+        { "action": "Screen Middle", "shortcut": "M" },
+        { "action": "Screen Bottom", "shortcut": "L" }
+      ]
+    },
+    {
+      "category": "Word & Line",
+      "keybinds": [
+        { "action": "Word Forward", "shortcut": "w" },
+        { "action": "WORD Forward", "shortcut": "W" },
+        { "action": "Word Backward", "shortcut": "b" },
+        { "action": "WORD Backward", "shortcut": "B" },
+        { "action": "Word End", "shortcut": "e" },
+        { "action": "Line Start", "shortcut": "0" },
+        { "action": "First Non-Blank", "shortcut": "^" },
+        { "action": "Line End", "shortcut": "$" },
+        { "action": "Matching Pair", "shortcut": "%" },
+        { "action": "Sentence Forward", "shortcut": ")" }
+      ]
+    },
+    {
+      "category": "Insert",
+      "keybinds": [
+        { "action": "Insert", "shortcut": "i" },
+        { "action": "Insert at Line Start", "shortcut": "I" },
+        { "action": "Append", "shortcut": "a" },
+        { "action": "Append at Line End", "shortcut": "A" },
+        { "action": "Open Line Below", "shortcut": "o" },
+        { "action": "Open Line Above", "shortcut": "O" },
+        { "action": "Substitute Char", "shortcut": "s" },
+        { "action": "Change Line", "shortcut": "cc" },
+        { "action": "Replace Mode", "shortcut": "R" },
+        { "action": "Return to Normal", "shortcut": "Esc" }
+      ]
+    },
+    {
+      "category": "Edit",
+      "keybinds": [
+        { "action": "Delete Char", "shortcut": "x" },
+        { "action": "Delete Line", "shortcut": "dd" },
+        { "action": "Delete to End", "shortcut": "D" },
+        { "action": "Change to End", "shortcut": "C" },
+        { "action": "Replace Char", "shortcut": "r{c}" },
+        { "action": "Join Lines", "shortcut": "J" },
+        { "action": "Undo", "shortcut": "u" },
+        { "action": "Redo", "shortcut": "⌃R" },
+        { "action": "Repeat", "shortcut": "." },
+        { "action": "Indent", "shortcut": ">>" },
+        { "action": "Outdent", "shortcut": "<<" },
+        { "action": "Toggle Case", "shortcut": "~" }
+      ]
+    },
+    {
+      "category": "Yank & Put",
+      "keybinds": [
+        { "action": "Yank", "shortcut": "y" },
+        { "action": "Yank Line", "shortcut": "yy" },
+        { "action": "Put After", "shortcut": "p" },
+        { "action": "Put Before", "shortcut": "P" },
+        { "action": "Delete (cut) Motion", "shortcut": "d{motion}" },
+        { "action": "Change Inner Word", "shortcut": "ciw" },
+        { "action": "Delete Around Word", "shortcut": "daw" },
+        { "action": "Yank Inner Word", "shortcut": "yiw" }
+      ]
+    },
+    {
+      "category": "Visual",
+      "keybinds": [
+        { "action": "Visual", "shortcut": "v" },
+        { "action": "Visual Line", "shortcut": "V" },
+        { "action": "Visual Block", "shortcut": "⌃V" },
+        { "action": "Reselect Last", "shortcut": "gv" },
+        { "action": "Select All", "shortcut": "ggVG" },
+        { "action": "Swap Ends", "shortcut": "o" }
+      ]
+    },
+    {
+      "category": "Search",
+      "keybinds": [
+        { "action": "Search Forward", "shortcut": "/" },
+        { "action": "Search Backward", "shortcut": "?" },
+        { "action": "Next Match", "shortcut": "n" },
+        { "action": "Previous Match", "shortcut": "N" },
+        { "action": "Word Forward", "shortcut": "*" },
+        { "action": "Word Backward", "shortcut": "#" },
+        { "action": "Find Char", "shortcut": "f{c}" },
+        { "action": "Find Char Back", "shortcut": "F{c}" },
+        { "action": "Till Char", "shortcut": "t{c}" },
+        { "action": "Repeat Find", "shortcut": ";" }
+      ]
+    },
+    {
+      "category": "Scroll",
+      "keybinds": [
+        { "action": "Half Page Down", "shortcut": "⌃D" },
+        { "action": "Half Page Up", "shortcut": "⌃U" },
+        { "action": "Page Down", "shortcut": "⌃F" },
+        { "action": "Page Up", "shortcut": "⌃B" },
+        { "action": "Line Down", "shortcut": "⌃E" },
+        { "action": "Line Up", "shortcut": "⌃Y" },
+        { "action": "Center Cursor", "shortcut": "zz" },
+        { "action": "Cursor to Top", "shortcut": "zt" },
+        { "action": "Cursor to Bottom", "shortcut": "zb" }
+      ]
+    },
+    {
+      "category": "Windows",
+      "keybinds": [
+        { "action": "Split Horizontal", "shortcut": "⌃W s" },
+        { "action": "Split Vertical", "shortcut": "⌃W v" },
+        { "action": "Window Left", "shortcut": "⌃W h" },
+        { "action": "Window Right", "shortcut": "⌃W l" },
+        { "action": "Window Up", "shortcut": "⌃W k" },
+        { "action": "Window Down", "shortcut": "⌃W j" },
+        { "action": "Close Window", "shortcut": "⌃W c" },
+        { "action": "Only Window", "shortcut": "⌃W o" }
+      ]
+    },
+    {
+      "category": "Files & Buffers",
+      "keybinds": [
+        { "action": "Write", "shortcut": ":w" },
+        { "action": "Quit", "shortcut": ":q" },
+        { "action": "Write and Quit", "shortcut": ":wq" },
+        { "action": "Force Quit", "shortcut": ":q!" },
+        { "action": "Edit File", "shortcut": ":e {file}" },
+        { "action": "Next Buffer", "shortcut": ":bn" },
+        { "action": "Previous Buffer", "shortcut": ":bp" },
+        { "action": "List Buffers", "shortcut": ":ls" }
+      ]
+    },
+    {
+      "category": "Marks & Jumps",
+      "keybinds": [
+        { "action": "Set Mark", "shortcut": "m{a}" },
+        { "action": "Jump to Mark", "shortcut": "'{a}" },
+        { "action": "Jump to Mark Exact", "shortcut": "`{a}" },
+        { "action": "Jump Back", "shortcut": "⌃O" },
+        { "action": "Jump Forward", "shortcut": "⌃I" },
+        { "action": "Last Jump", "shortcut": "''" }
+      ]
+    },
+    {
+      "category": "Macros & Registers",
+      "keybinds": [
+        { "action": "Record Macro", "shortcut": "q{a}" },
+        { "action": "Stop Recording", "shortcut": "q" },
+        { "action": "Play Macro", "shortcut": "@{a}" },
+        { "action": "Replay Last Macro", "shortcut": "@@" },
+        { "action": "Registers", "shortcut": ":reg" },
+        { "action": "Use Register", "shortcut": "\"{a}" }
+      ]
+    }
+  ]
+}
