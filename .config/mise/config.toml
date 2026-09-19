@@ -1,2 +1,5 @@
 [tools]
 node = "24.19.0"
+
+[settings]
+idiomatic_version_file_enable_tools = ["node"]
