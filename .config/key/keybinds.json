@@ -126,6 +126,7 @@
         { "action": "Show Reference/Usage", "shortcut": "⌘U" },
         { "action": "Show Context Menu", "shortcut": "⌃C ⌃C" },
         { "action": "Toggle Terminal", "shortcut": "⌃\\" },
+        { "action": "Toggle Panel Right/Bottom", "shortcut": "⇧⌘D" },
         { "action": "Reload Window", "shortcut": "⌃X ⌃R" },
         { "action": "Open Settings", "shortcut": "⌃⌘," },
         { "action": "ESLint —fix", "shortcut": "⌃Space" },
