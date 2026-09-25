@@ -1,0 +1,183 @@
+/**
+ * Markdown Source Colors for Obsidian
+ *
+ * Colors raw Markdown syntax in the editor (Source mode / Live Preview):
+ *   - Markup symbols (**, ##, -, |, \) → blue
+ *   - Headings → pink
+ *   - Bold text → bright white
+ *   - Links → cyan with teal underline
+ *   - Inline code → subtle boxed chip, backticks dimmed outside the box
+ *   - Tables → framed block
+ *
+ * Enable: Settings → Appearance → CSS snippets → markdown-source-colors
+ */
+
+/* ============================================
+   1. PALETTE
+   ============================================ */
+
+.theme-dark {
+  --msc-text: #e6e6e6;
+  --msc-bright: #ffffff;
+  --msc-symbol: #4d8dff;
+  --msc-heading: #ee5c9c;
+  --msc-link: #47b1d8;
+  --msc-link-underline: #3dbfa0;
+  --msc-dim: #8a8a8a;
+  --msc-code-bg: rgba(255, 255, 255, 0.06);
+  --msc-code-border: rgba(255, 255, 255, 0.12);
+  --msc-table-bg: rgba(255, 255, 255, 0.03);
+  --msc-table-border: rgba(255, 255, 255, 0.1);
+}
+
+/* ============================================
+   2. BASE TEXT (monospace like the terminal)
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-content {
+  color: var(--msc-text);
+  font-family: 'SF Mono', Menlo, 'JetBrains Mono', 'Hiragino Sans', monospace;
+}
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-lineNumbers .cm-gutterElement {
+  color: var(--msc-dim);
+}
+
+/* ============================================
+   3. HEADINGS — pink text, blue ##
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-header {
+  color: var(--msc-heading);
+  font-weight: 700;
+}
+
+/* Declared after .cm-header so the ## marker wins over heading pink */
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-header {
+  color: var(--msc-symbol);
+}
+
+/* ============================================
+   4. BOLD / ITALIC — white text, blue markers
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-strong {
+  color: var(--msc-bright);
+  font-weight: 700;
+}
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-strong,
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-em {
+  color: var(--msc-symbol);
+}
+
+/* ============================================
+   5. LISTS / ESCAPES / QUOTES — blue symbols
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-list,
+.theme-dark .markdown-source-view.mod-cm6 .list-bullet,
+.theme-dark .markdown-source-view.mod-cm6 .cm-hmd-escape-backslash,
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-quote {
+  color: var(--msc-symbol);
+}
+
+/* Live Preview renders bullets as dots — tint them too */
+.theme-dark .markdown-source-view.mod-cm6 .list-bullet::after {
+  background-color: var(--msc-symbol);
+}
+
+/* ============================================
+   6. LINKS — cyan text, teal underline
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-link,
+.theme-dark .markdown-source-view.mod-cm6 .cm-url,
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-link,
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-link-string {
+  color: var(--msc-link);
+  text-decoration: underline;
+  text-decoration-color: var(--msc-link-underline);
+  text-underline-offset: 3px;
+}
+
+/* ============================================
+   7. INLINE CODE — boxed chip, dim backticks
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-inline-code:not(.cm-formatting) {
+  color: var(--msc-text);
+  background-color: var(--msc-code-bg);
+  border: 1px solid var(--msc-code-border);
+  border-radius: 4px;
+  padding: 0.05em 0.15em;
+}
+
+/* Backticks sit outside the chip, as in the reference */
+.theme-dark .markdown-source-view.mod-cm6 .cm-formatting-code.cm-inline-code {
+  color: var(--msc-dim);
+  background-color: transparent;
+  border: none;
+}
+
+/* ============================================
+   8. TABLES (source mode) — framed block, blue pipes
+   ============================================ */
+
+.theme-dark .markdown-source-view.mod-cm6 .HyperMD-table-row {
+  background-color: var(--msc-table-bg);
+  border-left: 1px solid var(--msc-table-border);
+  border-right: 1px solid var(--msc-table-border);
+}
+
+/* First row of a table block gets the top edge */
+.theme-dark .markdown-source-view.mod-cm6 :not(.HyperMD-table-row) + .HyperMD-table-row {
+  border-top: 1px solid var(--msc-table-border);
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+/* Last row of a table block gets the bottom edge */
+.theme-dark .markdown-source-view.mod-cm6 .HyperMD-table-row:has(+ :not(.HyperMD-table-row)) {
+  border-bottom: 1px solid var(--msc-table-border);
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.theme-dark .markdown-source-view.mod-cm6 .cm-hmd-table-sep {
+  color: var(--msc-symbol);
+}
+
+.theme-dark .markdown-source-view.mod-cm6 .HyperMD-table-row-0 {
+  color: var(--msc-bright);
+  font-weight: 700;
+}
+
+/* ============================================
+   9. READING MODE — same palette for rendered view
+   ============================================ */
+
+.theme-dark .markdown-preview-view {
+  --h1-color: var(--msc-heading);
+  --h2-color: var(--msc-heading);
+  --h3-color: var(--msc-heading);
+  --h4-color: var(--msc-heading);
+  --h5-color: var(--msc-heading);
+  --h6-color: var(--msc-heading);
+  --bold-color: var(--msc-bright);
+  --link-external-color: var(--msc-link);
+  --link-color: var(--msc-link);
+  --list-marker-color: var(--msc-symbol);
+}
+
+.theme-dark .markdown-preview-view a {
+  text-decoration-color: var(--msc-link-underline);
+  text-underline-offset: 3px;
+}
+
+.theme-dark .markdown-preview-view :not(pre) > code {
+  color: var(--msc-text);
+  background-color: var(--msc-code-bg);
+  border: 1px solid var(--msc-code-border);
+  border-radius: 4px;
+}
