@@ -2466,7 +2466,7 @@
     "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus && !treeFindOpen",
   },
   {
-    "key": "cmd+b",
+    "key": "shift+cmd+b",
     "command": "typescript.goToSourceDefinition",
   },
   {
@@ -2607,10 +2607,6 @@
   {
     "key": "cmd+e",
     "command": "markdown.showPreview",
-  },
-  {
-    "key": "ctrl+space",
-    "command": "prettier.forceFormatDocument",
   },
   {
     "key": "shift+cmd+k",
@@ -2965,7 +2961,7 @@
     "when": "terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
   },
   {
-    "key": "f12",
+    "key": "cmd+b",
     "command": "editor.action.revealDefinition"
   },
   {
@@ -3066,7 +3062,26 @@
     "command": "aiSettings.action.open"
   },
   {
-    "key": "cmd+3",
-    "command": "editor.action.addSelectionToNextFindMatch"
+    "key": "ctrl+space",
+    "command": "editor.action.formatDocument"
   },
+  {
+    "key": "cmd+3",
+    "command": "outline.focus"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "-composer.fixerrormessage",
+    "when": "!chatModeMenuFocused && !composerFocused && @composer.isCursorOnLint"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "workbench.action.positionPanelRight",
+    "when": "panelPosition != 'right'"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "workbench.action.positionPanelBottom",
+    "when": "panelPosition == 'right'"
+  }
 ]
