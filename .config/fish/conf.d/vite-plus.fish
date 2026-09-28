@@ -1,2 +1,2 @@
 # Vite+ bin (https://viteplus.dev)
-source "$HOME/.vite-plus/env.fish"
+source "/Users/ryotamurakami/.vite-plus/env.fish"
