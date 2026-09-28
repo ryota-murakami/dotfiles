@@ -2789,16 +2789,12 @@
     "when": "aiSettingResultsAvailable && inSettingsEditor",
   },
   {
-    "key": "shift+cmd+j",
-    "command": "settings.action.toggleAiSearch",
-  },
-  {
     "key": "shift+cmd+i",
     "command": "-windsurf.triggerCascade",
     "when": "true",
   },
   {
-    "key": "cmd+j",
+    "key": "shift+cmd+n",
     "command": "workbench.action.openWindsurfSettings",
   },
   {
