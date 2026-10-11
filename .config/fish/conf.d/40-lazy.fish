@@ -17,8 +17,8 @@
 #
 # LAZY-LOADED TOOLS:
 #   - pyenv (python, pip): Python version manager
-#   - direnv: Directory-specific environment variables
 #   - Kiro: AI terminal integration
+#   (direnv is hooked in conf.d/direnv.fish)
 #
 # EXAMPLES:
 #   # First python call initializes pyenv (slight delay):
@@ -36,21 +36,7 @@
 # =============================================================================
 
 if status is-interactive
-    # -------------------------------------------------------------------------
-    # direnv - Directory Environment Manager
-    # -------------------------------------------------------------------------
-    # Only load direnv hook if .envrc exists in current directory.
-    # This avoids the overhead of direnv when not needed.
-    #
-    # Usage: Create a .envrc file in any directory with environment variables.
-    # Example .envrc:
-    #   export DATABASE_URL="postgres://localhost/myapp"
-    #   export API_KEY="secret123"
-    #
-    # Install: brew install direnv
-    if test -f .envrc
-        eval "$(direnv hook fish)"
-    end
+    # direnv hook lives in conf.d/direnv.fish (overrides Homebrew vendor conf).
 
     # -------------------------------------------------------------------------
     # pyenv - Python Version Manager (Lazy Loaded)
