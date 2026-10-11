@@ -21,6 +21,8 @@ hub
 jgit
 joplin-desktop
 last30days
+laststance-backup
+lume
 mole
 neonctl
 notion
@@ -30,6 +32,7 @@ parallel-web-tools
 ralph-tui
 raycast
 sanity
+sentry
 sidecar
 simple-update-notifier
 stripe
