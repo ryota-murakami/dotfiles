@@ -47,7 +47,7 @@ set -gx PATH (string match -v /opt/homebrew/opt/node/bin $PATH)
 # Homebrew: disable interactive confirmation on upgrade/install prompts.
 set -Ux HOMEBREW_NO_ASK 1
 
-# Hermes Agent — ensure ~/.local/bin is on PATH
+# Ensure ~/.local/bin is on PATH
 fish_add_path "$HOME/.local/bin"
 
 # OpenClaw Completion
