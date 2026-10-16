@@ -50,9 +50,9 @@ alias chrome="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --g
 # wanip: Show your public IP address (useful for VPN verification)
 alias wanip="curl https://ipinfo.io/ip"
 
-# v8: Open Chromium with DevTools for V8/JavaScript debugging
+# v8: Open Chrome with DevTools for V8/JavaScript debugging
 # Flags: auto-open-devtools, incognito mode, disable XSS warnings
-alias v8="/Applications/Chromium.app/Contents/MacOS/Chromium --auto-open-devtools-for-tabs --incognito --unsafely-disable-devtools-self-xss-warnings"
+alias v8="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --auto-open-devtools-for-tabs --incognito --unsafely-disable-devtools-self-xss-warnings"
 
 # warp: Open Warp that AI powered terminal
 alias warp='open -a Warp .'
