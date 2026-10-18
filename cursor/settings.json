@@ -649,5 +649,10 @@
       "scope": "workspace",
       "behavior": "anchor"
     }
-  }
+  },
+  "python.defaultInterpreterPath": "/usr/local/bin/python3",
+  // PHP 8.3. PATH の php は Homebrew の 8.5 なので、構文チェックと Intelephense は 8.3 に固定する
+  "php.validate.executablePath": "/opt/homebrew/opt/php@8.3/bin/php",
+  "php.validate.enable": false,
+  "intelephense.environment.phpVersion": "8.3.0"
 }
