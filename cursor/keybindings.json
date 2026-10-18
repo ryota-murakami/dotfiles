@@ -3088,10 +3088,5 @@
     "key": "alt+cmd+s",
     "command": "workbench.action.toggleUnifiedSidebarFromKeyboard",
     "when": "!isAuxiliaryWindowFocusedContext"
-  },
-  {
-    "key": "ctrl+x l",
-    "command": "daykey.scrollToCenter",
-    "when": "editorTextFocus"
   }
 ]

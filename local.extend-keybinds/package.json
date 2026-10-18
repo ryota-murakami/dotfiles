@@ -1,0 +1,33 @@
+{
+  "name": "extend-keybinds",
+  "displayName": "Extend Keybinds",
+  "description": "Extra editor commands for shortcuts that have no built-in equivalent.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "extend-keybinds.scrollToCenter",
+        "title": "Scroll to Center",
+        "category": "Extend Keybinds"
+      }
+    ],
+    "keybindings": [
+      {
+        "key": "ctrl+x l",
+        "command": "extend-keybinds.scrollToCenter",
+        "when": "editorTextFocus"
+      }
+    ]
+  }
+}
