@@ -13,6 +13,7 @@ direnv
 direnv/
 gatsby/
 gcloud
+goose
 gh/hosts.yml
 github
 github-copilot
