@@ -4,8 +4,7 @@
 #
 # DESCRIPTION:
 #   Reads package names from ~/dotfiles/.default-npm-packages and runs
-#   npm install -g for each entry. Used with mise's default global packages
-#   file (often symlinked to ~/.default-npm-packages).
+#   npm install -g for each entry in the shared default package list.
 #
 # USAGE:
 #   npm_global_install
