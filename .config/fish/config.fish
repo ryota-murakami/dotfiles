@@ -52,3 +52,6 @@ fish_add_path "$HOME/.local/bin"
 
 # OpenClaw Completion
 test -f "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"; and source "/Users/ryotamurakami/.openclaw/completions/openclaw.fish"
+
+# 1Password Shell Plugins: doctl reads its DigitalOcean token from 1Password (Touch ID) instead of a saved config
+test -f ~/.config/op/plugins.sh; and source ~/.config/op/plugins.sh

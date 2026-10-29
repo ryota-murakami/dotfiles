@@ -46,3 +46,53 @@ kill-port() {
     lsof -ti :"$1" | xargs kill -9 2>/dev/null
     echo "Killed processes on port $1"
 }
+
+
+# =============================================================================
+# sfw - Toggle Socket Firewall package manager wrapping
+# =============================================================================
+#
+# DESCRIPTION:
+#   Wraps the real `sfw` binary. Intercepts `on`, `off`, `toggle`, `status`
+#   to enable/disable the package manager aliases defined in ~/.aliases-sfw
+#   (synchronized with fish conf.d/21-sfw.fish). All other arguments are
+#   passed through to the real sfw binary.
+#
+# USAGE:
+#   sfw on       Enable sfw wrapping (npm, pnpm, pip, cargo, ... route via sfw)
+#   sfw off      Disable sfw wrapping (package managers run directly)
+#   sfw toggle   Flip the current state
+#   sfw status   Show current state
+#   sfw <args>   Forward to the real sfw binary (e.g. `sfw npm install`)
+#
+# STATE:
+#   ~/.sfw-disabled - flag file; present = OFF, absent = ON (fail-safe ON).
+#   New shells pick up the state via the guard in ~/.aliases-sfw.
+#   The sfw binary remains directly usable even when wrapping is OFF.
+#
+# =============================================================================
+sfw() {
+    local flag="$HOME/.sfw-disabled"
+    case "$1" in
+        on)
+            # Clear flag first so the guard in .aliases-sfw re-creates aliases
+            rm -f "$flag"
+            [ -f "$HOME/.aliases-sfw" ] && . "$HOME/.aliases-sfw"
+            echo "✓ sfw wrapping enabled (npm, pnpm, pip, ... route via sfw)"
+            ;;
+        off)
+            touch "$flag"
+            unalias npm npx pnpm pnpx yarn bun pip pip3 uv cargo 2>/dev/null
+            echo "✓ sfw wrapping disabled (npm, pnpm, pip, ... run directly)"
+            ;;
+        toggle)
+            if [ -f "$flag" ]; then sfw on; else sfw off; fi
+            ;;
+        status)
+            if [ -f "$flag" ]; then echo "sfw wrapping: OFF"; else echo "sfw wrapping: ON"; fi
+            ;;
+        *)
+            command sfw "$@"
+            ;;
+    esac
+}
