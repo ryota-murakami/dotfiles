@@ -163,3 +163,6 @@ source $ZSH_CUSTOM/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
 # Vite+ bin (https://viteplus.dev)
 . "$HOME/.vite-plus/env"
 export PATH="/Users/ryotamurakami/.local/share/sentry-devenv/bin:$PATH"
+
+# 1Password Shell Plugins: doctl reads its DigitalOcean token from 1Password (Touch ID) instead of a saved config
+[ -f ~/.config/op/plugins.sh ] && source ~/.config/op/plugins.sh
