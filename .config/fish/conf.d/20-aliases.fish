@@ -54,8 +54,8 @@ alias wanip="curl https://ipinfo.io/ip"
 # Flags: auto-open-devtools, incognito mode, disable XSS warnings
 alias v8="/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --auto-open-devtools-for-tabs --incognito --unsafely-disable-devtools-self-xss-warnings"
 
-# warp: Open Warp that AI powered terminal
-alias warp='open -a Warp .'
+# warp-app: Open Warp GUI (the `warp` command is reserved for Warp Agent CLI)
+alias warp-app='open -a Warp .'
 # -----------------------------------------------------------------------------
 # Directory Navigation
 # -----------------------------------------------------------------------------
