@@ -6,3 +6,6 @@ export BUN_INSTALL="$HOME/.bun"
 
 # Vite+ bin (https://viteplus.dev)
 . "$HOME/.vite-plus/env"
+
+# Words starting with "=" (e.g. echo ======) stay literal instead of expanding to a command path.
+setopt NO_EQUALS
