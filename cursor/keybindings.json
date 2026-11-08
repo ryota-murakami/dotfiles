@@ -2553,10 +2553,6 @@
     "when": "editorFocus && !composerBarIsVisible",
   },
   {
-    "key": "ctrl+cmd+m",
-    "command": "editor.action.selectToBracket",
-  },
-  {
     "key": "ctrl+x right",
     "command": "workbench.action.splitEditorRight",
   },
@@ -3088,5 +3084,9 @@
     "key": "alt+cmd+s",
     "command": "workbench.action.toggleUnifiedSidebarFromKeyboard",
     "when": "!isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "ctrl+cmd+m",
+    "command": "editor.emmet.action.matchTag"
   }
 ]
