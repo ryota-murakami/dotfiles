@@ -33,7 +33,7 @@
   "editor.indentSize": "tabSize",
   "editor.minimap.enabled": true,
   "editor.mouseWheelScrollSensitivity": 0.7,
-  "editor.multiCursorModifier": "alt",
+  "editor.multiCursorModifier": "ctrlCmd",
   "editor.renderWhitespace": "all",
   "editor.scrollBeyondLastColumn": 10,
   "editor.scrollBeyondLastLine": true,
