@@ -34,8 +34,8 @@
 # -----------------------------------------------------------------------------
 # Core Development Tools
 # -----------------------------------------------------------------------------
-# Homebrew (Apple Silicon path)
-set -gx PATH /opt/homebrew/bin $PATH
+# Homebrew (Apple Silicon path) — remove all copies first, then prepend once
+set -gx PATH /opt/homebrew/bin (string match -v /opt/homebrew/bin $PATH)
 
 # Rust toolchain (cargo, rustc, rustup)
 fish_add_path --prepend "$HOME/.cargo/bin"
@@ -51,8 +51,10 @@ fish_add_path --prepend "$HOME/nvim-macos/bin"
 set -gx PNPM_HOME "$HOME/Library/pnpm"
 fish_add_path --prepend "$PNPM_HOME"
 
-# Bun runtime and package manager
-set --export PATH $BUN_INSTALL/bin $PATH
+# Bun runtime and package manager — dedupe-then-prepend (only when installed)
+if set -q BUN_INSTALL; and test -d "$BUN_INSTALL/bin"
+    set -gx PATH "$BUN_INSTALL/bin" (string match -v "$BUN_INSTALL/bin" $PATH)
+end
 
 # -----------------------------------------------------------------------------
 # Python Tools
