@@ -1,4 +1,5 @@
 {
+  "extensions.installCooldownHours": 168,
   // Window
   "window.autoDetectColorScheme": false,
   "window.titleBarStyle": "custom",
