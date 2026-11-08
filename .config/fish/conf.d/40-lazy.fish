@@ -16,16 +16,12 @@
 #   automatically on first use.
 #
 # LAZY-LOADED TOOLS:
-#   - pyenv (python, pip): Python version manager
 #   - Kiro: AI terminal integration
 #   (direnv is hooked in conf.d/direnv.fish)
 #
 # EXAMPLES:
-#   # First python call initializes pyenv (slight delay):
-#   python --version
-#
-#   # Subsequent calls are instant (pyenv already loaded):
-#   python script.py
+#   # First tool call initializes the tool (slight delay),
+#   # subsequent calls are instant (wrapper already removed).
 #
 # HOW IT WORKS:
 #   1. Wrapper function intercepts the command
@@ -37,30 +33,6 @@
 
 if status is-interactive
     # direnv hook lives in conf.d/direnv.fish (overrides Homebrew vendor conf).
-
-    # -------------------------------------------------------------------------
-    # pyenv - Python Version Manager (Lazy Loaded)
-    # -------------------------------------------------------------------------
-    # Wrapper functions that initialize pyenv on first use of python/pip.
-    # After initialization, the wrappers remove themselves.
-    #
-    # Usage:
-    #   pyenv install 3.12.0     # Install Python version
-    #   pyenv global 3.12.0      # Set global version
-    #   python --version         # Triggers lazy load on first call
-    #
-    # Install: brew install pyenv
-    function python --wraps python
-        pyenv init - | source
-        functions -e python pip  # Remove wrappers after init
-        python $argv
-    end
-
-    function pip --wraps pip
-        pyenv init - | source
-        functions -e pip python  # Remove wrappers after init
-        pip $argv
-    end
 end
 
 # -----------------------------------------------------------------------------
