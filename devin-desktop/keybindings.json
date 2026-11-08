@@ -7,7 +7,7 @@
   {
     "key": "escape",
     "command": "workbench.action.focusActiveEditorGroup",
-    "when": "!editorTextFocus"
+    "when": "!editorTextFocus",
   },
   {
     "key": "enter",
@@ -835,11 +835,6 @@
     "command": "workbench.action.showCommands",
   },
   {
-    "key": "ctrl+cmd+i",
-    "command": "editor.action.triggerSuggest",
-    "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible",
-  },
-  {
     "key": "ctrl+space",
     "command": "-editor.action.triggerSuggest",
     "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible",
@@ -1246,11 +1241,6 @@
     "when": "codeActionMenuVisible",
   },
   {
-    "key": "ctrl+cmd+b",
-    "command": "cursorColumnSelectLeft",
-    "when": "textInputFocus",
-  },
-  {
     "key": "shift+alt+cmd+left",
     "command": "-cursorColumnSelectLeft",
     "when": "textInputFocus",
@@ -1312,11 +1302,6 @@
   {
     "key": "ctrl+cmd+a",
     "command": "cursorHomeSelect",
-    "when": "textInputFocus",
-  },
-  {
-    "key": "ctrl+cmd+f",
-    "command": "cursorColumnSelectRight",
     "when": "textInputFocus",
   },
   {
@@ -1622,11 +1607,6 @@
     "key": "shift+cmd+left",
     "command": "-workbench.action.terminal.sendSequence",
     "when": "terminalFocus && terminalShellType == 'pwsh'",
-  },
-  {
-    "key": "shift+cmd+left",
-    "command": "cursorLineStartSelect",
-    "when": "textInputFocus",
   },
   {
     "key": "ctrl+shift+g",
@@ -1981,7 +1961,7 @@
     "when": "editorTextFocus",
   },
   {
-    "key": "ctrl+cmd+up",
+    "key": "alt+cmd+up",
     "command": "editor.action.insertCursorAbove",
     "when": "editorTextFocus",
   },
@@ -1991,7 +1971,7 @@
     "when": "editorTextFocus",
   },
   {
-    "key": "ctrl+cmd+down",
+    "key": "alt+cmd+down",
     "command": "editor.action.insertCursorBelow",
     "when": "editorTextFocus",
   },
@@ -2093,10 +2073,6 @@
     "command": "-workbench.action.focusThirdEditorGroup",
   },
   {
-    "key": "cmd+2",
-    "command": "outline.toggleVisibility",
-  },
-  {
     "key": "ctrl+l",
     "command": "-workbench.action.chat.clear",
     "when": "hasChatProvider && inChat",
@@ -2174,11 +2150,6 @@
     "key": "ctrl+cmd+p",
     "command": "cursorColumnSelectUp",
     "when": "editorColumnSelection && textInputFocus",
-  },
-  {
-    "key": "shift+alt+right",
-    "command": "cursorWordRightSelect",
-    "when": "textInputFocus",
   },
   {
     "key": "cmd+b",
@@ -2495,7 +2466,7 @@
     "when": "filesExplorerFocus && foldersViewVisible && !explorerResourceReadonly && !inputFocus && !treeFindOpen",
   },
   {
-    "key": "cmd+b",
+    "key": "shift+cmd+b",
     "command": "typescript.goToSourceDefinition",
   },
   {
@@ -2580,10 +2551,6 @@
     "key": "cmd+k",
     "command": "-aipopup.action.modal.generate",
     "when": "editorFocus && !composerBarIsVisible",
-  },
-  {
-    "key": "ctrl+cmd+m",
-    "command": "editor.action.selectToBracket",
   },
   {
     "key": "ctrl+x right",
@@ -2746,60 +2713,9 @@
     "when": "workbench.panel.chat.view.copilot.active",
   },
   {
-    "key": "cmd+l",
-    "command": "-windsurf.prioritized.chat.open",
-    "when": "!terminalFocus && !windsurf.deepwikiPanel.focused",
-  },
-  {
-    "key": "cmd+i",
-    "command": "-windsurf.prioritized.command.open",
-    "when": "editorTextFocus && !windsurf.isAgentModeInputBoxFocused",
-  },
-  {
-    "key": "alt+p",
-    "command": "cursorMove",
-    "when": "editorTextFocus",
-    "args": {
-      "to": "prevBlankLine",
-      "by": "wrappedLine",
-    },
-  },
-  {
-    "key": "alt+n",
-    "command": "cursorMove",
-    "when": "editorTextFocus",
-    "args": {
-      "to": "nextBlankLine",
-      "by": "wrappedLine",
-    },
-  },
-  {
-    "key": "cmd+k cmd+k",
-    "command": "-editor.action.defineKeybinding",
-    "when": "resource == 'vscode-userdata:/Users/ryotamurakami/Library/Application%20Support/Windsurf/User/keybindings.json'",
-  },
-  {
-    "key": "shift+cmd+j",
-    "command": "-workbench.action.search.toggleQueryDetails",
-    "when": "inSearchEditor || searchViewletFocus",
-  },
-  {
-    "key": "cmd+i",
-    "command": "-settings.action.toggleAiSearch",
-    "when": "aiSettingResultsAvailable && inSettingsEditor",
-  },
-  {
-    "key": "shift+cmd+i",
-    "command": "-windsurf.triggerCascade",
-    "when": "true",
-  },
-  {
-    "key": "shift+cmd+n",
-    "command": "workbench.action.openWindsurfSettings",
-  },
-  {
-    "key": "cmd+,",
-    "command": "-workbench.action.openWindsurfSettings",
+    "key": "ctrl+i",
+    "command": "editor.action.triggerSuggest",
+    "when": "editorHasCompletionItemProvider && textInputFocus && !editorReadonly && !suggestWidgetVisible",
   },
   {
     "key": "cmd+i",
@@ -2847,6 +2763,11 @@
     "when": "cursor.agentIdeUnification.enabled && !isAuxiliaryWindowFocusedContext",
   },
   {
+    "key": "alt+cmd+z",
+    "command": "-workbench.action.backgroundComposer.toggleControlPanelExpand",
+    "when": "backgroundComposerEnabled",
+  },
+  {
     "key": "cmd+r alt+cmd+c",
     "command": "-workbench.action.addComment",
     "when": "activeCursorHasCommentingRange",
@@ -2892,27 +2813,26 @@
     "when": "textInputFocus",
   },
   {
-    "key": "ctrl+down",
-    "command": "-quickInput.next",
-    "when": "inQuickInput && quickInputType == 'quickPick'",
+    "key": "shift+cmd+b",
+    "command": "-composer.openBrowserTab",
   },
   {
-    "key": "ctrl+up",
-    "command": "-quickInput.previous",
-    "when": "inQuickInput && quickInputType == 'quickPick'",
+    "key": "alt+p",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "prevBlankLine",
+      "by": "wrappedLine",
+    },
   },
   {
-    "key": "shift+alt+left",
-    "command": "cursorWordLeftSelect",
-    "when": "textInputFocus",
-  },
-  {
-    "key": "shift+cmd+p",
-    "command": "editor.action.marker.next",
-  },
-  {
-    "key": "cmd+r cmd+s",
-    "command": "-workbench.action.openGlobalKeybindings",
+    "key": "alt+n",
+    "command": "cursorMove",
+    "when": "editorTextFocus",
+    "args": {
+      "to": "nextBlankLine",
+      "by": "wrappedLine",
+    },
   },
   {
     "key": "ctrl+alt+p",
@@ -2933,6 +2853,58 @@
       "by": "wrappedLine",
       "select": true,
     },
+  },
+  {
+    "key": "cmd+e",
+    "command": "composer.enhancePrompt",
+    "when": "composerFocused",
+  },
+  {
+    "key": "alt+p",
+    "command": "-composer.enhancePrompt",
+    "when": "composerFocused",
+  },
+  {
+    "key": "ctrl+down",
+    "command": "-quickInput.next",
+    "when": "inQuickInput && quickInputType == 'quickPick'",
+  },
+  {
+    "key": "ctrl+up",
+    "command": "-quickInput.previous",
+    "when": "inQuickInput && quickInputType == 'quickPick'",
+  },
+  {
+    "key": "shift+alt+left",
+    "command": "cursorWordLeftSelect",
+    "when": "textInputFocus",
+  },
+  {
+    "key": "ctrl+alt+f",
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus",
+  },
+  {
+    "key": "shift+alt+right",
+    "command": "cursorWordRightSelect",
+    "when": "textInputFocus",
+  },
+  {
+    "key": "shift+cmd+p",
+    "command": "editor.action.marker.next",
+  },
+  {
+    "key": "cmd+r cmd+s",
+    "command": "-workbench.action.openGlobalKeybindings",
+  },
+  {
+    "key": "shift+cmd+i",
+    "command": "-composer.newAgentChat",
+  },
+  {
+    "key": "alt+cmd+left",
+    "command": "-composer.selectPreviousComposer",
+    "when": "agentsPaneFocused && cursor.agentIdeUnification.enabled && !editorTextFocus || composerFocused && cursor.agentIdeUnification.enabled && !editorTextFocus",
   },
   {
     "key": "alt+/",
@@ -2977,42 +2949,144 @@
   {
     "key": "cmd+1",
     "command": "workbench.action.toggleSidebarVisibility",
-    "when": "explorerViewletFocus",
+    "when": "explorerViewletFocus"
   },
   {
-    "key": "ctrl+space",
-    "command": "prettier.forceFormatDocument",
+    "key": "shift+cmd+,",
+    "command": "-workbench.action.terminal.configureSuggestSettings",
+    "when": "terminalFocus && terminalHasBeenCreated && terminalIsOpen && terminalSuggestWidgetVisible || terminalFocus && terminalIsOpen && terminalProcessSupported && terminalSuggestWidgetVisible"
   },
   {
-    "key": "shift+cmd+l",
-    "command": "-windsurf.prioritized.chat.openNewConversation",
-    "when": "!terminalFocus && !windsurf.deepwikiPanel.focused",
+    "key": "cmd+b",
+    "command": "editor.action.revealDefinition"
   },
   {
-    "key": "shift+cmd+c",
-    "command": "-windsurf.openCodeMapView",
-    "when": "codemapsEnabled",
+    "key": "f10",
+    "command": "daykey.previousLesson",
+    "when": "daykey.lessonNavigationEnabled && editorTextFocus"
   },
   {
-    "key": "shift+cmd+l",
-    "command": "workbench.view.codemaps",
+    "key": "f11",
+    "command": "daykey.nextLesson",
+    "when": "daykey.lessonNavigationEnabled && editorTextFocus"
+  },
+  {
+    "key": "ctrl+l",
+    "command": "workbench.action.gotoLine"
+  },
+  {
+    "key": "cmd+j",
+    "command": "-glass.toggleTerminal",
+    "when": "isGlassAgentWorkspace"
+  },
+  {
+    "key": "cmd+,",
+    "command": "-aiSettings.action.open",
+    "when": "cursor.cmdCommaOpensCursorSettings"
+  },
+  {
+    "key": "shift+cmd+,",
+    "command": "-cursor.openVSCodeSettingsFromMenu",
+    "when": "cursor.cmdCommaOpensCursorSettings && !editorFocus"
+  },
+  {
+    "key": "ctrl+`",
+    "command": "-glass.toggleTerminal",
+    "when": "isGlassAgentWorkspace"
+  },
+  {
+    "key": "cmd+2",
+    "command": "workbench.action.terminal.toggleTerminal"
   },
   {
     "key": "ctrl+cmd+b",
     "command": "cursorLeftSelect",
-    "when": "textInputFocus",
+    "when": "textInputFocus"
   },
   {
     "key": "ctrl+cmd+f",
     "command": "cursorRightSelect",
-    "when": "textInputFocus",
+    "when": "textInputFocus"
   },
   {
-    "key": "cmd+2",
-    "command": "workbench.action.terminal.toggleTerminal",
+    "key": "ctrl+cmd+f",
+    "command": "-glass.toggleFullScreen",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+enter",
+    "command": "code-runner.run"
+  },
+  {
+    "key": "shift+cmd+.",
+    "command": "-glass.openInstanceSelector",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "composerMode.chat"
+  },
+  {
+    "key": "shift+cmd+k",
+    "command": "-glass.scrollAgentPanelUp",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+left",
+    "command": "cursorLineStartSelect"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "-aiSettings.action.open"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "cursor.openOrFocusGlassWindow"
+  },
+  {
+    "key": "shift+cmd+j",
+    "command": "glass.openIde",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "-glass.openIde",
+    "when": "glassNoModalOpen && isGlassEmptyWorkspace"
+  },
+  {
+    "key": "shift+cmd+n",
+    "command": "aiSettings.action.open"
+  },
+  {
+    "key": "ctrl+space",
+    "command": "editor.action.formatDocument"
   },
   {
     "key": "cmd+3",
-    "command": "outline.toggleVisibility",
+    "command": "outline.focus"
   },
+  {
+    "key": "shift+cmd+d",
+    "command": "-composer.fixerrormessage",
+    "when": "!chatModeMenuFocused && !composerFocused && @composer.isCursorOnLint"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "workbench.action.positionPanelRight",
+    "when": "panelPosition != 'right'"
+  },
+  {
+    "key": "shift+cmd+d",
+    "command": "workbench.action.positionPanelBottom",
+    "when": "panelPosition == 'right'"
+  },
+  {
+    "key": "alt+cmd+s",
+    "command": "workbench.action.toggleUnifiedSidebarFromKeyboard",
+    "when": "!isAuxiliaryWindowFocusedContext"
+  },
+  {
+    "key": "ctrl+cmd+m",
+    "command": "editor.emmet.action.matchTag"
+  }
 ]

@@ -11,6 +11,7 @@
   "editor.renderControlCharacters": true,
   "editor.insertSpaces": true,
   "editor.tabSize": 4,
+  "editor.multiCursorModifier": "ctrlCmd",
   "editor.codeActions.triggerOnFocusChange": true,
   "editor.experimental.preferTreeSitter.css": true,
   "editor.experimental.preferTreeSitter.ini": true,
