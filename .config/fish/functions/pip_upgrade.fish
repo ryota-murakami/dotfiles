@@ -14,7 +14,8 @@
 #
 # WHAT IT DOES:
 #   1. Discovers interpreters: /usr/bin/python3 + /opt/homebrew/bin/python3.X
-#   2. Lists outdated --user packages per interpreter and upgrades each
+#   2. Upgrades pip itself, then lists outdated --user packages as JSON
+#      and upgrades each (pip does not support --outdated --format=freeze)
 #   3. Adds --break-system-packages only on PEP 668-era pip (brew 3.14+),
 #      so the old pip on Xcode CLT 3.9 keeps working
 #
@@ -42,14 +43,10 @@ function pip_upgrade --description "Upgrade pip user packages on every installed
         end
     end
 
+    set -l failed 0
     for py in $interpreters
         # Skip interpreters without a working pip module
         if not "$py" -m pip --version >/dev/null 2>&1
-            continue
-        end
-
-        set -l outdated ("$py" -m pip list --user --outdated --format=freeze | cut -d= -f1)
-        if test (count $outdated) -eq 0
             continue
         end
 
@@ -60,9 +57,38 @@ function pip_upgrade --description "Upgrade pip user packages on every installed
         end
 
         echo "==> $py"
+        if not "$py" -m pip install --user --upgrade $extra_flags pip
+            echo "    Failed to upgrade pip" >&2
+            set failed 1
+            continue
+        end
+
+        set -l packages_json ("$py" -m pip list --user --outdated --format=json)
+        if test $status -ne 0
+            echo "    Failed to list outdated packages" >&2
+            set failed 1
+            continue
+        end
+
+        set -l outdated (printf '%s\n' $packages_json | "$py" -c 'import json, sys
+for pkg in json.load(sys.stdin):
+    print(pkg["name"])')
+        if test $status -ne 0
+            echo "    Failed to parse outdated packages" >&2
+            set failed 1
+            continue
+        end
+        if test (count $outdated) -eq 0
+            echo "    All user packages are up to date"
+            continue
+        end
+
         for pkg in $outdated
             echo "    $pkg"
-            "$py" -m pip install --user -U $extra_flags "$pkg"
+            if not "$py" -m pip install --user -U $extra_flags "$pkg"
+                set failed 1
+            end
         end
     end
+    return $failed
 end
