@@ -62,7 +62,8 @@ function cleanup_home --description "Delete leftover scratch dirs and abandoned 
         .roo \
         .rovodev \
         .sage \
-        .snowflake
+        .snowflake \
+        .vibe
 
     set -l removed 0
     set -l absent 0
