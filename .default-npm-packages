@@ -5,14 +5,11 @@
 @openai/codex
 @pen.dev/cli
 @playwright/cli
-@playwright/test
 @wallabyjs/cli
 agent-react-devtools
 corepack
 eas-cli
-electron-playwright-cli
 envinfo
-expect-cli
 npm
 npm-check-updates
 skills
