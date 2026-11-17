@@ -64,6 +64,7 @@ function cleanup_home --description "Delete leftover scratch dirs and abandoned 
         .augment \
         .codeartsdoer \
         .codebuddy \
+        .cline \
         .redocly \
         .aider-desk \
         .adal \
@@ -79,6 +80,7 @@ function cleanup_home --description "Delete leftover scratch dirs and abandoned 
         .portless \
         .grok \
         .qoder \
+        .kube \
         .qoder-cn \
         .qwen \
         .reasonix \
