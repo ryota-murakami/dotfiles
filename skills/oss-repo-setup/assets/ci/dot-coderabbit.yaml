@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+
+language: en-US
+early_access: false
+tone_instructions: >-
+  Be concise and specific. Explain the observable failure and the affected users.
+  Prioritize correctness, compatibility, and resource cleanup over stylistic preferences.
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  high_level_summary_in_walkthrough: true
+  review_status: true
+  review_details: true
+  collapse_walkthrough: true
+  sequence_diagrams: false
+  in_progress_fortune: false
+  poem: false
+  enable_prompt_for_ai_agents: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+    drafts: false
+
+  path_filters:
+    - '**/*'
+    - '!**/node_modules/**'
+    - '!**/dist/**'
+    - '!**/out/**'
+    - '!**/coverage/**'
+    - '!**/.fallow/**'
+    # Keep dependency changes in review scope.
+    - '**/pnpm-lock.yaml'
+
+  path_instructions:
+    - path: '**/*'
+      instructions: |
+        {{PROJECT_SUMMARY}}
+        Use README.md and ARCHITECTURE.md for the supported behavior. Prioritize regressions
+        with a concrete scenario; distinguish documented limitations from defects.
+        Avoid duplicating formatting and naming feedback already enforced by Prettier and
+        eslint-config-ts-prefixer.
+
+    - path: 'src/**'
+      instructions: |
+        {{SOURCE_INVARIANTS}}
+
+    - path: '**/*.test.ts'
+      instructions: |
+        Use test rather than it, observable behavior names, hard-coded expected values, and
+        Arrange/Act/Assert sections. Prefer DAMP over sharing assertion logic between tests.
+        Verify observable effects instead of implementation details.
+
+    - path: '.github/**'
+      instructions: |
+        Keep remote actions pinned to full commit SHAs, permissions scoped to each job's needs,
+        persist-credentials disabled, frozen-lockfile installs, and pnpm-store-only caches.
+
+    - path: '**/*.md'
+      instructions: |
+        Keep documented commands, settings, and requirements in sync with package.json.
+
+chat:
+  auto_reply: true
+
+knowledge_base:
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - README.md
+      - CONTRIBUTING.md

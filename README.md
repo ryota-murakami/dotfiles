@@ -14,6 +14,7 @@ My Mac OS X setup manual.
 - [5. Kick `setup.sh`(Homebrew required)](#5-kick-setupshhomebrew-required)
 - [6. Install Vim plugins](#7-install-vim-plugins)
 - [7. Install Nodebrew](#8-install-nodebrew)
+- [Personal agent skills](#personal-agent-skills)
 - [Extra. Any Manual Tasks](#extra-any-manual-tasks)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -104,6 +105,46 @@ call neobundle#end()
 nodebrew is not provided by homebrew, therefore you have to setup along to the README. 
 https://github.com/hokaccha/nodebrew
 
+
+## Personal agent skills
+
+List the skills in this checkout:
+
+```sh
+npx skills add ~/dotfiles/skills --list
+```
+
+Install a skill globally by name. For example, install both the PR workflow and its review dependency:
+
+```sh
+npx skills add ~/dotfiles/skills --skill apollousa coderabbit-resolver -g -y
+```
+
+To install all personal skills, run:
+
+```sh
+npx skills add ~/dotfiles/skills --skill '*' -g -y
+```
+
+After editing or pulling changes, repeat the local install command to refresh the installed copies.
+To track the GitHub repository instead, install from it once and use the CLI to update:
+
+```sh
+npx skills add ryota-murakami/dotfiles --skill apollousa coderabbit-resolver -g -y
+npx skills update apollousa coderabbit-resolver -g -y
+```
+
+Available skills:
+
+- [apollousa](skills/apollousa/SKILL.md)
+- [ci-hardening](skills/ci-hardening/SKILL.md)
+- [coderabbit-resolver](skills/coderabbit-resolver/SKILL.md)
+- [electron-release](skills/electron-release/SKILL.md)
+- [github-actions-pnpm-ci](skills/github-actions-pnpm-ci/SKILL.md)
+- [laststance-publish-skill](skills/laststance-publish-skill/SKILL.md)
+- [load](skills/load/SKILL.md)
+- [oss-repo-setup](skills/oss-repo-setup/SKILL.md)
+- [save](skills/save/SKILL.md)
 
 ## Extra. Any Manual Tasks
 

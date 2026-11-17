@@ -1,0 +1,6 @@
+# Keep security-sensitive workflow and release changes reviewed by the repo admin.
+.github/ @OWNER
+package.json @OWNER
+pnpm-lock.yaml @OWNER
+pnpm-workspace.yaml @OWNER
+scripts/ @OWNER

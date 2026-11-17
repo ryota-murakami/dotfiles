@@ -1,0 +1,11 @@
+# Architecture
+
+{{ARCHITECTURE_OVERVIEW}}
+
+## Flow
+
+{{ARCHITECTURE_FLOW}}
+
+## Boundaries
+
+{{ARCHITECTURE_BOUNDARIES}}

@@ -1,0 +1,50 @@
+#!/bin/sh
+# Fake gh for tests/run_tests.py. FAKE_* env vars pick the answers; nothing reaches GitHub.
+# Calls it does not know fail loudly, so a script that reads GitHub another way breaks its tests.
+case "$*" in
+  "pr view "*"--json body"*)
+    if [ -n "${FAKE_STATE:-}" ] && [ -f "$FAKE_STATE/body" ]; then
+      cat "$FAKE_STATE/body"
+    else
+      printf '%s' "${FAKE_BODY-}"
+    fi ;;
+  "pr edit "*"--body-file"*)
+    # ensure-cli-ignore.sh writes the new description on stdin (`--body-file -`).
+    if [ -z "${FAKE_STATE:-}" ]; then
+      echo "fake gh: FAKE_STATE unset for pr edit" >&2
+      exit 1
+    fi
+    cat > "$FAKE_STATE/body" ;;
+  "pr view "*"--json headRefOid,baseRefName,state"*)
+    printf '{"headRefOid":"%s","baseRefName":"main","state":"%s"}\n' "$FAKE_HEAD" "${FAKE_PR_STATE:-OPEN}" ;;
+  "pr view "*"--json headRefOid"*)
+    # FAKE_HEAD_FIRST answers only the first read, as if a push landed right after it.
+    if [ -n "${FAKE_HEAD_FIRST:-}" ] && [ ! -e "$FAKE_STATE/head-read" ]; then
+      : > "$FAKE_STATE/head-read"
+      printf '%s\n' "$FAKE_HEAD_FIRST"
+    else
+      printf '%s\n' "$FAKE_HEAD"
+    fi ;;
+  "pr checks "*"--json"*)
+    # Rows as the gate's --jq prints them: name|bucket|state. FAKE_CHECKS replaces every row;
+    # FAKE_BUILD (bucket|state) changes only the build row.
+    if [ -n "${FAKE_CHECKS:-}" ]; then
+      printf '%s\n' "$FAKE_CHECKS"
+    else
+      printf 'build|%s\nCodeRabbit|pass|SUCCESS\n' "${FAKE_BUILD:-pass|SUCCESS}"
+    fi ;;
+  "pr checks"*)
+    echo "fake checks" ;;
+  "api repos/"*"/statuses"*)
+    printf '%s\n' "${FAKE_CR_DESC:-Review rate limited}" ;;
+  "api repos/"*"/comments"*)
+    printf '%s' "${FAKE_COMMENT:-Rate limit exceeded. Please wait 12 minutes before requesting another review.}" | base64 ;;
+  "api repos/"*"/reviews"*)
+    # IDs of CodeRabbit reviews on HEAD; set FAKE_REVIEW_IDS to an empty string for none.
+    if [ -n "${FAKE_REVIEW_IDS-101}" ]; then
+      printf '%s\n' "${FAKE_REVIEW_IDS-101}"
+    fi ;;
+  *)
+    echo "fake gh: unhandled: $*" >&2
+    exit 1 ;;
+esac
