@@ -22,9 +22,9 @@
 function cleanup_home --description "Delete leftover scratch dirs and abandoned tool dirs directly under ~"
     # Fixed allowlist. Names are a single path segment under $HOME.
     set -l targets \
-        src\
-        gnupg \
+        src \
         go \
+        intelephense \
         qa \
         qa-scratch \
         autoki-media \
@@ -40,7 +40,31 @@ function cleanup_home --description "Delete leftover scratch dirs and abandoned 
         .minimax \
         .tart \
         .trae \
+        .trae-cn \
         .tinycloud \
+        .claude.json.tmp.72356.b80283de11fb \
+        .claude.json.cua-backup-20261021T072416Z \
+        .profile.bak \
+        .app-store \
+        .agent-react-devtools \
+        .autohand \
+        .astrbot \
+        .codemaker \
+        .codestudio \
+        .forge \
+        .iflow \
+        .jazz \
+        .kode \
+        .lingma \
+        .mcpjam \
+        .posit \
+        .zencoder \
+        .continue \
+        .hermes \
+        .augment \
+        .codeartsdoer \
+        .codebuddy \
+        .redocly \
         .aider-desk \
         .adal \
         .bob \
@@ -63,7 +87,29 @@ function cleanup_home --description "Delete leftover scratch dirs and abandoned 
         .rovodev \
         .sage \
         .snowflake \
-        .vibe
+        .vibe \
+        .context-mode \
+        .convex \
+        .corelive-backups \
+        .commandcode \
+        .dev \
+        .dev-fast-review \
+        .dev-fast-review-shared \
+        .devframe \
+        .dotagents \
+        .gemini \
+        .glide \
+        .gradle \
+        .gshot \
+        .gstack-brain-worktree \
+        .gsutil \
+        .hyperframes \
+        .inferencesh \
+        .kiro \
+        .media \
+        .moss \
+        .socket \
+        .swiftpm
 
     set -l removed 0
     set -l absent 0
