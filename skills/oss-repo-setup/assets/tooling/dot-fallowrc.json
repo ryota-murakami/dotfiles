@@ -1,0 +1,25 @@
+{
+  "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "src/index.ts",
+    "src/**/*.test.ts",
+    "vitest.config.mts",
+    "eslint.config.mjs"
+  ],
+  "health": {
+    "ignore": ["**/test/**", "**/*.test.ts"],
+    "coverage": "coverage/coverage-final.json"
+  },
+  "duplicates": {
+    "ignore": ["**/test/**", "**/*.test.ts"]
+  },
+  "framework": [
+    {
+      "name": "repository-tools",
+      "entryPoints": ["scripts/*.mjs"],
+      "entryPointRole": "support",
+      "toolingDependencies": ["typescript-compiler"]
+    }
+  ],
+  "ignoreDependencies": ["typescript-compiler"]
+}

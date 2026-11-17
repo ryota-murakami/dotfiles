@@ -1,0 +1,40 @@
+#!/bin/sh
+# Fake CodeRabbit CLI for tests/run_tests.py. FAKE_AUTH=fail breaks `auth status`; FAKE_MODE picks the review output.
+# JSON goes through printf, because sh's echo would turn the \n inside the strings into real newlines.
+if [ "$1" = "auth" ]; then
+  if [ "${FAKE_AUTH:-ok}" = ok ]; then echo "Signed in"; exit 0; fi
+  echo "Not signed in"
+  exit 1
+fi
+if [ "$1" != "review" ]; then
+  echo "unexpected: $*" >&2
+  exit 2
+fi
+echo "args: $*" >&2
+case "${FAKE_MODE:-zero}" in
+  zero)
+    printf '%s\n' '{"type":"status","phase":"reviewing"}' 'A new version is available' \
+      '{"type":"complete","status":"review_completed","findings":0}' ;;
+  findings)
+    printf '%s\n' \
+      '{"type":"finding","severity":"major","fileName":"src/a.ts","comment":"","codegenInstructions":"Guard against null.\nMore detail."}' \
+      '{"type":"finding","severity":"minor","fileName":"src/b.ts","comment":"Rename x to count"}' \
+      '{"type":"complete","status":"review_completed","findings":2}' ;;
+  ratelimit)
+    printf '%s\n' '{"type":"error","message":"Rate limit exceeded: try again in 20 minutes"}'
+    exit 1 ;;
+  scope)
+    printf '%s\n' '{"type":"error","message":"Review scope too large","candidates":[{"command":"coderabbit review --dir src","files":40}]}'
+    exit 1 ;;
+  stderr-ratelimit)
+    echo "Error: rate limit reached for your plan" >&2
+    exit 1 ;;
+  stderr-auth)
+    echo "Error: not logged in" >&2
+    exit 1 ;;
+  crash)
+    echo "boom" >&2
+    exit 3 ;;
+  failed)
+    printf '%s\n' '{"type":"complete","status":"review_failed"}' ;;
+esac
