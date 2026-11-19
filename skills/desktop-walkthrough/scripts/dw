@@ -7,22 +7,35 @@
 #
 # Usage: dw <command> [args]
 #   doctor                         check agent-desktop install, permissions, tools
-#   start                          build + launch the HUD, start an agent-desktop session, report the environment
+#   start [--name NAME]            build + launch the HUD, start an agent-desktop session, report the environment;
+#                                  the walkthrough is recorded under ~/.config/desktop-walkthrough/walkthroughs/NAME
+#   record [NAME]                  name the record of the running walkthrough (no NAME: print its folder)
+#   records                        list the recorded walkthroughs
 #   end                            quit the HUD, end the agent-desktop session, clear flags
 #   clear                          end + close every idle walkthrough terminal (what /desktop-walkthrough clear runs)
 #   step "<name>"                  set the step name shown as a prefix in the HUD
 #   say "<what and why>"           show the current action in the HUD (honors stop first; waits while the user types)
+#   explain <file.md|-> [--title "<title>"] [--replace]
+#                                  show a long explanation (Markdown, ```mermaid diagrams, code) as a page in the
+#                                  HUD's explainer panel; pages are kept, --replace rewrites the newest one
+#   explain <file.md> --page N     rewrite page N in place (a correction), without moving the reader
+#   explain --hide | --show        step the panel aside while the app behind it is the thing to watch / bring it back
+#   explain --clear                remove every explainer page
 #   gate                           only the stop / typing check
 #   ask "<question>" | ask --wait  one-click approval on the HUD: OK (exit 0) / キャンセル (1) / no answer yet (75)
-#   wait-user "<what to do>" | wait-user --wait   the user does a step themselves (login, approval):
+#   wait-user "<what to do>" | wait-user --wait   the user does a step themselves (login, approval, reading):
 #                                  HUD shows 完了しました (exit 0) / できない・中断 (1) / no answer yet (75)
+#     both take: --ok "<label>" --no "<label>"   other words on the two answers
+#                --button "<label>" (repeatable)  feedback buttons: a press reaches the agent as a message and
+#                                                 the question stays open (e.g. --button "読んでいます")
 #   focus-chat                     bring the agent's chat (Terminal tab) to the front for a longer question
 #   ad <agent-desktop args>        agent-desktop bound to the walkthrough session, after the gate
 #   windows [App]                  list windows: id, app, focused, visible, title
 #   front <w-ID|App> [App]         bring a window/app to the front (Dock click across desktops) and verify
 #   press <combo> --in <w-ID|App>  press keys only if that window/app is focused
-#   click-xy <X,Y> --in <w-ID|App> physical click only if focused; hides the mirror for the click
+#   click-xy <X,Y> --in <w-ID|App> physical click only if focused; hides the mirror and the explainer for the click
 #   layout <left w-ID> <right w-ID>  tile two windows side by side
+#   stage <w-ID> [PERCENT]         app window left, explainer right (PERCENT of the screen, default 42), bar under the app
 #   term open [-n NAME] [DIR]      dedicated Terminal window with an exit-status hook
 #   term run  [-n NAME] "<cmd>"    start a command and return at once
 #   term check [-n NAME] [SECONDS] [LINES]   RUNNING (exit 2) / OK (0) / FAILED (1) + output tail
@@ -34,6 +47,12 @@ SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 DW_HOME="${DW_HOME:-$HOME/.local/state/desktop-walkthrough}"
 BRIDGE="$DW_HOME/bridge"
 HUD_BIN="$DW_HOME/bin/StatusHUD"
+# Explainer pages (pages/NNN.html + .md, index.json) and the libraries that render them (vendor/)
+EXPLAIN="$DW_HOME/explain"
+# Records: one folder per walkthrough under the skill's own config folder. A record outlives the
+# walkthrough: its pages, a journal of what was done and a handbook to share, enough to perform it again.
+DW_CONFIG="${DW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/desktop-walkthrough}"
+RECORDS="$DW_CONFIG/walkthroughs"
 mkdir -p "$BRIDGE" "$DW_HOME/bin" "$DW_HOME/term"
 
 die() { echo "dw: $*" >&2; exit 1; }
@@ -84,6 +103,115 @@ ensure_hud() {
   launch_hud && echo "dw: the HUD was not running: relaunched it" >&2
 }
 
+# ---- records: what a walkthrough leaves behind ------------------------------------------------------
+
+# Folder of the walkthrough being recorded ("" when none)
+record_dir() {
+  local dir
+  dir=$(cat "$DW_HOME/record_dir" 2>/dev/null)
+  if [ -n "$dir" ] && [ -d "$dir" ]; then printf '%s' "$dir"; fi
+}
+
+# One line in the journal of the walkthrough being recorded
+journal() {
+  local dir
+  dir=$(record_dir)
+  [ -n "$dir" ] || return 0
+  printf -- '- %s %s\n' "$(date +%H:%M:%S)" "$*" >> "$dir/journal.md"
+}
+
+# First use of a record folder: its journal, and a README saying what the folder holds and how to perform it again
+record_init() {
+  local dir="$1" name
+  name=$(basename "$dir")
+  mkdir -p "$dir/pages"
+  [ -f "$dir/journal.md" ] || printf '# 記録：%s\n\n開始 %s\n' "$name" "$(date '+%Y-%m-%d %H:%M')" > "$dir/journal.md"
+  [ -f "$dir/README.md" ] && return 0
+  cat > "$dir/README.md" <<EOF
+# ${name}
+
+desktop-walkthrough が記録したウォークスルーです（開始 $(date '+%Y-%m-%d %H:%M')）。
+
+| ファイル | 内容 |
+| --- | --- |
+| \`handbook.md\` | 解説パネルに出した全ページを、読む順に 1 本にまとめたもの（共有用） |
+| \`pages/\` | 解説ページ 1 枚ずつの Markdown |
+| \`journal.md\` | 時系列の記録：章、操作の説明、実行したコマンドと結果、確認とその答え |
+
+## もう一度実演するには
+
+エージェントに「${dir} のウォークスルーをもう一度実演して」と頼みます。
+エージェントは journal.md の順に同じ操作を行い、pages/ のページを同じ順に表示します。
+
+<!-- ここから下に、このウォークスルーに固有の前提・準備・片付けをエージェントが書き足す -->
+EOF
+}
+
+# Rebuild handbook.md: every recorded page in reading order, one document to share
+record_handbook() {
+  local dir="$1" page
+  {
+    printf '# %s\n\n' "$(basename "$dir")"
+    printf '解説パネルに表示したページを、読む順にまとめたものです（desktop-walkthrough の記録）。\n'
+    for page in "$dir"/pages/*.md; do
+      [ -f "$page" ] || continue
+      printf '\n\n---\n\n'
+      cat "$page"
+    done
+  } > "$dir/handbook.md"
+}
+
+# Keep an explainer page in the record as pages/NN-title.md and rebuild the handbook.
+# A fourth argument "quiet" skips the journal line (pages added to a record after the fact).
+record_page() {
+  local n="$1" title="$2" md="$3" quiet="${4:-}" dir nn slug old
+  dir=$(record_dir)
+  [ -n "$dir" ] || return 0
+  mkdir -p "$dir/pages"
+  nn=$(printf '%02d' "$n")
+  # A replaced page keeps its number: the earlier file of that number goes
+  for old in "$dir/pages/$nn-"*.md; do [ -f "$old" ] && rm -f "$old"; done
+  # A file name from the title: no path separators, no code-span backticks, spaces as hyphens
+  slug=$(printf '%s' "$title" | tr -d '`' | tr '/:' '--' | tr -s ' ' '-')
+  cp "$md" "$dir/pages/$nn-${slug}.md"
+  record_handbook "$dir"
+  [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
+}
+
+# Name the record of the running walkthrough, or start recording it; pages already shown are kept too
+cmd_record() {
+  local name="${1:-}" dir old n title file
+  if [ -z "$name" ]; then
+    dir=$(record_dir)
+    if [ -n "$dir" ]; then echo "recording: $dir"; else echo "not recording: dw record <name>"; fi
+    return 0
+  fi
+  case "$name" in */*|.*) die "a record name is a plain folder name, without slashes" ;; esac
+  dir="$RECORDS/$name"
+  old=$(record_dir)
+  mkdir -p "$RECORDS"
+  # A folder named after the start time becomes the chosen name
+  if [ -n "$old" ] && [ "$old" != "$dir" ] && [ ! -e "$dir" ]; then mv "$old" "$dir"; fi
+  record_init "$dir"
+  printf '%s' "$dir" > "$DW_HOME/record_dir"
+  if [ -f "$EXPLAIN/index.json" ]; then
+    jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json" | while IFS=$'\t' read -r n title file; do
+      ls "$dir/pages/$(printf '%02d' "$n")-"*.md >/dev/null 2>&1 && continue
+      [ -f "$EXPLAIN/${file%.html}.md" ] && record_page "$n" "$title" "$EXPLAIN/${file%.html}.md" quiet
+    done
+  fi
+  echo "recording: $dir"
+}
+
+cmd_records() {
+  local d
+  [ -d "$RECORDS" ] || { echo "no recorded walkthroughs yet: $RECORDS"; return 0; }
+  for d in "$RECORDS"/*/; do
+    [ -d "$d" ] || continue
+    printf '%s\t%s pages\t%s\n' "$(basename "$d")" "$(find "$d/pages" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')" "${d%/}"
+  done
+}
+
 cmd_say() {
   gate
   note_owner; ensure_hud
@@ -93,34 +221,56 @@ cmd_say() {
   text="${step:+【${step}】 }$*"
   printf '%s\n' "$text" > "$DW_HOME/status.txt"
   printf '%s %s\n' "$(date +%H:%M:%S)" "$text" >> "$DW_HOME/narration.log"
+  [ -n "${DW_JOURNAL_SKIP:-}" ] || journal "▶ $*"
 }
 
-cmd_step() { printf '%s' "$*" > "$DW_HOME/step"; cmd_say "$*"; }
+# A new section: the prefix of the status line, and a heading in the journal
+cmd_step() {
+  local dir
+  printf '%s' "$*" > "$DW_HOME/step"
+  dir=$(record_dir)
+  [ -n "$dir" ] && printf '\n## %s\n\n' "$*" >> "$dir/journal.md"
+  DW_JOURNAL_SKIP=1 cmd_say "$*"
+}
 
 # ---- questions to the user ----------------------------------------------------------------------
 
 # A yes/no approval answered with one click on the HUD. The wait is bounded like gate(): exit 75 leaves
 # the question on screen, and "dw ask --wait" keeps waiting for the same question.
 cmd_ask() {
-  local text="$*" id waited=0 limit="${DW_ASK_WAIT:-90}" ans
+  local text="" id waited=0 limit="${DW_ASK_WAIT:-90}" ans buttons=""
   local ok_label="${DW_ASK_OK:-OK}" no_label="${DW_ASK_NO:-キャンセル}" icon="${DW_ASK_ICON:-❓}" kind="${DW_ASK_KIND:-ask}"
+  # Labels are the agent's to choose: --ok / --no rename the two answers, each --button adds a feedback
+  # button whose press reaches the agent as a message while the question stays open
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --ok)     ok_label="${2:?--ok needs a label}"; shift 2 ;;
+      --no)     no_label="${2:?--no needs a label}"; shift 2 ;;
+      --button) buttons="${buttons}${2:?--button needs a label}"$'\n'; shift 2 ;;
+      *)        text="${text:+$text }$1"; shift ;;
+    esac
+  done
   [ -n "$text" ] || die "usage: dw $kind \"<text>\" | dw $kind --wait"
   stop_on && { echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; }
   hud_alive || { echo "❓ the HUD is not running: ask in the chat instead" >&2; exit 3; }
   if [ "$text" = "--wait" ]; then
     id=$(jq -r '.id // empty' "$DW_HOME/ask.json" 2>/dev/null)
     [ -n "$id" ] || die "no pending question to wait for"
+    # The words on the two answers belong to the question that is still open
+    ok_label=$(jq -r '.ok // "OK"' "$DW_HOME/ask.json"); no_label=$(jq -r '.no // "キャンセル"' "$DW_HOME/ask.json")
   else
     id="$(date +%s)-$$"
     rm -f "$DW_HOME/ask-answer"
     jq -n --arg id "$id" --arg text "$text" --arg ok "$ok_label" --arg no "$no_label" --arg icon "$icon" \
-      '{id: $id, text: $text, ok: $ok, no: $no, icon: $icon}' > "$DW_HOME/ask.json"
+      --argjson buttons "$(printf '%s' "$buttons" | jq -R . | jq -s .)" \
+      '{id: $id, text: $text, ok: $ok, no: $no, icon: $icon, buttons: $buttons}' > "$DW_HOME/ask.json"
     if [ "$kind" = ask ]; then
       printf '%s\n' "${icon} 確認待ち：${text}（HUDの ${ok_label}／${no_label} で答えてください）" > "$DW_HOME/status.txt"
     else
       printf '%s\n' "${icon} あなたの番：${text}（終わったらHUDの「${ok_label}」）" > "$DW_HOME/status.txt"
     fi
     printf '%s %s\n' "$(date +%H:%M:%S)" "$kind: $text" >> "$DW_HOME/narration.log"
+    journal "${icon} ${text}（${ok_label}／${no_label}$(printf '%s' "$buttons" | sed 's/^/／/' | tr -d '\n')）"
   fi
   # Tell the HUD someone is waiting; once this process is gone, a click is delivered as a chat message
   printf '%s' "$$" > "$DW_HOME/ask-waiter"
@@ -129,7 +279,8 @@ cmd_ask() {
     ans=$(cat "$DW_HOME/ask-answer" 2>/dev/null)
     if [ "${ans%% *}" = "$id" ]; then
       rm -f "$DW_HOME/ask-answer"
-      if [ "${ans##* }" = ok ]; then echo "✅ ${ok_label}: the user answered yes / finished"; exit 0; fi
+      if [ "${ans##* }" = ok ]; then journal "  → 「${ok_label}」"; echo "✅ ${ok_label}: the user answered yes / finished"; exit 0; fi
+      journal "  → 「${no_label}」"
       echo "❌ ${no_label}: the user declined / could not do it: ask in the chat what happened"; exit 1
     fi
     # A typed message or ⏹ wins over the pending question
@@ -261,6 +412,29 @@ cmd_layout() {
   echo "layout: $left | $right (${half}pt each)"
 }
 
+# Arrange the stage for a walkthrough that explains as it goes: the app window on the left, the
+# explainer on the right, the status bar in a strip under the app, so nothing covers anything.
+cmd_stage() {
+  local win="${1:?usage: dw stage <w-ID> [explainer width in percent of the screen, default 42]}" pct="${2:-42}"
+  local w h top=33 strip=68 dock=0 ew aw
+  gate
+  w=$(ad list-displays 2>/dev/null | jq -r '[.data[] | select(.is_primary)][0].bounds.width | floor')
+  h=$(ad list-displays 2>/dev/null | jq -r '[.data[] | select(.is_primary)][0].bounds.height | floor')
+  [ -n "$w" ] && [ "$w" != null ] || die "could not read the display size"
+  # A Dock that stays on screen at the bottom takes the strip the bar would use: sit above it
+  if [ "$(defaults read com.apple.dock autohide 2>/dev/null)" != 1 ] && [ "$(defaults read com.apple.dock orientation 2>/dev/null || echo bottom)" = bottom ]; then
+    dock=$(( $(defaults read com.apple.dock tilesize 2>/dev/null || echo 64) + 20 ))
+  fi
+  ew=$((w * pct / 100)); aw=$((w - ew))
+  ad move-window --window-id "$win" --x 0 --y "$top" >/dev/null 2>&1 || die "cannot move $win (on another desktop? run: dw front $win)"
+  ad resize-window --window-id "$win" --width "$aw" --height $((h - top - strip - dock)) >/dev/null 2>&1
+  # HUD frames are in screen points from the bottom-left corner; the HUD applies the request on its next tick
+  jq -n --argjson aw "$aw" --argjson ew "$ew" --argjson h "$h" --argjson top "$top" --argjson dock "$dock" \
+    '{bar: [6, ($dock + 4), ($aw - 12)], explain: [$aw, $dock, $ew, ($h - $top - $dock)]}' > "$DW_HOME/place.json.part" \
+    && mv "$DW_HOME/place.json.part" "$DW_HOME/place.json"
+  echo "stage: $win ${aw}pt wide on the left | explainer ${ew}pt on the right | status bar under the app"
+}
+
 # ---- Terminal.app: addressed, non-blocking commands ------------------------------------------------
 
 term_name=main
@@ -321,8 +495,9 @@ cmd_term_run() {
   gate
   term_require
   term_busy && die "terminal '$term_name' is busy with a running command: dw term check"
-  rm -f "$(term_dir)/status"
+  rm -f "$(term_dir)/status" "$(term_dir)/journaled"
   printf '%s' "$cmd" > "$(term_dir)/last_cmd"
+  journal "\`\$ ${cmd}\`"
   term_send "$cmd" || die "could not reach Terminal window $(term_id)"
   echo "started: $cmd"
 }
@@ -343,6 +518,11 @@ cmd_term_check() {
   printf '%s\n' "$out" | tail -n "$lines"
   [ -f "$sf" ] || { echo "❓ finished, but no exit status was recorded: read the output above"; exit 3; }
   ec=$(tr -dc '0-9' < "$sf")
+  # The result goes to the journal once, however often the command is checked
+  if [ ! -f "$(term_dir)/journaled" ]; then
+    touch "$(term_dir)/journaled"
+    if [ "$ec" = 0 ]; then journal "  → OK (exit 0)"; else journal "  → FAILED (exit $ec)"; fi
+  fi
   if [ "$ec" = 0 ]; then echo "✅ OK (exit 0): $cmd"; else echo "❌ FAILED (exit $ec): $cmd"; exit 1; fi
 }
 
@@ -358,6 +538,115 @@ cmd_term() {
     text)  term_require; term_text | grep -v '^[[:space:]]*$' | tail -n "${1:-20}" ;;
     *)     die "usage: dw term open|run|check|text|close [-n NAME] ..." ;;
   esac
+}
+
+# ---- explainer: long-form pages beside the app -----------------------------------------------------
+
+# Libraries that render explainer pages (name|url|sha256), fetched once into the state folder.
+# Each digest is the file of that exact npm release (checked against the registry tarball when it was
+# pinned); a file that does not match is discarded, and pages then show their source as plain text.
+EXPLAIN_VENDOR="marked.js|https://cdn.jsdelivr.net/npm/marked@18.1.3/lib/marked.umd.js|c34a221dc89e91833a88822e7717b8a0cf27118f8c9a8779dffb48a6be31f97a
+mermaid.js|https://cdn.jsdelivr.net/npm/mermaid@12.2.0/dist/mermaid.min.js|a8a6a6f805b074a8261a2825c86f99c8054acb3b35f50bb7e24a4f9f2c3c3b9f
+highlight.js|https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.12.0/highlight.min.js|8ab71eb09c51f501e5e25157d9cff100e46cc29bcbfc744d0b746d451fca7f53
+highlight-http.js|https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.12.0/languages/http.min.js|b09b4afc1ce71f37f4434baccae5800e0812c6eb1db2cb8978fe9e4d668f45a6
+highlight.css|https://cdn.jsdelivr.net/npm/@highlightjs/cdn-assets@11.12.0/styles/github-dark.min.css|9f208d022102b1d0c7aebfecd8e42ca7997d5de636649d2b31ea63093d809019"
+
+sha256_of() { shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1; }
+
+# Make sure every library is present and matches its digest; say which ones are not
+explain_vendor() {
+  local name url sum target
+  mkdir -p "$EXPLAIN/vendor"
+  while IFS='|' read -r name url sum; do
+    [ -n "$name" ] || continue
+    target="$EXPLAIN/vendor/$name"
+    [ "$(sha256_of "$target")" = "$sum" ] && continue
+    curl -sfL --max-time 60 "$url" -o "$target.part" 2>/dev/null
+    if [ "$(sha256_of "$target.part")" = "$sum" ]; then
+      mv "$target.part" "$target"
+    else
+      rm -f "$target.part" "$target"
+      echo "dw: note: could not fetch $name (or its digest changed): pages fall back to plain text or diagram sources" >&2
+    fi
+  done <<LIST
+$EXPLAIN_VENDOR
+LIST
+}
+
+# Show a long explanation as a page in the HUD's explainer panel. Pages are numbered and kept, so the
+# user can page back; --replace rewrites the newest page (to fix a diagram) instead of adding one.
+cmd_explain() {
+  local src="" title="" replace=0 n file md step data i errors diagrams page="" shown
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --title)   title="${2:?--title needs a value}"; shift 2 ;;
+      --replace) replace=1; shift ;;
+      --page)    page="${2:?--page needs a number}"; shift 2 ;;
+      --hide|--show)
+        # Step the panel aside while the app behind it is the thing to watch, or bring it back
+        mkdir -p "$EXPLAIN"; printf '%s' "${1#--}" > "$EXPLAIN/visibility-request"
+        echo "explainer: ${1#--}"; return 0 ;;
+      --clear)
+        rm -rf "$EXPLAIN/pages" "$EXPLAIN/rendered.json"
+        mkdir -p "$EXPLAIN"; printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+        echo "explainer: every page removed"; return 0 ;;
+      -)         src=/dev/stdin; shift ;;
+      *)         src="$1"; shift ;;
+    esac
+  done
+  [ -n "$src" ] || die "usage: dw explain <file.md|-> [--title \"<title>\"] [--replace] | dw explain --clear"
+  [ "$src" = /dev/stdin ] || [ -f "$src" ] || die "no such file: $src"
+  [ -f "$SKILL_DIR/explainer/page.html" ] || die "page template missing: $SKILL_DIR/explainer/page.html"
+  gate
+  note_owner; ensure_hud
+  explain_vendor
+  mkdir -p "$EXPLAIN/pages"
+  [ -f "$EXPLAIN/index.json" ] || printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+  n=$(jq -r '.current // 0' "$EXPLAIN/index.json")
+  shown="$n"
+  if [ "$replace" = 0 ] || [ "$n" = 0 ]; then n=$(( $(jq -r '[.pages[].n] | max // 0' "$EXPLAIN/index.json") + 1 )); fi
+  # --page N rewrites an earlier page in place (a correction); the reader stays on the page they are on
+  if [ -n "$page" ]; then
+    jq -e --argjson n "$page" '[.pages[].n] | index($n) != null' "$EXPLAIN/index.json" >/dev/null || die "there is no page $page"
+    n="$page"
+  fi
+  file=$(printf 'pages/%03d.html' "$n")
+  md="$EXPLAIN/$(printf 'pages/%03d.md' "$n")"
+  cat "$src" > "$md"
+  # Title: the one given, else the first level-1 heading, else the page number
+  [ -n "$title" ] || title=$(sed -n 's/^# \{1,\}//p' "$md" | head -1)
+  [ -n "$title" ] || title="解説 $n"
+  step=$(cat "$DW_HOME/step" 2>/dev/null)
+  # A corrected page stays in the section it was written in
+  [ -n "$page" ] && step=$(jq -r --argjson n "$page" '.pages[] | select(.n == $n) | .step' "$EXPLAIN/index.json")
+  # The page carries its data as JSON inside a <script>: "<" is escaped so no text can end that element
+  data="$EXPLAIN/pages/.data.$$"
+  jq -cn --rawfile markdown "$md" --arg title "$title" --arg step "$step" --argjson n "$n" \
+    '{n: $n, title: $title, step: $step, markdown: $markdown}' | sed 's/</\\u003c/g' > "$data"
+  awk -v data="$data" '/<!--DW_DATA-->/ { while ((getline line < data) > 0) print line; next } { print }' \
+    "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part" && mv "$EXPLAIN/$file.part" "$EXPLAIN/$file"
+  rm -f "$data" "$EXPLAIN/rendered.json"
+  jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$file" \
+    --argjson current "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)" \
+    '.pages = ([.pages[] | select(.n != $n)] + [{n: $n, title: $title, step: $step, file: $file}] | sort_by(.n)) | .current = $current' \
+    "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part" && mv "$EXPLAIN/index.json.part" "$EXPLAIN/index.json"
+  printf '%s %s\n' "$(date +%H:%M:%S)" "explain: page $n ${title}" >> "$DW_HOME/narration.log"
+  record_page "$n" "$title" "$md"
+  if [ -n "$page" ] && [ "$page" != "$shown" ]; then echo "explainer: page $n rewritten (${title}); the reader sees it when paging back"; return 0; fi
+  # The page reports back once it rendered: a broken diagram is caught here, not by the reader
+  for ((i = 0; i < 20; i++)); do
+    [ "$(jq -r '.page // 0' "$EXPLAIN/rendered.json" 2>/dev/null)" = "$n" ] && break
+    sleep 0.5
+  done
+  if [ "$(jq -r '.page // 0' "$EXPLAIN/rendered.json" 2>/dev/null)" != "$n" ]; then
+    echo "explainer: page $n written, but the panel did not confirm it rendered (HUD closed?): $EXPLAIN/$file"; return 3
+  fi
+  diagrams=$(jq -r '.diagrams // 0' "$EXPLAIN/rendered.json"); errors=$(jq -r '.errors | length' "$EXPLAIN/rendered.json")
+  if [ "$errors" != 0 ]; then
+    echo "explainer: page $n shown with $errors problem(s): fix the source, then dw explain <file> --replace"
+    jq -r '.errors[] | "  - " + .' "$EXPLAIN/rendered.json"; return 1
+  fi
+  echo "explainer: page $n shown (${title}; diagrams: $diagrams)"
 }
 
 # ---- lifecycle -------------------------------------------------------------------------------------
@@ -413,11 +702,14 @@ launch_hud() {
 
 cmd_start() {
   need agent-desktop; need jq
-  local owner tty chat session sid i bridge=""
+  local owner tty chat session sid i bridge="" name="" record
+  if [ "${1:-}" = "--name" ]; then name="${2:?--name needs a value}"; fi
   # A previous HUD must not keep running beside the new one
   if hud_alive; then touch "$DW_HOME/quit"; sleep 1.5; hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null; fi
   echo off > "$BRIDGE/stop"
   rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
+  # A new walkthrough starts with an empty explainer (the HUD would open the previous one's last page)
+  rm -rf "$EXPLAIN/pages" "$EXPLAIN/index.json" "$EXPLAIN/rendered.json"
   session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
   echo "$session" > "$DW_HOME/ad_session"
   # Claude Code exports its pid and session id to Bash; other agent CLIs fall back to the process tree
@@ -440,7 +732,12 @@ cmd_start() {
       sleep 0.5
     done
   fi
+  # Every walkthrough is recorded; without a name the folder is named after the time it started
+  record="$RECORDS/${name:-$(date +%Y-%m-%d-%H%M)}"
+  record_init "$record"
+  printf '%s' "$record" > "$DW_HOME/record_dir"
   echo "state:    $DW_HOME"
+  echo "record:   $record (dw record <name> renames it)"
   echo "hud:      $(hud_alive && echo "running (pid $(cat "$DW_HOME/hud.pid"))" || echo "NOT running: see $DW_HOME/hud.log")"
   echo "session:  ${session:-none (agent-desktop session start failed)}"
   echo "owner:    ${owner:-unknown} ${chat:+chat window w-$chat (never send input there)}"
@@ -455,6 +752,8 @@ cmd_start() {
 
 cmd_end() {
   local session i
+  journal "■ ウォークスルーを終了"
+  rm -f "$DW_HOME/record_dir"
   if hud_alive; then
     touch "$DW_HOME/quit"
     for i in 1 2 3 4 5 6; do sleep 0.5; hud_alive || break; done
@@ -505,11 +804,14 @@ cmd_doctor() {
 
 case "${1:-}" in
   doctor)   cmd_doctor ;;
-  start)    cmd_start ;;
+  start)    shift; cmd_start "$@" ;;
+  record)   shift; cmd_record "$@" ;;
+  records)  cmd_records ;;
   end)      cmd_end ;;
   clear)    cmd_clear ;;
   step)     shift; cmd_step "$*" ;;
   say)      shift; cmd_say "$*" ;;
+  explain)  shift; cmd_explain "$@" ;;
   gate)     gate ;;
   ask)      shift; cmd_ask "$@" ;;
   wait-user) shift; DW_ASK_KIND=wait-user DW_ASK_OK="${DW_ASK_OK:-完了しました}" DW_ASK_NO="${DW_ASK_NO:-できない・中断}" \
@@ -521,6 +823,7 @@ case "${1:-}" in
   press)    shift; cmd_press "$@" ;;
   click-xy) shift; cmd_click_xy "$@" ;;
   layout)   shift; cmd_layout "$@" ;;
-  term)     shift; cmd_term "$@" ;;
+  stage)    shift; cmd_stage "$@" ;;
+  term)   shift; cmd_term "$@" ;;
   *)        awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 2 ;;
 esac

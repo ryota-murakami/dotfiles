@@ -82,6 +82,7 @@ type Paths = {
   log: string
   errors: string
   status: string
+  ask: string
   typing: string
   alive: string
 }
@@ -120,6 +121,7 @@ async function paths($: EngineInterface): Promise<Paths> {
     log: `${bridge}/mod.log`,
     errors: `${bridge}/errors.txt`,
     status: `${home}/status.txt`,
+    ask: `${home}/ask.json`,
     typing: `${home}/typing`,
     alive: `${home}/hud.alive`,
   }
@@ -230,6 +232,28 @@ async function writeState($: EngineInterface) {
     at: Date.now(),
   }
   await $.fs.write((await paths($)).state, JSON.stringify(state))
+}
+
+/** Tools that only look: a line about them tells the person nothing about what is happening on screen. */
+const QUIET_TOOLS: ReadonlySet<string> = new Set(['Read', 'Grep', 'Glob', 'ToolSearch', 'TodoWrite'])
+
+/**
+ * Whether a tool call may replace the status line of the bar with its own description.
+ *
+ * Why it exists: the bar showed `Read: /tmp/…png` for minutes while the person was meant to answer a
+ * question, because every un-narrated tool call overwrote the narration. Called by the `tool.call` hook.
+ *
+ * @param tool - Name of the tool being called.
+ * @param isGuiCommand - True for `dw` / agent-desktop commands, which narrate through `dw say`.
+ * @param questionPending - True while a `dw ask` / `dw wait-user` question is open: its line stays.
+ * @returns False when the line already on the bar should stay.
+ *
+ * @example
+ * showsToolOnBar('Read', false, false) // false: the last narration stays
+ * showsToolOnBar('Bash', false, false) // true: an un-narrated command is shown
+ */
+export function showsToolOnBar(tool: string, isGuiCommand: boolean, questionPending: boolean): boolean {
+  return !isGuiCommand && !questionPending && !QUIET_TOOLS.has(tool)
 }
 
 /** One line describing a tool call: the Bash description when the model gave one. */
@@ -397,9 +421,11 @@ export const register: Register = on => {
           if (await isStopOn($)) return { deny: `${$.plugin.name}: stopped from the HUD while waiting.` }
         }
       }
-      // `dw say` narrates in the person's language; only un-narrated tools get this generic line
-      if (!isGuiCommand && (await isHudAlive($))) {
-        await $.fs.write((await paths($)).status, maskSecrets(describeTool(e.tool, input))).catch(() => undefined)
+      // `dw say` narrates in the person's language; only un-narrated tools get this generic line,
+      // never over an open question and never for a tool that only looks
+      const p = await paths($)
+      if ((await isHudAlive($)) && showsToolOnBar(e.tool, isGuiCommand, await $.fs.exists(p.ask))) {
+        await $.fs.write(p.status, maskSecrets(describeTool(e.tool, input))).catch(() => undefined)
       }
     }
     return next(e)

@@ -1,6 +1,8 @@
 // Status HUD for desktop walkthroughs: shows what the agent is doing while it operates the Mac.
 //
-// - Status bar: translucent and click-through; drag the grip to move it, the right edge to resize.
+// - Status bar: translucent and click-through; drag the grip to move it, the right edge to change its
+//   width, the top or bottom edge to change its height (a taller bar shows more lines of the status).
+//   Beside the display notch the text leaves the notch's span empty.
 //   Always-visible controls: mirror on/off, settings, and a one-click stop at the trailing end.
 // - Mirror: the conversation of the agent session with a message box; close button in its header,
 //   drag the header to move, any edge to resize.
@@ -27,13 +29,20 @@ let bridgeDir = "\(stateDir)/bridge"
 let statusPath = "\(stateDir)/status.txt"
 /// Present while `dw click-xy` needs the mirror out of the way.
 let mirrorSuspendPath = "\(stateDir)/mirror-suspend"
+/// `dw stage` asks for frames here: `{"bar": [x, y, width], "explain": [x, y, width, height], "mirror": [x, y, width, height]}`
+/// in screen points from the bottom-left corner. Applied once, then the file is removed.
+let placeRequestPath = "\(stateDir)/place.json"
 let positionPath = "\(stateDir)/hud-position"
 let widthPath = "\(stateDir)/hud-width"
+/// Bar height chosen by dragging its top or bottom edge (points).
+let heightPath = "\(stateDir)/hud-height"
 /// Mirror frame chosen by dragging ("x,y,width,height" in screen points).
 let mirrorFramePath = "\(stateDir)/mirror-frame"
 /// `dw ask` / `dw wait-user` write {"id","text"[,"ok","no","icon"]} here; the answer goes to askAnswerPath ("<id> ok|no").
 let askPath = "\(stateDir)/ask.json"
 let askAnswerPath = "\(stateDir)/ask-answer"
+/// Where the user dragged the prompt ("x,y" in screen points); absent = it follows the status bar.
+let askPositionPath = "\(stateDir)/ask-position"
 /// Pid of the `dw` process currently waiting for the answer (absent or dead = nobody waiting).
 let askWaiterPath = "\(stateDir)/ask-waiter"
 let feedPath = "\(bridgeDir)/feed.jsonl"
@@ -78,6 +87,21 @@ let settings = SettingsStore(stateDir: stateDir)
 func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
 func mtime(_ path: String) -> Date? { (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date }
 
+/// Holds the folder of the walkthrough being recorded (written by `dw start` / `dw record`).
+let recordDirPath = "\(stateDir)/record_dir"
+
+/// Add a line to the journal of the walkthrough being recorded, for events only the HUD sees
+/// (a feedback button, an answer nobody was waiting for). `dw` writes the other lines.
+func appendJournal(_ text: String) {
+    guard let dir = (try? String(contentsOfFile: recordDirPath, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines),
+          !dir.isEmpty, let handle = FileHandle(forWritingAtPath: "\(dir)/journal.md") else { return }
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm:ss"
+    handle.seekToEndOfFile()
+    handle.write("- \(formatter.string(from: Date())) \(text)\n".data(using: .utf8)!)
+    handle.closeFile()
+}
+
 /// Append one JSON object as a line to a bridge file the mod polls.
 func appendLine(_ path: String, _ object: [String: String]) {
     try? FileManager.default.createDirectory(atPath: bridgeDir, withIntermediateDirectories: true)
@@ -103,18 +127,23 @@ final class DragHandle: NSView {
 /// Why it exists: it is the user's window into what the agent is doing, and their controls over it.
 /// Created once at launch; timers poll the state files.
 final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
-    static let barHeight: CGFloat = 60
+    static let defaultBarHeight: CGFloat = 60
     let settingsCard = SettingsCard()
 
     // Status bar
     let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let box = NSView()
-    let label = NSTextField(labelWithString: "")
+    let label = StatusLabel()
+    lazy var explainButton = IconButton(symbol: "book", label: "解説パネルを表示／隠す", target: self, action: #selector(toggleExplainer))
     lazy var mirrorButton = IconButton(symbol: "bubble.left.and.text.bubble.right", label: "ミラーを表示／隠す", target: self, action: #selector(toggleMirror))
     lazy var settingsButton = IconButton(symbol: "slider.horizontal.3", label: "設定", target: self, action: #selector(toggleSettings))
     lazy var stopButton = StopButton(target: self, action: #selector(toggleStop))
     let divider = NSView()
     let resizeHandle = ResizeHandle()
+    let barTopHandle = EdgeResizeHandle([.top])
+    let barBottomHandle = EdgeResizeHandle([.bottom])
+    /// Height constraints of the bar's controls (buttons, then the divider), adjusted to the bar's height.
+    var barControlHeights: [NSLayoutConstraint] = []
     let grip = DragHandle()
     let gripLabel = NSTextField(labelWithString: "⠿")
     let sweep = CAGradientLayer()
@@ -147,13 +176,30 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var expandedEntries = Set<String>()
     var zoom: CGFloat { CGFloat(settings.value("mirror.zoom")) }
 
+    // Explainer (dw explain): long-form pages, see Explainer.swift
+    let explainer = Explainer()
+
     // Approval prompt (dw ask)
     let askPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let askLabel = NSTextField(wrappingLabelWithString: "")
     let askOK = NSButton(title: "OK", target: nil, action: nil)
     let askNo = NSButton(title: "キャンセル", target: nil, action: nil)
+    /// Feedback buttons of the current question (`--button`): a press sends its label to the agent and leaves the question open.
+    let askExtras = NSStackView()
+    var askExtraLabels: [String] = []
+    /// The card's background: dragging it anywhere outside the buttons moves the prompt.
+    let askGrip = DragHandle()
+    let askGripMark = NSTextField(labelWithString: "⠿")
+    /// Size the card needs for the current question (see `layoutAsk`).
+    var askSize = NSSize(width: 420, height: 58)
     var askID = ""
     var askStamp: Date?
+    /// Origin the HUD last gave the prompt: a different origin later means the user dragged it.
+    var askPlacedOrigin: NSPoint?
+    /// True while a prompt parked off-screen is shown in full because the pointer is on it.
+    var askRevealed = false
+    /// False from the moment the user drags the prompt until the pointer has left it once.
+    var askRevealArmed = true
 
     let stopHotKey = StopHotKey()
 
@@ -167,6 +213,9 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         buildStatusBar()
         buildMirror()
         buildAskPanel()
+        explainer.attach()
+        settings.actions["explain.reset"] = { [weak self] in self?.explainer.resetFrame() }
+        settings.actions["ask.reset"] = { [weak self] in self?.resetAskPosition() }
         settings.actions["mirror.reset"] = { [weak self] in self?.resetMirrorFrame() }
         settings.actions["bar.reset"] = { [weak self] in self?.resetBarFrame() }
         settings.actions["hud.quit"] = { [weak self] in self?.quitByUser() }
@@ -198,6 +247,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// React to a changed option; called for every change, whichever control made it.
     func applySetting(_ id: String) {
         switch id {
+        case "explain.visible": explainer.updateVisibility()
+        case "explain.zoom": explainer.applyZoom()
         case "mirror.visible": updateMirrorVisibility()
         case "mirror.fold": reloadFeed(force: true, keepScroll: true)
         case "mirror.zoom":
@@ -276,7 +327,31 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         NSApp.terminate(nil)
     }
 
+    /// Move HUD surfaces where `dw stage` asked: the explainer beside the app, the bar under it.
+    /// Called on every refresh tick; a request is applied once and removed, and the new frames are
+    /// remembered like a drag.
+    func applyPlaceRequest() {
+        guard let data = FileManager.default.contents(atPath: placeRequestPath) else { return }
+        try? FileManager.default.removeItem(atPath: placeRequestPath)
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        func numbers(_ key: String, _ count: Int) -> [CGFloat]? {
+            guard let list = object[key] as? [NSNumber], list.count == count else { return nil }
+            return list.map { CGFloat($0.doubleValue) }
+        }
+        if let v = numbers("bar", 3) {
+            panel.setFrame(NSRect(x: v[0], y: v[1], width: max(480, v[2]), height: panel.frame.height), display: true)
+            layoutBarForHeight()
+            try? "\(panel.frame.width)".write(toFile: widthPath, atomically: true, encoding: .utf8)
+        }
+        if let v = numbers("explain", 4) { explainer.place(NSRect(x: v[0], y: v[1], width: v[2], height: v[3])) }
+        if let v = numbers("mirror", 4) {
+            mirror.setFrame(NSRect(x: v[0], y: v[1], width: v[2], height: v[3]), display: true)
+            saveMirrorFrame()
+        }
+    }
+
     func refresh() {
+        applyPlaceRequest()
         syncModState()
         let raw = (try? String(contentsOfFile: statusPath, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let m = mode
@@ -295,8 +370,11 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             playChangeEffect(flashColor: modeChanged ? (m == "stopped" ? NSColor.systemRed : NSColor.systemOrange) : accent,
                              base: barColor(stopped: m == "stopped"))
         }
+        label.hole = notchHole()
+        explainButton.isActive = settings.isOn("explain.visible")
         mirrorButton.isActive = settings.isOn("mirror.visible")
         settingsButton.isActive = settingsCard.isOpen
+        explainer.refresh()
         updateMirrorVisibility()
         updateAsk()
         settingsCard.follow()

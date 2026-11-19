@@ -1,0 +1,181 @@
+<!doctype html>
+<!--
+  Template of one explainer page. `dw explain` copies it to <state>/explain/pages/NNN.html with the
+  page's data (number, title, section, Markdown source) in place of the DW_DATA line; the HUD's
+  explainer panel loads the result. The libraries come from <state>/explain/vendor (fetched and
+  digest-checked by `dw`); without them the page shows the Markdown source as plain text.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- Local files only: a page never loads anything from the network -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src file: 'unsafe-inline'; style-src file: 'unsafe-inline'; img-src file: data:; font-src file: data:">
+<link rel="stylesheet" href="../vendor/highlight.css">
+<style>
+  :root { color-scheme: dark; --accent: #5ccc9e; --line: rgba(255, 255, 255, .16); }
+  html { background: transparent; }
+  body {
+    margin: 0; padding: 16px 22px 48px; color: #e9e9e9;
+    font: 15px/1.75 -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-wrap: anywhere;
+  }
+  #section { color: var(--accent); font-size: .82em; font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
+  h1 { font-size: 1.5em; line-height: 1.35; margin: 0 0 .7em; padding-bottom: .35em; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 1.22em; line-height: 1.4; margin: 1.7em 0 .5em; padding-left: .55em; border-left: 4px solid var(--accent); }
+  h3 { font-size: 1.06em; margin: 1.3em 0 .4em; color: #a6e6c9; }
+  h4 { font-size: 1em; margin: 1.1em 0 .3em; color: #cfcfcf; }
+  p { margin: .6em 0; }
+  ul, ol { padding-left: 1.4em; margin: .5em 0; }
+  li { margin: .22em 0; }
+  li > p { margin: .2em 0; }
+  a { color: #6cb6ff; }
+  strong { color: #fff; }
+  em { color: #ffd98a; font-style: normal; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
+  code {
+    font: .88em/1.5 "SF Mono", Menlo, monospace; background: rgba(255, 255, 255, .10);
+    padding: .1em .35em; border-radius: 4px;
+  }
+  pre {
+    position: relative; background: #0d1117; border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: .8em 0;
+  }
+  pre code, pre code.hljs {
+    background: none; padding: 0; font-size: .86em; line-height: 1.55;
+    white-space: pre; overflow-wrap: normal; display: block;
+  }
+  /* The panel never becomes the key window, so hover is unreliable: the button is always visible */
+  .copy {
+    position: absolute; top: 6px; right: 6px; font: 11px -apple-system, sans-serif; color: #c9d1d9;
+    background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 6px; padding: 2px 8px; cursor: pointer; opacity: .6;
+  }
+  .copy:active { opacity: 1; background: rgba(92, 204, 158, .35); }
+  .table-wrap { overflow-x: auto; margin: .8em 0; }
+  table { border-collapse: collapse; font-size: .92em; }
+  th, td { border: 1px solid rgba(255, 255, 255, .2); padding: .35em .65em; text-align: left; vertical-align: top; }
+  th { background: rgba(92, 204, 158, .16); white-space: nowrap; }
+  tr:nth-child(even) td { background: rgba(255, 255, 255, .035); }
+  blockquote {
+    margin: .8em 0; padding: .45em .9em; border-left: 4px solid #f0b429;
+    background: rgba(240, 180, 41, .09); border-radius: 0 6px 6px 0; color: #f3e9cf;
+  }
+  blockquote p { margin: .25em 0; }
+  details { margin: .8em 0; padding: .4em .8em; border: 1px solid var(--line); border-radius: 8px; }
+  summary { cursor: pointer; font-weight: 700; color: #a6e6c9; }
+  img { max-width: 100%; }
+  kbd {
+    font: .82em "SF Mono", Menlo, monospace; padding: .1em .45em; border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .08);
+  }
+  .diagram {
+    margin: 1em 0; padding: 10px; background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .1); border-radius: 8px; overflow-x: auto; text-align: center;
+    cursor: zoom-in;
+  }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram.wide { cursor: zoom-out; text-align: left; }
+  .diagram-error { color: #ff9b9b; text-align: left; white-space: pre-wrap; cursor: default; }
+</style>
+</head>
+<body>
+<div id="section"></div>
+<main id="content"></main>
+<script id="dw-data" type="application/json">
+<!--DW_DATA-->
+</script>
+<script src="../vendor/marked.js"></script>
+<script src="../vendor/highlight.js"></script>
+<script src="../vendor/highlight-http.js"></script>
+<script src="../vendor/mermaid.js"></script>
+<script>
+(async () => {
+  const data = JSON.parse(document.getElementById('dw-data').textContent);
+  // The HUD listens on this channel; opened in a plain browser the page still renders
+  const post = message => { try { window.webkit.messageHandlers.dw.postMessage(message); } catch (_) { /* no HUD */ } };
+  const errors = [];
+  const content = document.getElementById('content');
+  document.title = data.title;
+  document.getElementById('section').textContent = data.step || '';
+
+  if (window.marked) {
+    content.innerHTML = marked.parse(data.markdown, { gfm: true });
+  } else {
+    const source = document.createElement('pre');
+    source.textContent = data.markdown;
+    content.appendChild(source);
+    errors.push('marked is not available: showing the Markdown source');
+  }
+
+  // A wide table scrolls sideways instead of stretching the page
+  for (const table of content.querySelectorAll('table')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+  }
+
+  // ```mermaid blocks become diagrams; every other block gets highlighting and a copy button
+  const diagrams = [];
+  for (const code of content.querySelectorAll('pre > code')) {
+    if (code.classList.contains('language-mermaid')) {
+      const holder = document.createElement('div');
+      holder.className = 'diagram';
+      holder.dataset.source = code.textContent;
+      code.parentElement.replaceWith(holder);
+      diagrams.push(holder);
+      continue;
+    }
+    if (window.hljs) { try { hljs.highlightElement(code); } catch (_) { /* unknown language: leave as is */ } }
+    const button = document.createElement('button');
+    button.className = 'copy';
+    button.textContent = 'コピー';
+    button.addEventListener('click', () => {
+      post({ type: 'copy', text: code.textContent });
+      button.textContent = 'コピーしました';
+      setTimeout(() => { button.textContent = 'コピー'; }, 1200);
+    });
+    code.parentElement.appendChild(button);
+  }
+
+  if (diagrams.length && window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: false, theme: 'dark', securityLevel: 'strict',
+      fontFamily: '-apple-system, "Hiragino Sans", sans-serif',
+    });
+  }
+  let index = 0;
+  for (const holder of diagrams) {
+    index += 1;
+    const id = `dw-diagram-${index}`;
+    try {
+      if (!window.mermaid) throw new Error('mermaid is not available');
+      const { svg } = await mermaid.render(id, holder.dataset.source);
+      holder.innerHTML = svg;
+      // Click toggles between fit-to-width and natural size (large diagrams are unreadable when fitted)
+      holder.addEventListener('click', () => {
+        const graphic = holder.querySelector('svg');
+        if (!graphic) return;
+        const wide = holder.classList.toggle('wide');
+        const natural = graphic.viewBox && graphic.viewBox.baseVal ? graphic.viewBox.baseVal.width : 0;
+        if (!graphic.dataset.fitted) graphic.dataset.fitted = graphic.style.maxWidth || '100%';
+        graphic.style.maxWidth = wide ? 'none' : graphic.dataset.fitted;
+        graphic.style.width = wide && natural ? `${Math.round(natural * 1.25)}px` : '';
+      });
+    } catch (error) {
+      const text = String(error && error.message ? error.message : error);
+      errors.push(`diagram ${index}: ${text}`);
+      // mermaid leaves a temporary element behind when it fails
+      const stray = document.getElementById(`d${id}`);
+      if (stray) stray.remove();
+      const shown = document.createElement('pre');
+      shown.className = 'diagram-error';
+      shown.textContent = `図を描けませんでした: ${text}\n\n${holder.dataset.source}`;
+      holder.replaceChildren(shown);
+    }
+  }
+  post({ type: 'rendered', page: data.n, diagrams: diagrams.length, errors });
+})();
+</script>
+</body>
+</html>

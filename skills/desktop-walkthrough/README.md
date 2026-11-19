@@ -11,11 +11,13 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `scripts/dw` | Helper CLI: HUD lifecycle, narration, focus checks, non-blocking Terminal commands |
 | `scripts/check` | Static checks: bash 3.2 syntax and pitfalls, shellcheck, Swift typecheck, plugin validate, hooks tests and types |
 | `hud/HUD.swift` | The HUD class (stored views, launch, settings, stop, lifecycle) and the state-file paths shared with `dw` and the hooks |
-| `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift` | One surface each: status bar, conversation mirror with its message box, one-click approval prompt |
+| `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift`, `hud/Explainer.swift` | One surface each: status bar, conversation mirror with its message box, one-click approval prompt, explainer panel (long-form pages in a web view) |
+| `explainer/page.html` | Template of one explainer page: `dw explain` fills in the Markdown, the page renders it with marked, highlight.js and mermaid (fetched once into the state folder, pinned by digest) |
 | `hud/Settings.swift`, `hud/SettingsCard.swift`, `hud/Controls.swift` | The options registry, the settings card, shared controls and the stop shortcut. Compiled on first `dw start` |
 | `references/pitfalls.md` | Failures seen in real runs and the rules they produced |
+| `references/this-mac.md` | Facts about the one machine this skill runs on: PhpStorm keymap, screen, shell, projects |
 
-Runtime state (built HUD, preferences, logs) lives in `~/.local/state/desktop-walkthrough/`, not in this folder, so the folder is plain source and safe to commit.
+Runtime state (built HUD, preferences, logs) lives in `~/.local/state/desktop-walkthrough/`, not in this folder, so the folder is plain source and safe to commit. Recorded walkthroughs (pages, journal, handbook) live in `~/.config/desktop-walkthrough/walkthroughs/`, which the dotfiles repository ignores.
 
 ## Install or refresh
 

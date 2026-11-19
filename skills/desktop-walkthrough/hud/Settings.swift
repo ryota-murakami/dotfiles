@@ -46,6 +46,7 @@ final class SettingsStore {
     static let changed = Notification.Name("dw.settings.changed")
 
     static let sections: [SettingSection] = [
+        SettingSection(id: "explain", title: "解説パネル", symbol: "book"),
         SettingSection(id: "mirror", title: "ミラー", symbol: "bubble.left.and.text.bubble.right"),
         SettingSection(id: "bar", title: "ステータスバー", symbol: "rectangle.bottomthird.inset.filled"),
         SettingSection(id: "ask", title: "確認", symbol: "questionmark.bubble"),
@@ -54,6 +55,12 @@ final class SettingsStore {
 
     /// Every option, in display order. Adding a line here adds it to the settings card.
     static let registry: [Setting] = [
+        Setting(id: "explain.visible", section: "explain", title: "解説を表示", symbol: "book",
+                kind: .toggle, defaultValue: 1, short: "解説", hasDirectControl: true),
+        Setting(id: "explain.zoom", section: "explain", title: "文字サイズ", symbol: "textformat.size",
+                kind: .slider(min: 0.6, max: 2.5, step: 0.1), defaultValue: 1, hasDirectControl: true),
+        Setting(id: "explain.reset", section: "explain", title: "位置とサイズ", symbol: "arrow.counterclockwise",
+                kind: .action(button: "リセット", destructive: false), short: "解説を初期位置へ"),
         Setting(id: "mirror.visible", section: "mirror", title: "ミラーを表示", symbol: "bubble.left.and.text.bubble.right",
                 kind: .toggle, defaultValue: 1, short: "ミラー", hasDirectControl: true),
         Setting(id: "mirror.fold", section: "mirror", title: "長いコマンドを折りたたむ", symbol: "list.bullet.indent",
@@ -72,6 +79,8 @@ final class SettingsStore {
                 kind: .action(button: "リセット", destructive: false), short: "バーを初期位置へ"),
         Setting(id: "ask.sound", section: "ask", title: "確認時にサウンドを鳴らす", symbol: "speaker.wave.2",
                 kind: .toggle, defaultValue: 1, short: "サウンド"),
+        Setting(id: "ask.reset", section: "ask", title: "位置（ドラッグで移動できます）", symbol: "arrow.counterclockwise",
+                kind: .action(button: "リセット", destructive: false), short: "確認を初期位置へ"),
         Setting(id: "stop.hotkey", section: "general", title: "停止のショートカット ⌃⌥⌘.", symbol: "keyboard",
                 kind: .toggle, defaultValue: 1, short: "停止キー"),
         Setting(id: "hud.quit", section: "general", title: "HUD", symbol: "power",

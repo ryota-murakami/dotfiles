@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { maskSecrets } from './register'
+import { maskSecrets, showsToolOnBar } from './register'
 
 // Fake credentials are assembled at run time so secret scanners (gitleaks, gstack-redact) do not
 // flag this public file; each one has the shape of the real thing.
@@ -83,4 +83,37 @@ test('the mirror leaves commit hashes and ordinary commands unchanged', () => {
 
   // Assert
   expect(shown).toBe(command)
+})
+
+test('the bar keeps the narration while the agent only reads a file', () => {
+  // Arrange
+  const tool = 'Read'
+
+  // Act
+  const shown = showsToolOnBar(tool, false, false)
+
+  // Assert
+  expect(shown).toBe(false)
+})
+
+test('the bar keeps the question the person has yet to answer', () => {
+  // Arrange
+  const questionPending = true
+
+  // Act
+  const shown = showsToolOnBar('Bash', false, questionPending)
+
+  // Assert
+  expect(shown).toBe(false)
+})
+
+test('the bar shows a command the agent runs without narrating', () => {
+  // Arrange
+  const tool = 'Bash'
+
+  // Act
+  const shown = showsToolOnBar(tool, false, false)
+
+  // Assert
+  expect(shown).toBe(true)
 })

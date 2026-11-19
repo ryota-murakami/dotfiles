@@ -98,6 +98,33 @@ final class EdgeResizeHandle: NSView {
     }
 }
 
+/// Pin resize handles to the borders of a floating panel's root view (6pt sides, 14pt corners).
+/// Call it after the content was added, so the handles sit above it. Used by the mirror and the explainer.
+func pinEdgeHandles(_ handles: [EdgeResizeHandle], to root: NSView) {
+    let edge: CGFloat = 6, corner: CGFloat = 14
+    for h in handles {
+        h.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(h)
+        let e = h.edges
+        var c: [NSLayoutConstraint] = []
+        let isCorner = (e.contains(.left) || e.contains(.right)) && (e.contains(.top) || e.contains(.bottom))
+        if e.contains(.left) { c.append(h.leadingAnchor.constraint(equalTo: root.leadingAnchor)) }
+        if e.contains(.right) { c.append(h.trailingAnchor.constraint(equalTo: root.trailingAnchor)) }
+        if e.contains(.top) { c.append(h.topAnchor.constraint(equalTo: root.topAnchor)) }
+        if e.contains(.bottom) { c.append(h.bottomAnchor.constraint(equalTo: root.bottomAnchor)) }
+        if isCorner {
+            c += [h.widthAnchor.constraint(equalToConstant: corner), h.heightAnchor.constraint(equalToConstant: corner)]
+        } else if e.contains(.left) || e.contains(.right) {
+            c += [h.widthAnchor.constraint(equalToConstant: edge), h.topAnchor.constraint(equalTo: root.topAnchor, constant: corner),
+                  h.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -corner)]
+        } else {
+            c += [h.heightAnchor.constraint(equalToConstant: edge), h.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: corner),
+                  h.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -corner)]
+        }
+        NSLayoutConstraint.activate(c)
+    }
+}
+
 extension HUD {
     // MARK: mirror
 
@@ -216,34 +243,8 @@ extension HUD {
             sendButton.centerYAnchor.constraint(equalTo: input.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 70),
         ])
-        layoutMirrorHandles(in: root)
+        pinEdgeHandles(mirrorHandles, to: root)
         mirror.contentView = root
-    }
-
-    /// Pin the resize handles to the mirror's borders; added last so they sit above the content.
-    func layoutMirrorHandles(in root: NSView) {
-        let edge: CGFloat = 6, corner: CGFloat = 14
-        for h in mirrorHandles {
-            h.translatesAutoresizingMaskIntoConstraints = false
-            root.addSubview(h)
-            let e = h.edges
-            var c: [NSLayoutConstraint] = []
-            let isCorner = (e.contains(.left) || e.contains(.right)) && (e.contains(.top) || e.contains(.bottom))
-            if e.contains(.left) { c.append(h.leadingAnchor.constraint(equalTo: root.leadingAnchor)) }
-            if e.contains(.right) { c.append(h.trailingAnchor.constraint(equalTo: root.trailingAnchor)) }
-            if e.contains(.top) { c.append(h.topAnchor.constraint(equalTo: root.topAnchor)) }
-            if e.contains(.bottom) { c.append(h.bottomAnchor.constraint(equalTo: root.bottomAnchor)) }
-            if isCorner {
-                c += [h.widthAnchor.constraint(equalToConstant: corner), h.heightAnchor.constraint(equalToConstant: corner)]
-            } else if e.contains(.left) || e.contains(.right) {
-                c += [h.widthAnchor.constraint(equalToConstant: edge), h.topAnchor.constraint(equalTo: root.topAnchor, constant: corner),
-                      h.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -corner)]
-            } else {
-                c += [h.heightAnchor.constraint(equalToConstant: edge), h.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: corner),
-                      h.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -corner)]
-            }
-            NSLayoutConstraint.activate(c)
-        }
     }
 
     /// Top-right quarter below the menu bar: the mirror's place until the user moves it.
