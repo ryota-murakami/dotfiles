@@ -146,6 +146,7 @@ Available skills:
 - [load](skills/load/SKILL.md)
 - [oss-repo-setup](skills/oss-repo-setup/SKILL.md)
 - [save](skills/save/SKILL.md)
+- [update-my-skill](skills/update-my-skill/SKILL.md)
 
 ## Extra. Any Manual Tasks
 
