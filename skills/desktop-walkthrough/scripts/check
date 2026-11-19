@@ -1,0 +1,92 @@
+#!/bin/bash
+# check — static checks for the desktop-walkthrough skill; run before saving or committing it.
+#
+# Why it exists: mechanical slips came back during real runs (bash 3.2 "unbound variable" after a
+# variable followed by a multibyte character, twice; the hooks module type-checked a different way
+# each time). update-my-skill's save.sh runs this file whenever a skill ships one.
+#
+# Usage: scripts/check   exit 0 when every check passed; a missing optional tool is reported and skipped
+set -u
+cd "$(dirname "$0")/.." || exit 1
+failed=""
+
+# Run one named check; remember its name when it fails
+run() {
+  local name="$1"
+  shift
+  printf '== %s\n' "$name"
+  "$@" || failed="$failed
+  - $name"
+}
+
+# Both scripts parse under macOS /bin/bash 3.2
+bash_syntax() {
+  /bin/bash -n scripts/dw && /bin/bash -n scripts/check
+}
+
+# bash 3.2 reads "$name（" as a longer variable name and stops with "unbound variable": brace it
+multibyte_after_variable() {
+  perl -ne 'if (!/^\s*#/ && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/) { print "$ARGV:$.: $_"; $hit = 1 } close ARGV if eof; END { exit($hit ? 1 : 0) }' scripts/dw scripts/check
+}
+
+# Manifest and hooks module as the engine reads them; only problems are printed
+validate_plugin() {
+  local out status
+  out=$(claude plugin validate . 2>&1)
+  status=$?
+  printf '%s\n' "$out" | grep -E '✘|[Ee]rror' || true
+  return $status
+}
+
+# The hooks module and its tests against this Claude Code build's declarations: laid beside the
+# plugin when the engine loads it, or written to the temp folder when the plugin-authoring skill loads
+typecheck_hooks() {
+  local types tmp status
+  if [ -d .claude-plugin/types ]; then
+    types="$PWD/.claude-plugin/types"
+  else
+    types=$(ls -t /private/tmp/claude-"$(id -u)"/bundled-skills/*/*/plugin-authoring/types/claude-code.d.ts 2>/dev/null | head -1)
+  fi
+  if [ -z "$types" ]; then
+    echo "skipped: no Claude Code type declarations found (load the plugin-authoring skill once, then rerun)"
+    return 0
+  fi
+  tmp=$(mktemp -d)
+  cat > "$tmp/tsconfig.json" <<JSON
+{
+  "compilerOptions": {
+    "target": "es2023", "lib": ["es2023"], "types": [],
+    "module": "esnext", "moduleResolution": "bundler",
+    "strict": true, "noUncheckedIndexedAccess": true,
+    "noEmit": true, "skipLibCheck": true
+  },
+  "include": ["$types", "$PWD/hooks"]
+}
+JSON
+  npx --yes -p typescript@5 tsc -p "$tmp/tsconfig.json"
+  status=$?
+  rm -rf "$tmp"
+  return $status
+}
+
+run "bash syntax (/bin/bash 3.2)" bash_syntax
+if command -v shellcheck >/dev/null 2>&1; then
+  run "shellcheck" shellcheck -S warning scripts/dw scripts/check
+else
+  echo "== shellcheck: skipped (brew install shellcheck)"
+fi
+run "bash 3.2: brace a variable followed by a multibyte character" multibyte_after_variable
+run "HUD: swiftc -typecheck" swiftc -typecheck hud/*.swift
+if command -v claude >/dev/null 2>&1; then
+  run "plugin: claude plugin validate" validate_plugin
+  run "hooks tests: claude plugin test" claude plugin test .
+else
+  echo "== claude CLI not found: plugin validate and tests skipped"
+fi
+run "hooks types: tsc" typecheck_hooks
+
+if [ -n "$failed" ]; then
+  printf '✗ failed:%s\n' "$failed"
+  exit 1
+fi
+echo "✓ all checks passed"

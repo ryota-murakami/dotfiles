@@ -7,22 +7,28 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | Path | What it is |
 | --- | --- |
 | `SKILL.md` | Procedure and principles the agent follows |
-| `.claude-plugin/plugin.json`, `hooks/` | Makes this folder a plugin; `hooks/register.ts` is the session bridge (conversation mirror, messages typed in the HUD, stop switch) |
+| `.claude-plugin/plugin.json`, `hooks/` | Makes this folder a plugin; `hooks/register.ts` is the session bridge (conversation mirror, messages typed in the HUD, stop switch, secrets masked before display), `hooks/register.test.ts` its tests |
 | `scripts/dw` | Helper CLI: HUD lifecycle, narration, focus checks, non-blocking Terminal commands |
-| `hud/*.swift` | The HUD (bar, mirror, settings card), compiled on first `dw start`. `hud/Settings.swift` lists the options |
+| `scripts/check` | Static checks: bash 3.2 syntax and pitfalls, shellcheck, Swift typecheck, plugin validate, hooks tests and types |
+| `hud/HUD.swift` | The HUD class (stored views, launch, settings, stop, lifecycle) and the state-file paths shared with `dw` and the hooks |
+| `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift` | One surface each: status bar, conversation mirror with its message box, one-click approval prompt |
+| `hud/Settings.swift`, `hud/SettingsCard.swift`, `hud/Controls.swift` | The options registry, the settings card, shared controls and the stop shortcut. Compiled on first `dw start` |
 | `references/pitfalls.md` | Failures seen in real runs and the rules they produced |
 
 Runtime state (built HUD, preferences, logs) lives in `~/.local/state/desktop-walkthrough/`, not in this folder, so the folder is plain source and safe to commit.
 
 ## Install or refresh
 
-The source of truth is `~/dotfiles/skills/desktop-walkthrough/`. After editing or pulling:
+The source of truth is `~/dotfiles/skills/desktop-walkthrough/`. Run `scripts/check` after every change.
+
+While the skill is being developed, the install is a link to that folder, so edits are live:
 
 ```sh
-npx skills add ~/dotfiles/skills --skill desktop-walkthrough -g -y
+rm -rf ~/.agents/skills/desktop-walkthrough   # the copied install, once nothing in it is newer than dotfiles
+ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
 ```
 
-Then run `/reload-plugins` in Claude Code (or start a new session). `claude plugin list` shows it as `desktop-walkthrough@skills-dir`.
+`npx skills add ~/dotfiles/skills --skill desktop-walkthrough -g -y` (or `npx skills update`) replaces the link with a copy again. After a change to `hooks/` or `.claude-plugin/`, run `/reload-plugins` in Claude Code (or start a new session). `claude plugin list` shows it as `desktop-walkthrough@skills-dir`.
 
 ## Requirements
 
