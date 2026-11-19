@@ -209,6 +209,18 @@ if ! $DRY_RUN; then
     sleep 1s
 fi
 #=========================================================
+# Git hooks of this repository (it is public)
+#=========================================================
+# commit-msg requires the " :green_apple:" subject suffix; pre-push scans what is pushed for secrets
+echo -e "${GREEN}Linking this repository's git hooks...${RESET_COLOR}"
+run_cmd ln -sfn ../../githooks/commit-msg "$HOME/dotfiles/.git/hooks/commit-msg"
+if [ -f "$HOME/gstack/bin/gstack-redact" ] && command -v bun >/dev/null 2>&1; then
+    (cd "$HOME/dotfiles" && run_cmd bun "$HOME/gstack/bin/gstack-redact" install-prepush-hook)
+else
+    echo -e "${YELLOW}Skipped the pre-push secret scan: install gstack, then run 'bun ~/gstack/bin/gstack-redact install-prepush-hook' in ~/dotfiles${RESET_COLOR}"
+fi
+
+#=========================================================
 # Setup fish-shell (fish-shell is contained in Brewfile)
 #=========================================================
 echo -e "${GREEN}Setting up fish shell...${RESET_COLOR}"

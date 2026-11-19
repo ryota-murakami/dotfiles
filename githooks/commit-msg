@@ -1,0 +1,13 @@
+#!/bin/bash
+# commit-msg — dotfiles commit subjects end with " :green_apple:" (this repository's rule).
+#
+# Why it exists: the rule used to be checked only by update-my-skill after committing, so commits
+# made any other way could miss it. Linked as .git/hooks/commit-msg; git runs it with the message
+# file as $1. Merges and fixup!/squash!/amend! commits pass unchanged.
+subject=$(awk '!/^#/ && NF { print; exit }' "$1" | sed 's/[[:space:]]*$//')
+case "$subject" in
+  "Merge "* | "fixup! "* | "squash! "* | "amend! "* | *" :green_apple:") exit 0 ;;
+esac
+echo "commit-msg: end the subject with ' :green_apple:' (dotfiles rule), for example:" >&2
+echo "  [skills] update desktop-walkthrough with checks and secret masking :green_apple:" >&2
+exit 1
