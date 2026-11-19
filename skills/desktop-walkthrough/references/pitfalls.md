@@ -43,6 +43,7 @@ Each row is something that actually went wrong, why, and the rule or helper that
 - `set-value` on text inputs and `check`/`uncheck` on checkboxes work for web forms; verify with a fresh read.
 - A file dialog is a sheet: click the sidebar folder, then the row whose child text is the file name.
 - `pgrep` on macOS skips its own ancestors unless `-a` is given.
+- The HUD bar lets clicks through except where the pointer rests: to click ☰ physically, `mouse-move` onto it, wait a moment, then `mouse-click`.
 
 **JetBrains IDEs**
 - Shortcuts may be remapped: read `~/Library/Application Support/JetBrains/<IDE>/keymaps/*.xml` (active one named in `options/mac/keymap.xml`), or run actions through Find Action by name.

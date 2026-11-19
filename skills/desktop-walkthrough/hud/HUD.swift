@@ -4,7 +4,8 @@
 //
 // - Status bar: translucent, click-through, shows the current step; drag ⠿ to move, ‖ to resize
 // - ☰ menu: ⏸ takeover (pause GUI automation), ⏹ stop (abort the turn), 🪞 mirror, ✨ flash, ✕ quit
-// - 🪞 Mirror: conversation view (top-right quarter) rendered from the hud-bridge mod's feed, with a
+// - 🪞 Mirror: conversation view (top-right quarter until dragged by its header; resized from the
+//   bottom-right corner; background opacity in the ☰ menu) rendered from the hud-bridge mod's feed, with a
 //   message box whose text the mod delivers into the session (no Space switch, no typing into a terminal)
 //
 // The status bar never takes focus. Clicking the mirror makes the HUD the frontmost app so dictation
@@ -27,6 +28,12 @@ let widthPath = "\(stateDir)/hud-width"
 /// Present = flash / border / sweep effects are off (the text slide-in always plays)
 let flashOffPath = "\(stateDir)/hud-flash-off"
 let zoomPath = "\(stateDir)/mirror-zoom"
+/// Mirror frame chosen by dragging ("x,y,width,height" in screen points) and background opacity (0.2–1.0).
+let mirrorFramePath = "\(stateDir)/mirror-frame"
+let mirrorOpacityPath = "\(stateDir)/mirror-opacity"
+/// `dw ask` writes {"id","text"} here; the HUD shows it with OK / キャンセル and answers in askAnswerPath ("<id> ok|no").
+let askPath = "\(stateDir)/ask.json"
+let askAnswerPath = "\(stateDir)/ask-answer"
 let feedPath = "\(bridgeDir)/feed.jsonl"
 let statePath = "\(bridgeDir)/state.json"
 let inboxPath = "\(bridgeDir)/inbox.jsonl"
@@ -130,6 +137,39 @@ final class GripView: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 
+/// Mirror header: drag it to move the mirror (the labels inside it are part of the handle).
+final class MirrorGrip: NSView {
+    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
+}
+
+/// Bottom-right corner of the mirror: drag to resize it while its top-left corner stays put.
+final class CornerResizeHandle: NSView {
+    var onResize: ((NSSize) -> Void)?
+    private var start = NSPoint.zero
+    private var startSize = NSSize.zero
+    override func mouseDown(with event: NSEvent) {
+        start = NSEvent.mouseLocation
+        startSize = window?.frame.size ?? .zero
+    }
+    override func mouseDragged(with event: NSEvent) {
+        let p = NSEvent.mouseLocation
+        // Screen y grows upward, so dragging down (smaller y) makes the mirror taller
+        onResize?(NSSize(width: startSize.width + p.x - start.x, height: startSize.height + start.y - p.y))
+    }
+    override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
+    override func draw(_ dirtyRect: NSRect) {
+        NSColor.white.withAlphaComponent(0.55).setStroke()
+        let path = NSBezierPath()
+        path.lineWidth = 1.5
+        for d in [4.0, 8.0, 12.0] {
+            path.move(to: NSPoint(x: bounds.maxX - d, y: 2))
+            path.line(to: NSPoint(x: bounds.maxX - 2, y: d))
+        }
+        path.stroke()
+    }
+}
+
 /// Right-edge handle: drag to change the HUD's width.
 final class ResizeHandle: NSView {
     var onResize: ((CGFloat) -> Void)?
@@ -165,7 +205,14 @@ final class HUD: NSObject, NSWindowDelegate {
     // Not .nonactivatingPanel: clicking the mirror must make the HUD the frontmost app, or dictation tools
     // (which insert into the frontmost app's focused element) cannot reach the message box
     let mirror = KeyablePanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    let mirrorHeader = NSTextField(labelWithString: "🪞 Claude Code")
+    let mirrorHeader = NSTextField(labelWithString: "⠿ 🪞 Claude Code")
+    let mirrorRoot = NSView()
+    let mirrorGrip = MirrorGrip()
+    let mirrorResize = CornerResizeHandle()
+    var mirrorOpacity: CGFloat = {
+        if let s = try? String(contentsOfFile: mirrorOpacityPath, encoding: .utf8), let v = Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return CGFloat(v) }
+        return 0.95
+    }()
     let busyLabel = NSTextField(labelWithString: "")
     let scroll = NSScrollView()
     let textView = NSTextView()
@@ -180,12 +227,21 @@ final class HUD: NSObject, NSWindowDelegate {
         return 1.0
     }()
 
+    // Approval prompt (dw ask)
+    let askPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    let askLabel = NSTextField(wrappingLabelWithString: "")
+    let askOK = NSButton(title: "OK", target: nil, action: nil)
+    let askNo = NSButton(title: "キャンセル", target: nil, action: nil)
+    var askID = ""
+    var askStamp: Date?
+
     var mode: String { isStopOn() ? "stopped" : (exists(pausePath) ? "paused" : (exists(typingPath) ? "typing" : "running")) }
 
     override init() {
         super.init()
         buildStatusBar()
         buildMirror()
+        buildAskPanel()
         Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.refresh() }
         Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.updateClickThrough() }
         Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.reloadFeed(force: false) }
@@ -322,6 +378,16 @@ final class HUD: NSObject, NSWindowDelegate {
         for (title, action) in items {
             menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self
         }
+        let opacityItem = menu.addItem(withTitle: "🌫 ミラー背景の不透明度", action: nil, keyEquivalent: "")
+        let opacityMenu = NSMenu()
+        for percent in [100, 95, 90, 75, 60, 45, 30] {
+            let item = opacityMenu.addItem(withTitle: "\(percent)%", action: #selector(chooseMirrorOpacity(_:)), keyEquivalent: "")
+            item.target = self
+            item.tag = percent
+            item.state = Int((mirrorOpacity * 100).rounded()) == percent ? .on : .off
+        }
+        opacityItem.submenu = opacityMenu
+        menu.addItem(withTitle: "↺ ミラーの位置とサイズを初期状態に戻す", action: #selector(resetMirrorFrame), keyEquivalent: "").target = self
         menu.addItem(.separator())
         let flashItem = menu.addItem(withTitle: "✨ 更新時のフラッシュ効果", action: #selector(toggleFlash), keyEquivalent: "")
         flashItem.target = self
@@ -332,6 +398,7 @@ final class HUD: NSObject, NSWindowDelegate {
     }
 
     func windowDidMove(_ notification: Notification) {
+        if (notification.object as? NSPanel) === mirror { saveMirrorFrame(); return }
         guard (notification.object as? NSPanel) === panel else { return }
         let o = panel.frame.origin
         try? "\(o.x),\(o.y)".write(toFile: positionPath, atomically: true, encoding: .utf8)
@@ -502,16 +569,100 @@ final class HUD: NSObject, NSWindowDelegate {
             playChangeEffect(flashColor: modeChanged ? (m == "stopped" ? NSColor.systemRed : NSColor.systemOrange) : accent, base: base)
         }
         updateMirrorVisibility()
+        updateAsk()
         panel.orderFrontRegardless()
     }
+
+    // MARK: approval prompt
+
+    /// A small clickable panel above the status bar for one-click approvals asked by `dw ask`.
+    func buildAskPanel() {
+        askPanel.level = .statusBar
+        askPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        askPanel.isOpaque = false
+        askPanel.backgroundColor = .clear
+        askPanel.hasShadow = true
+        askPanel.becomesKeyOnlyIfNeeded = true
+        let root = NSView()
+        root.wantsLayer = true
+        root.layer?.cornerRadius = 12
+        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.96).cgColor
+        root.layer?.borderColor = NSColor.systemOrange.cgColor
+        root.layer?.borderWidth = 2
+        askLabel.font = NSFont.systemFont(ofSize: 16, weight: .bold)
+        askLabel.textColor = .white
+        askLabel.maximumNumberOfLines = 4
+        for (b, sel) in [(askOK, #selector(askOKTapped)), (askNo, #selector(askNoTapped))] {
+            b.bezelStyle = .rounded
+            b.controlSize = .large
+            b.font = NSFont.systemFont(ofSize: 14, weight: .bold)
+            b.target = self
+            b.action = sel
+        }
+        askOK.bezelColor = .systemBlue
+        for v in [askLabel, askOK, askNo] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(v)
+        }
+        NSLayoutConstraint.activate([
+            askLabel.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
+            askLabel.trailingAnchor.constraint(equalTo: askNo.leadingAnchor, constant: -12),
+            askLabel.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            askOK.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -14),
+            askOK.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            askOK.widthAnchor.constraint(equalToConstant: 90),
+            askNo.trailingAnchor.constraint(equalTo: askOK.leadingAnchor, constant: -8),
+            askNo.centerYAnchor.constraint(equalTo: root.centerYAnchor),
+            askNo.widthAnchor.constraint(equalToConstant: 110),
+        ])
+        askPanel.contentView = root
+    }
+
+    /// Show the pending question (if any) just above the status bar; hide it once answered or withdrawn.
+    func updateAsk() {
+        guard exists(askPath) else {
+            if askPanel.isVisible { askPanel.orderOut(nil) }
+            askID = ""; askStamp = nil
+            return
+        }
+        let stamp = mtime(askPath)
+        if stamp != askStamp {
+            askStamp = stamp
+            guard let data = FileManager.default.contents(atPath: askPath),
+                  let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
+            askID = id
+            askLabel.stringValue = "❓ " + text
+            NSSound(named: "Glass")?.play()
+        }
+        guard !askID.isEmpty else { return }
+        let bar = panel.frame
+        let w = max(bar.width, 560)
+        let h: CGFloat = 76
+        var y = bar.maxY + 8
+        if let screen = panel.screen ?? NSScreen.main, y + h > screen.visibleFrame.maxY { y = bar.minY - h - 8 }
+        let frame = NSRect(x: bar.midX - w / 2, y: y, width: w, height: h)
+        if askPanel.frame != frame { askPanel.setFrame(frame, display: true) }
+        if !askPanel.isVisible { askPanel.orderFrontRegardless() }
+    }
+
+    func answerAsk(_ answer: String) {
+        guard !askID.isEmpty else { return }
+        try? "\(askID) \(answer)".write(toFile: askAnswerPath, atomically: true, encoding: .utf8)
+        try? FileManager.default.removeItem(atPath: askPath)
+        askPanel.orderOut(nil)
+        askID = ""
+    }
+
+    @objc func askOKTapped() { answerAsk("ok") }
+    @objc func askNoTapped() { answerAsk("no") }
 
     // MARK: mirror
 
     func buildMirror() {
         guard let screen = NSScreen.main else { return }
-        let f = screen.frame
-        let w = f.width / 2, h = (f.height - 33) / 2
-        mirror.setFrame(NSRect(x: f.maxX - w, y: f.maxY - 33 - h, width: w, height: h), display: false)
+        mirror.setFrame(savedMirrorFrame(on: screen) ?? defaultMirrorFrame(on: screen), display: false)
+        mirror.delegate = self
         mirror.level = .floating
         mirror.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         mirror.isOpaque = false
@@ -520,11 +671,11 @@ final class HUD: NSObject, NSWindowDelegate {
         mirror.becomesKeyOnlyIfNeeded = false
         mirror.hidesOnDeactivate = false
 
-        let root = NSView()
+        let root = mirrorRoot
         root.wantsLayer = true
         root.layer?.cornerRadius = 10
         root.layer?.masksToBounds = true
-        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: 0.95).cgColor
+        applyMirrorOpacity()
         root.layer?.borderColor = accent.cgColor
         root.layer?.borderWidth = 2
 
@@ -564,11 +715,27 @@ final class HUD: NSObject, NSWindowDelegate {
         zoomLabel.textColor = NSColor.white.withAlphaComponent(0.85)
         updateZoomLabel()
 
-        for v in [mirrorHeader, busyLabel, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel] as [NSView] {
+        mirrorGrip.toolTip = "ドラッグでミラーを移動"
+        mirrorResize.toolTip = "ドラッグでミラーのサイズを変更"
+        mirrorResize.onResize = { [weak self] size in self?.resizeMirror(to: size) }
+        // The header labels sit inside the grip so a drag that starts on them moves the mirror too
+        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel, mirrorResize] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
+        for v in [mirrorHeader, busyLabel] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            mirrorGrip.addSubview(v)
+        }
         NSLayoutConstraint.activate([
+            mirrorGrip.topAnchor.constraint(equalTo: root.topAnchor),
+            mirrorGrip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
+            mirrorGrip.trailingAnchor.constraint(equalTo: zoomOut.leadingAnchor, constant: -6),
+            mirrorGrip.bottomAnchor.constraint(equalTo: mirrorHeader.bottomAnchor, constant: 5),
+            mirrorResize.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            mirrorResize.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            mirrorResize.widthAnchor.constraint(equalToConstant: 16),
+            mirrorResize.heightAnchor.constraint(equalToConstant: 16),
             mirrorHeader.topAnchor.constraint(equalTo: root.topAnchor, constant: 7),
             mirrorHeader.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             busyLabel.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
@@ -587,11 +754,66 @@ final class HUD: NSObject, NSWindowDelegate {
             input.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
             input.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -8),
             input.heightAnchor.constraint(equalToConstant: 28),
-            sendButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
+            sendButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             sendButton.centerYAnchor.constraint(equalTo: input.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 70),
         ])
         mirror.contentView = root
+    }
+
+    /// Top-right quarter below the menu bar: the mirror's place until the user moves it.
+    func defaultMirrorFrame(on screen: NSScreen) -> NSRect {
+        let f = screen.frame
+        let w = f.width / 2, h = (f.height - 33) / 2
+        return NSRect(x: f.maxX - w, y: f.maxY - 33 - h, width: w, height: h)
+    }
+
+    /// The frame saved by the last drag, if it still fits on a connected screen.
+    func savedMirrorFrame(on screen: NSScreen) -> NSRect? {
+        guard let s = try? String(contentsOfFile: mirrorFramePath, encoding: .utf8) else { return nil }
+        let v = s.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+        guard v.count == 4 else { return nil }
+        let r = NSRect(x: v[0], y: v[1], width: v[2], height: v[3])
+        // A display that is no longer attached would leave the mirror unreachable
+        return NSScreen.screens.contains { $0.frame.intersects(r) } ? r : nil
+    }
+
+    func saveMirrorFrame() {
+        let r = mirror.frame
+        try? "\(r.minX),\(r.minY),\(r.width),\(r.height)".write(toFile: mirrorFramePath, atomically: true, encoding: .utf8)
+    }
+
+    /// Corner drag: keep the top-left corner fixed, clamp to a usable minimum and to the screen.
+    func resizeMirror(to size: NSSize) {
+        let screen = mirror.screen ?? NSScreen.main
+        var r = mirror.frame
+        let top = r.maxY
+        r.size.width = max(360, size.width)
+        r.size.height = max(220, size.height)
+        if let f = screen?.visibleFrame {
+            r.size.width = min(r.width, f.maxX - r.minX)
+            r.size.height = min(r.height, top - f.minY)
+        }
+        r.origin.y = top - r.height
+        mirror.setFrame(r, display: true)
+        saveMirrorFrame()
+    }
+
+    @objc func resetMirrorFrame() {
+        guard let screen = NSScreen.main else { return }
+        try? FileManager.default.removeItem(atPath: mirrorFramePath)
+        mirror.setFrame(defaultMirrorFrame(on: screen), display: true)
+    }
+
+    func applyMirrorOpacity() {
+        mirrorRoot.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: mirrorOpacity).cgColor
+    }
+
+    /// ☰ → 🌫: the item's tag is the opacity in percent.
+    @objc func chooseMirrorOpacity(_ sender: NSMenuItem) {
+        mirrorOpacity = CGFloat(sender.tag) / 100
+        try? "\(mirrorOpacity)".write(toFile: mirrorOpacityPath, atomically: true, encoding: .utf8)
+        applyMirrorOpacity()
     }
 
     /// Show the mirror unless it is switched off, suspended for a click, or the real Claude window is in front.
