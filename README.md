@@ -138,6 +138,7 @@ Available skills:
 
 - [apollousa](skills/apollousa/SKILL.md)
 - [ci-hardening](skills/ci-hardening/SKILL.md)
+- [claude-skill-name-only](skills/claude-skill-name-only/SKILL.md)
 - [coderabbit-resolver](skills/coderabbit-resolver/SKILL.md)
 - [desktop-walkthrough](skills/desktop-walkthrough/SKILL.md) (also a Claude Code plugin: run `/reload-plugins` after installing)
 - [electron-release](skills/electron-release/SKILL.md)

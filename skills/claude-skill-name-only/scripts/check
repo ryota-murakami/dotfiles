@@ -1,0 +1,11 @@
+#!/bin/bash
+# check — tests for the claude-skill-name-only skill; run before saving or committing it.
+#
+# Why it exists: sync.py rewrites ~/.claude/settings.json, so its add/remove rules are pinned by
+# tests that run against a throwaway config dir. update-my-skill's save.sh runs this file whenever
+# a skill ships one.
+#
+# Usage: scripts/check   exit 0 when every test passed
+set -euo pipefail
+cd "$(dirname "$0")"
+exec python3 -I test_sync.py
