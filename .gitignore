@@ -9,6 +9,7 @@
 .bash_history
 .composer/*
 !composer.json
+.config/21st/
 .ctags
 .cups/
 .cursor
