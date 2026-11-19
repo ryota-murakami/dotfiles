@@ -9,7 +9,6 @@
 .bash_history
 .composer/*
 !composer.json
-.config/21st/
 .ctags
 .cups/
 .cursor
@@ -44,3 +43,6 @@
 .yarn/
 .zshenv
 Gemfile.lock
+
+# Type declarations Claude Code writes beside a plugin it loads from here (linked skill installs)
+skills/*/.claude-plugin/types/
