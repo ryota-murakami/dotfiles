@@ -29,21 +29,20 @@ Standard releases stop after verifying the published assets and `latest-mac.yml`
 
 ## Quick Start (macOS + Vite + electron-builder)
 
+Build macOS releases for Apple Silicon (arm64) by default. Include Intel (x64) only on explicit request. Check the resolved architecture of each DMG and ZIP target before building. A project configuration listing both architectures can override a CLI architecture flag. Verify the packaged executable with `lipo -archs` before upload.
+
 ```bash
 # 1. Build with notarization
 APPLE_KEYCHAIN_PROFILE=your-profile pnpm build:mac
 
 # 2. Rename ZIPs (GitHub converts spaces to dots)
 cp "dist/App Name-X.Y.Z-arm64-mac.zip" "dist/App-Name-X.Y.Z-arm64-mac.zip"
-cp "dist/App Name-X.Y.Z-mac.zip" "dist/App-Name-X.Y.Z-mac.zip"
 
 # 3. Create release with ALL files
 gh release create vX.Y.Z \
   dist/latest-mac.yml \
   "dist/App-Name-X.Y.Z-arm64-mac.zip" \
-  "dist/App-Name-X.Y.Z-mac.zip" \
   dist/app-name-X.Y.Z-arm64.dmg \
-  dist/app-name-X.Y.Z-x64.dmg \
   --title "vX.Y.Z" --notes "Release notes..."
 ```
 
@@ -79,9 +78,7 @@ gh release create vX.Y.Z \
    Expected files:
    - `latest-mac.yml` - Auto-update metadata
    - `App Name-X.Y.Z-arm64-mac.zip` - ARM64 update payload
-   - `App Name-X.Y.Z-mac.zip` - x64 update payload
    - `app-name-X.Y.Z-arm64.dmg` - ARM64 installer
-   - `app-name-X.Y.Z-x64.dmg` - x64 installer
 
 ### Phase 3: Prepare Release Assets
 
@@ -89,7 +86,6 @@ gh release create vX.Y.Z \
    ```bash
    # GitHub converts spaces to dots, but latest-mac.yml expects hyphens
    cp "dist/App Name-X.Y.Z-arm64-mac.zip" "dist/App-Name-X.Y.Z-arm64-mac.zip"
-   cp "dist/App Name-X.Y.Z-mac.zip" "dist/App-Name-X.Y.Z-mac.zip"
    ```
 
 6. **Verify `latest-mac.yml` URLs match renamed files**:
@@ -105,9 +101,7 @@ gh release create vX.Y.Z \
    gh release create vX.Y.Z \
      dist/latest-mac.yml \
      "dist/App-Name-X.Y.Z-arm64-mac.zip" \
-     "dist/App-Name-X.Y.Z-mac.zip" \
      dist/app-name-X.Y.Z-arm64.dmg \
-     dist/app-name-X.Y.Z-x64.dmg \
      --title "vX.Y.Z" \
      --notes "$(cat <<'EOF'
    ## What's Changed
@@ -128,7 +122,6 @@ gh release create vX.Y.Z \
 |------|---------|-----------|
 | `latest-mac.yml` | Version + SHA512 hashes | "No updates available" |
 | `*-arm64-mac.zip` | ARM64 update payload | Download fails on M1/M2/M3 |
-| `*-mac.zip` | x64 update payload | Download fails on Intel |
 | `*.dmg` | Manual download | No manual install option |
 
 ## Common Mistakes
@@ -170,9 +163,9 @@ APPLE_KEYCHAIN_PROFILE=your-profile pnpm build:mac
 mac:
   target:
     - target: dmg
-      arch: [arm64, x64]
+      arch: [arm64]
     - target: zip
-      arch: [arm64, x64]
+      arch: [arm64]
   notarize: true
   hardenedRuntime: true
 
@@ -185,5 +178,5 @@ publish:
 ## Success Criteria
 
 - [ ] Build completes with "notarization successful"
-- [ ] All 5 files uploaded to GitHub Release
+- [ ] All 3 required arm64 release files uploaded to GitHub Release
 - [ ] ZIP filenames match `latest-mac.yml` URLs exactly
