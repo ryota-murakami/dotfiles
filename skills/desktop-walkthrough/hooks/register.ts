@@ -190,8 +190,14 @@ async function writeState($: EngineInterface) {
 /** One line describing a tool call: the Bash description when the model gave one. */
 function describeTool(tool: string, input: Record<string, unknown>): string {
   const pick = (k: string) => (typeof input[k] === 'string' ? (input[k] as string) : undefined)
-  const detail = pick('description') ?? pick('file_path') ?? pick('pattern') ?? pick('url') ?? pick('query') ?? pick('name_path_pattern') ?? pick('relative_path') ?? ''
-  return `${tool}${detail ? `: ${detail}` : ''}`.slice(0, 300)
+  // Bash: the description and the whole command, never shortened, so the user can follow every step
+  if (tool === 'Bash') {
+    const desc = pick('description')
+    const command = pick('command') ?? ''
+    return `${tool}${desc ? `: ${desc}` : ''}\n$ ${command}${input.run_in_background === true ? '\n(background)' : ''}`
+  }
+  const detail = pick('description') ?? pick('file_path') ?? pick('pattern') ?? pick('url') ?? pick('query') ?? pick('name_path_pattern') ?? pick('relative_path') ?? pick('prompt') ?? ''
+  return `${tool}${detail ? `: ${detail}` : ''}`
 }
 
 /** Read the bytes appended to a HUD → mod file since the last poll, as parsed JSON lines. */

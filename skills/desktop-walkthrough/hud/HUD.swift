@@ -5,7 +5,7 @@
 // - Status bar: translucent, click-through, shows the current step; drag ⠿ to move, ‖ to resize
 // - ☰ menu: ⏸ takeover (pause GUI automation), ⏹ stop (abort the turn), 🪞 mirror, ✨ flash, ✕ quit
 // - 🪞 Mirror: conversation view (top-right quarter until dragged by its header; resized from the
-//   bottom-right corner; background opacity in the ☰ menu) rendered from the hud-bridge mod's feed, with a
+//   any edge or corner; background opacity in the ☰ menu) rendered from the hud-bridge mod's feed, with a
 //   message box whose text the mod delivers into the session (no Space switch, no typing into a terminal)
 //
 // The status bar never takes focus. Clicking the mirror makes the HUD the frontmost app so dictation
@@ -31,9 +31,13 @@ let zoomPath = "\(stateDir)/mirror-zoom"
 /// Mirror frame chosen by dragging ("x,y,width,height" in screen points) and background opacity (0.2–1.0).
 let mirrorFramePath = "\(stateDir)/mirror-frame"
 let mirrorOpacityPath = "\(stateDir)/mirror-opacity"
-/// `dw ask` writes {"id","text"} here; the HUD shows it with OK / キャンセル and answers in askAnswerPath ("<id> ok|no").
+/// Present when the user turned off folding of long tool entries (☰ menu); folding is on by default.
+let foldOffPath = "\(stateDir)/mirror-fold-off"
+/// `dw ask` / `dw wait-user` write {"id","text"[,"ok","no","icon"]} here; the HUD shows it with OK / キャンセル and answers in askAnswerPath ("<id> ok|no").
 let askPath = "\(stateDir)/ask.json"
 let askAnswerPath = "\(stateDir)/ask-answer"
+/// Pid of the `dw` process currently waiting for the answer (absent or dead = nobody waiting).
+let askWaiterPath = "\(stateDir)/ask-waiter"
 let feedPath = "\(bridgeDir)/feed.jsonl"
 let statePath = "\(bridgeDir)/state.json"
 let inboxPath = "\(bridgeDir)/inbox.jsonl"
@@ -143,22 +147,39 @@ final class MirrorGrip: NSView {
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 
-/// Bottom-right corner of the mirror: drag to resize it while its top-left corner stays put.
-final class CornerResizeHandle: NSView {
-    var onResize: ((NSSize) -> Void)?
+/// One edge or corner of the mirror: dragging it moves only that side, like a normal window border.
+/// `edges` uses NSRectEdge-style flags: minX (left), maxX (right), minY (bottom), maxY (top).
+final class EdgeResizeHandle: NSView {
+    struct Edges: OptionSet { let rawValue: Int
+        static let left = Edges(rawValue: 1), right = Edges(rawValue: 2), bottom = Edges(rawValue: 4), top = Edges(rawValue: 8) }
+    let edges: Edges
+    var onResize: ((NSRect) -> Void)?
     private var start = NSPoint.zero
-    private var startSize = NSSize.zero
+    private var startFrame = NSRect.zero
+    init(_ edges: Edges) { self.edges = edges; super.init(frame: .zero) }
+    required init?(coder: NSCoder) { fatalError() }
     override func mouseDown(with event: NSEvent) {
         start = NSEvent.mouseLocation
-        startSize = window?.frame.size ?? .zero
+        startFrame = window?.frame ?? .zero
     }
     override func mouseDragged(with event: NSEvent) {
         let p = NSEvent.mouseLocation
-        // Screen y grows upward, so dragging down (smaller y) makes the mirror taller
-        onResize?(NSSize(width: startSize.width + p.x - start.x, height: startSize.height + start.y - p.y))
+        let dx = p.x - start.x, dy = p.y - start.y
+        var r = startFrame
+        if edges.contains(.left) { r.origin.x += dx; r.size.width -= dx }
+        if edges.contains(.right) { r.size.width += dx }
+        if edges.contains(.bottom) { r.origin.y += dy; r.size.height -= dy }
+        if edges.contains(.top) { r.size.height += dy }
+        onResize?(r)
     }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .crosshair) }
+    override func resetCursorRects() {
+        let horizontal = edges.contains(.left) || edges.contains(.right)
+        let vertical = edges.contains(.top) || edges.contains(.bottom)
+        addCursorRect(bounds, cursor: horizontal && vertical ? .crosshair : (horizontal ? .resizeLeftRight : .resizeUpDown))
+    }
     override func draw(_ dirtyRect: NSRect) {
+        // Only the bottom-right corner shows grip lines; the other handles are invisible borders
+        guard edges == [.right, .bottom] else { return }
         NSColor.white.withAlphaComponent(0.55).setStroke()
         let path = NSBezierPath()
         path.lineWidth = 1.5
@@ -187,7 +208,7 @@ final class ResizeHandle: NSView {
     }
 }
 
-final class HUD: NSObject, NSWindowDelegate {
+final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     // Status bar
     let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let box = NSView()
@@ -208,7 +229,10 @@ final class HUD: NSObject, NSWindowDelegate {
     let mirrorHeader = NSTextField(labelWithString: "⠿ 🪞 Claude Code")
     let mirrorRoot = NSView()
     let mirrorGrip = MirrorGrip()
-    let mirrorResize = CornerResizeHandle()
+    let mirrorHandles: [EdgeResizeHandle] = [
+        EdgeResizeHandle([.left]), EdgeResizeHandle([.right]), EdgeResizeHandle([.top]), EdgeResizeHandle([.bottom]),
+        EdgeResizeHandle([.left, .top]), EdgeResizeHandle([.right, .top]), EdgeResizeHandle([.left, .bottom]), EdgeResizeHandle([.right, .bottom]),
+    ]
     var mirrorOpacity: CGFloat = {
         if let s = try? String(contentsOfFile: mirrorOpacityPath, encoding: .utf8), let v = Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return CGFloat(v) }
         return 0.95
@@ -222,6 +246,8 @@ final class HUD: NSObject, NSWindowDelegate {
     let zoomOut = NSButton(title: "－", target: nil, action: nil)
     let zoomLabel = NSTextField(labelWithString: "")
     var feedStamp: Date?
+    /// Keys of long tool entries the user expanded (like an open <details>), kept while the HUD runs.
+    var expandedEntries = Set<String>()
     var zoom: CGFloat = {
         if let s = try? String(contentsOfFile: zoomPath, encoding: .utf8), let v = Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return CGFloat(v) }
         return 1.0
@@ -378,6 +404,9 @@ final class HUD: NSObject, NSWindowDelegate {
         for (title, action) in items {
             menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self
         }
+        let foldItem = menu.addItem(withTitle: "📁 長いコマンドを折りたたむ", action: #selector(toggleFold), keyEquivalent: "")
+        foldItem.target = self
+        foldItem.state = exists(foldOffPath) ? .off : .on
         let opacityItem = menu.addItem(withTitle: "🌫 ミラー背景の不透明度", action: nil, keyEquivalent: "")
         let opacityMenu = NSMenu()
         for percent in [100, 95, 90, 75, 60, 45, 30] {
@@ -610,10 +639,10 @@ final class HUD: NSObject, NSWindowDelegate {
             askLabel.centerYAnchor.constraint(equalTo: root.centerYAnchor),
             askOK.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -14),
             askOK.centerYAnchor.constraint(equalTo: root.centerYAnchor),
-            askOK.widthAnchor.constraint(equalToConstant: 90),
+            askOK.widthAnchor.constraint(greaterThanOrEqualToConstant: 90),
             askNo.trailingAnchor.constraint(equalTo: askOK.leadingAnchor, constant: -8),
             askNo.centerYAnchor.constraint(equalTo: root.centerYAnchor),
-            askNo.widthAnchor.constraint(equalToConstant: 110),
+            askNo.widthAnchor.constraint(greaterThanOrEqualToConstant: 110),
         ])
         askPanel.contentView = root
     }
@@ -632,7 +661,10 @@ final class HUD: NSObject, NSWindowDelegate {
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
             askID = id
-            askLabel.stringValue = "❓ " + text
+            // dw ask uses OK / キャンセル; dw wait-user asks for a hand-off with its own labels
+            askOK.title = (obj["ok"] as? String) ?? "OK"
+            askNo.title = (obj["no"] as? String) ?? "キャンセル"
+            askLabel.stringValue = ((obj["icon"] as? String) ?? "❓") + " " + text
             NSSound(named: "Glass")?.play()
         }
         guard !askID.isEmpty else { return }
@@ -649,9 +681,24 @@ final class HUD: NSObject, NSWindowDelegate {
     func answerAsk(_ answer: String) {
         guard !askID.isEmpty else { return }
         try? "\(askID) \(answer)".write(toFile: askAnswerPath, atomically: true, encoding: .utf8)
+        // Nobody is waiting (the agent's bounded wait ended and its turn is over): deliver the answer
+        // as a message, the same way the mirror's message box does, so the click is never lost
+        if !askWaiterAlive() {
+            let label = answer == "ok" ? askOK.title : askNo.title
+            let question = askLabel.stringValue
+            appendLine(inboxPath, ["text": "[HUD] \(question) → 「\(label)」を押しました"])
+            if isStopOn() { setStop(false) }
+        }
         try? FileManager.default.removeItem(atPath: askPath)
         askPanel.orderOut(nil)
         askID = ""
+    }
+
+    /// True while a `dw ask` / `dw wait-user` process is polling for the answer (its pid is in ask-waiter).
+    func askWaiterAlive() -> Bool {
+        let text = ((try? String(contentsOfFile: askWaiterPath, encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let pid = pid_t(text), pid > 0 else { return false }
+        return kill(pid, 0) == 0
     }
 
     @objc func askOKTapped() { answerAsk("ok") }
@@ -683,6 +730,7 @@ final class HUD: NSObject, NSWindowDelegate {
         mirrorHeader.textColor = NSColor.white.withAlphaComponent(0.85)
         busyLabel.font = NSFont.systemFont(ofSize: 12, weight: .bold)
 
+        textView.delegate = self
         textView.isEditable = false
         textView.isSelectable = true
         textView.drawsBackground = false
@@ -716,10 +764,10 @@ final class HUD: NSObject, NSWindowDelegate {
         updateZoomLabel()
 
         mirrorGrip.toolTip = "ドラッグでミラーを移動"
-        mirrorResize.toolTip = "ドラッグでミラーのサイズを変更"
-        mirrorResize.onResize = { [weak self] size in self?.resizeMirror(to: size) }
+        // Invisible 6pt borders on every side and 14pt corners: drag any of them to resize
+        for h in mirrorHandles { h.onResize = { [weak self] r in self?.resizeMirror(to: r) } }
         // The header labels sit inside the grip so a drag that starts on them moves the mirror too
-        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel, mirrorResize] as [NSView] {
+        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -732,10 +780,6 @@ final class HUD: NSObject, NSWindowDelegate {
             mirrorGrip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             mirrorGrip.trailingAnchor.constraint(equalTo: zoomOut.leadingAnchor, constant: -6),
             mirrorGrip.bottomAnchor.constraint(equalTo: mirrorHeader.bottomAnchor, constant: 5),
-            mirrorResize.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            mirrorResize.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            mirrorResize.widthAnchor.constraint(equalToConstant: 16),
-            mirrorResize.heightAnchor.constraint(equalToConstant: 16),
             mirrorHeader.topAnchor.constraint(equalTo: root.topAnchor, constant: 7),
             mirrorHeader.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             busyLabel.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
@@ -758,7 +802,34 @@ final class HUD: NSObject, NSWindowDelegate {
             sendButton.centerYAnchor.constraint(equalTo: input.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 70),
         ])
+        layoutMirrorHandles(in: root)
         mirror.contentView = root
+    }
+
+    /// Pin the resize handles to the mirror's borders; added last so they sit above the content.
+    func layoutMirrorHandles(in root: NSView) {
+        let edge: CGFloat = 6, corner: CGFloat = 14
+        for h in mirrorHandles {
+            h.translatesAutoresizingMaskIntoConstraints = false
+            root.addSubview(h)
+            let e = h.edges
+            var c: [NSLayoutConstraint] = []
+            let isCorner = (e.contains(.left) || e.contains(.right)) && (e.contains(.top) || e.contains(.bottom))
+            if e.contains(.left) { c.append(h.leadingAnchor.constraint(equalTo: root.leadingAnchor)) }
+            if e.contains(.right) { c.append(h.trailingAnchor.constraint(equalTo: root.trailingAnchor)) }
+            if e.contains(.top) { c.append(h.topAnchor.constraint(equalTo: root.topAnchor)) }
+            if e.contains(.bottom) { c.append(h.bottomAnchor.constraint(equalTo: root.bottomAnchor)) }
+            if isCorner {
+                c += [h.widthAnchor.constraint(equalToConstant: corner), h.heightAnchor.constraint(equalToConstant: corner)]
+            } else if e.contains(.left) || e.contains(.right) {
+                c += [h.widthAnchor.constraint(equalToConstant: edge), h.topAnchor.constraint(equalTo: root.topAnchor, constant: corner),
+                      h.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -corner)]
+            } else {
+                c += [h.heightAnchor.constraint(equalToConstant: edge), h.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: corner),
+                      h.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -corner)]
+            }
+            NSLayoutConstraint.activate(c)
+        }
     }
 
     /// Top-right quarter below the menu bar: the mirror's place until the user moves it.
@@ -783,18 +854,14 @@ final class HUD: NSObject, NSWindowDelegate {
         try? "\(r.minX),\(r.minY),\(r.width),\(r.height)".write(toFile: mirrorFramePath, atomically: true, encoding: .utf8)
     }
 
-    /// Corner drag: keep the top-left corner fixed, clamp to a usable minimum and to the screen.
-    func resizeMirror(to size: NSSize) {
-        let screen = mirror.screen ?? NSScreen.main
-        var r = mirror.frame
-        let top = r.maxY
-        r.size.width = max(360, size.width)
-        r.size.height = max(220, size.height)
-        if let f = screen?.visibleFrame {
-            r.size.width = min(r.width, f.maxX - r.minX)
-            r.size.height = min(r.height, top - f.minY)
-        }
-        r.origin.y = top - r.height
+    /// Edge or corner drag: apply the dragged frame, keeping the side opposite the drag in place,
+    /// with a usable minimum size and inside the visible screen area.
+    func resizeMirror(to proposed: NSRect) {
+        var r = proposed
+        let old = mirror.frame
+        if r.width < 360 { if r.minX != old.minX { r.origin.x = old.maxX - 360 }; r.size.width = 360 }
+        if r.height < 220 { if r.minY != old.minY { r.origin.y = old.maxY - 220 }; r.size.height = 220 }
+        if let f = (mirror.screen ?? NSScreen.main)?.visibleFrame { r = r.intersection(f).isNull ? old : r.intersection(f) }
         mirror.setFrame(r, display: true)
         saveMirrorFrame()
     }
@@ -832,12 +899,14 @@ final class HUD: NSObject, NSWindowDelegate {
     }
 
     /// Re-render the conversation when the mod rewrote the feed (or the zoom changed).
-    func reloadFeed(force: Bool) {
+    /// `keepScroll` keeps the reader's position (used when an entry is folded or unfolded).
+    func reloadFeed(force: Bool, keepScroll: Bool = false) {
         let stamp = mtime(feedPath)
         guard force || stamp != feedStamp else { return }
         feedStamp = stamp
         guard let data = FileManager.default.contents(atPath: feedPath), let text = String(data: data, encoding: .utf8) else { return }
         let size = 13 * zoom
+        let fold = !exists(foldOffPath)
         let out = NSMutableAttributedString()
         let para = NSMutableParagraphStyle()
         para.paragraphSpacing = 6 * zoom
@@ -854,11 +923,44 @@ final class HUD: NSObject, NSWindowDelegate {
                 default: return ("HUD ", NSColor.systemOrange, NSColor.systemOrange, NSFont.systemFont(ofSize: size, weight: .semibold))
                 }
             }()
+            let lines = body.components(separatedBy: "\n")
+            let isLong = role == "tool" && (lines.count > 3 || body.count > 280)
+            // Long tool entries behave like <details>: a one-line summary that opens on click
+            if isLong && fold {
+                let key = "\((obj["ts"] as? NSNumber)?.stringValue ?? "")-\(body.hashValue)"
+                let open = expandedEntries.contains(key)
+                let link = URL(string: "dwfold:" + (key.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? key))!
+                let marker = open ? "  ▼ " : "  ▶ "
+                let summary = open ? body : (lines.first ?? "") + "  … (\(lines.count)行・\(body.count)文字)"
+                out.append(NSAttributedString(string: marker, attributes: [.font: NSFont.systemFont(ofSize: size * 0.85, weight: .bold), .foregroundColor: accent, .link: link, .paragraphStyle: para]))
+                out.append(NSAttributedString(string: summary + "\n", attributes: [.font: bodyFont, .foregroundColor: bodyColor, .paragraphStyle: para, .link: link]))
+                continue
+            }
             out.append(NSAttributedString(string: tag, attributes: [.font: NSFont.systemFont(ofSize: size * 0.85, weight: .bold), .foregroundColor: tagColor, .paragraphStyle: para]))
             out.append(NSAttributedString(string: body + "\n", attributes: [.font: bodyFont, .foregroundColor: bodyColor, .paragraphStyle: para]))
         }
+        // Links look like the surrounding text, not blue underlined web links
+        textView.linkTextAttributes = [.cursor: NSCursor.pointingHand]
+        let visible = scroll.contentView.bounds.origin
         textView.textStorage?.setAttributedString(out)
-        textView.scrollToEndOfDocument(nil)
+        if keepScroll { scroll.contentView.scroll(to: visible); scroll.reflectScrolledClipView(scroll.contentView) }
+        else { textView.scrollToEndOfDocument(nil) }
+    }
+
+    /// Click on a folded entry: open or close it, keeping the scroll position.
+    func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+        guard let url = link as? URL, url.scheme == "dwfold" else { return false }
+        let key = url.absoluteString.dropFirst("dwfold:".count).removingPercentEncoding ?? ""
+        if expandedEntries.contains(key) { expandedEntries.remove(key) } else { expandedEntries.insert(key) }
+        reloadFeed(force: true, keepScroll: true)
+        return true
+    }
+
+    /// ☰ → 📁: fold long tool entries (default) or always show them in full.
+    @objc func toggleFold() {
+        if exists(foldOffPath) { try? FileManager.default.removeItem(atPath: foldOffPath) }
+        else { FileManager.default.createFile(atPath: foldOffPath, contents: Data()) }
+        reloadFeed(force: true, keepScroll: true)
     }
 
     /// While the message box is being edited (focused, or holding a draft), keep the agent's GUI steps waiting.

@@ -55,6 +55,9 @@ Each row is something that actually went wrong, why, and the rule or helper that
 - Reach the address bar through a skeleton snapshot of that window; the page tree can be huge.
 - Use an incognito window for a second account, and expect password-manager prompts over the page: dismiss them without saving demo accounts.
 - A click that silently did nothing often opened a context menu or a find bar: look before retrying.
+- On this Mac, DevTools opens with **Ctrl+Space** (the user's shortcut). ⌥⌘J and View → Developer → JavaScript Console may show nothing visible here.
+- Very long pages (a full tutorial article) make accessibility queries (`find`, `list-windows`) time out and stall: drive such pages with keys and screenshots, and check the front app with `osascript` instead.
+- The console refuses pastes until `allow pasting` is typed; switch the input method to ASCII first.
 
 **Terminal.app**
 - `dw term` works by window id through Terminal's scripting interface, so it does not depend on focus or the visible desktop. Other terminal apps need focus-verified paste instead.

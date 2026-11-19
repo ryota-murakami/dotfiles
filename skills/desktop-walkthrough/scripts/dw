@@ -14,6 +14,8 @@
 #   say "<what and why>"           show the current action in the HUD (honors pause / stop first)
 #   gate                           only the pause / stop check
 #   ask "<question>" | ask --wait  one-click approval on the HUD: OK (exit 0) / キャンセル (1) / no answer yet (75)
+#   wait-user "<what to do>" | wait-user --wait   the user does a step themselves (login, approval):
+#                                  HUD shows 完了しました (exit 0) / できない・中断 (1) / no answer yet (75)
 #   focus-chat                     bring the agent's chat (Terminal tab) to the front for a longer question
 #   ad <agent-desktop args>        agent-desktop bound to the walkthrough session, after the gate
 #   windows [App]                  list windows: id, app, focused, visible, title
@@ -101,7 +103,8 @@ cmd_step() { printf '%s' "$*" > "$DW_HOME/step"; cmd_say "$*"; }
 # the question on screen, and "dw ask --wait" keeps waiting for the same question.
 cmd_ask() {
   local text="$*" id waited=0 limit="${DW_ASK_WAIT:-90}" ans
-  [ -n "$text" ] || die 'usage: dw ask "<question>" | dw ask --wait'
+  local ok_label="${DW_ASK_OK:-OK}" no_label="${DW_ASK_NO:-キャンセル}" icon="${DW_ASK_ICON:-❓}" kind="${DW_ASK_KIND:-ask}"
+  [ -n "$text" ] || die "usage: dw $kind \"<text>\" | dw $kind --wait"
   stop_on && { echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; }
   hud_alive || { echo "❓ the HUD is not running: ask in the chat instead" >&2; exit 3; }
   if [ "$text" = "--wait" ]; then
@@ -110,21 +113,29 @@ cmd_ask() {
   else
     id="$(date +%s)-$$"
     rm -f "$DW_HOME/ask-answer"
-    jq -n --arg id "$id" --arg text "$text" '{id: $id, text: $text}' > "$DW_HOME/ask.json"
-    printf '%s\n' "❓ 確認待ち：${text}（HUDの OK／キャンセルで答えてください）" > "$DW_HOME/status.txt"
-    printf '%s %s\n' "$(date +%H:%M:%S)" "ask: $text" >> "$DW_HOME/narration.log"
+    jq -n --arg id "$id" --arg text "$text" --arg ok "$ok_label" --arg no "$no_label" --arg icon "$icon" \
+      '{id: $id, text: $text, ok: $ok, no: $no, icon: $icon}' > "$DW_HOME/ask.json"
+    if [ "$kind" = ask ]; then
+      printf '%s\n' "${icon} 確認待ち：${text}（HUDの ${ok_label}／${no_label} で答えてください）" > "$DW_HOME/status.txt"
+    else
+      printf '%s\n' "${icon} あなたの番：${text}（終わったらHUDの「${ok_label}」）" > "$DW_HOME/status.txt"
+    fi
+    printf '%s %s\n' "$(date +%H:%M:%S)" "$kind: $text" >> "$DW_HOME/narration.log"
   fi
+  # Tell the HUD someone is waiting; once this process is gone, a click is delivered as a chat message
+  printf '%s' "$$" > "$DW_HOME/ask-waiter"
+  trap 'rm -f "$DW_HOME/ask-waiter"' EXIT
   while :; do
     ans=$(cat "$DW_HOME/ask-answer" 2>/dev/null)
     if [ "${ans%% *}" = "$id" ]; then
       rm -f "$DW_HOME/ask-answer"
-      if [ "${ans##* }" = ok ]; then echo "✅ OK: the user approved"; exit 0; fi
-      echo "❌ キャンセル: the user declined"; exit 1
+      if [ "${ans##* }" = ok ]; then echo "✅ ${ok_label}: the user answered yes / finished"; exit 0; fi
+      echo "❌ ${no_label}: the user declined / could not do it: ask in the chat what happened"; exit 1
     fi
     # A typed message or ⏹ wins over the pending question
     if stop_on; then rm -f "$DW_HOME/ask.json"; echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; fi
     hud_alive || { echo "❓ the HUD closed before an answer: ask in the chat instead" >&2; exit 3; }
-    [ "$waited" -ge $((limit * 2)) ] && { echo "⏳ no answer after ${limit}s (the question stays on the HUD): run 'dw ask --wait' to keep waiting" >&2; exit 75; }
+    [ "$waited" -ge $((limit * 2)) ] && { echo "⏳ no answer after ${limit}s (the question stays on the HUD; a later click arrives as a chat message): run 'dw $kind --wait' to keep waiting, or end the turn" >&2; exit 75; }
     sleep 0.5; waited=$((waited + 1))
   done
 }
@@ -168,7 +179,13 @@ windows_json() { ad list-windows 2>/dev/null | jq -c '[.data[]? | select(.bounds
 
 # True when the given window id (w-N) or app name owns the focused window right now
 is_focused() {
-  windows_json | jq -e --arg t "$1" '[.[] | select(.is_focused == true and (.id == $t or .app_name == $t))] | length > 0' >/dev/null
+  # The window inventory is occasionally incomplete while an app is busy: ask twice before refusing
+  local i
+  for i in 1 2; do
+    windows_json | jq -e --arg t "$1" '[.[] | select(.is_focused == true and (.id == $t or .app_name == $t))] | length > 0' >/dev/null && return 0
+    sleep 0.3
+  done
+  return 1
 }
 
 focused_brief() { windows_json | jq -r '[.[] | select(.is_focused == true)][0] | "\(.id // "none") \(.app_name // "")"'; }
@@ -494,6 +511,8 @@ case "${1:-}" in
   say)      shift; cmd_say "$*" ;;
   gate)     gate ;;
   ask)      shift; cmd_ask "$@" ;;
+  wait-user) shift; DW_ASK_KIND=wait-user DW_ASK_OK="${DW_ASK_OK:-完了しました}" DW_ASK_NO="${DW_ASK_NO:-できない・中断}" \
+               DW_ASK_ICON="${DW_ASK_ICON:-🙋}" DW_ASK_WAIT="${DW_ASK_WAIT:-100}" cmd_ask "$@" ;;
   focus-chat) cmd_focus_chat ;;
   ad)       shift; gate; note_owner; ensure_hud; ad "$@" ;;
   windows)  shift; cmd_windows "${1:-}" ;;
