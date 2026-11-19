@@ -9,7 +9,7 @@ argument-hint: "[skill name ... | status]"
 
 # Update My Skill
 
-Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public GitHub repo) and are installed with `npx skills add ~/dotfiles/skills --skill <name> -g -y`, which copies them to `~/.agents/skills/<name>` and links `~/.claude/skills/<name>`. Edits happen in either place; this skill brings them back into dotfiles and commits.
+Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public GitHub repo) and are installed with `npx skills add ~/dotfiles/skills --skill <name> -g -y`, which copies them to `~/.agents/skills/<name>` and links `~/.claude/skills/<name>`. A skill under active development may instead be a link: `~/.agents/skills/<name>` pointing at the dotfiles folder, so edits are live. Edits happen in either place; this skill brings them back into dotfiles and commits.
 
 `SAVE=~/.claude/skills/update-my-skill/scripts/save.sh`
 
@@ -19,12 +19,14 @@ Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public G
 2. **Save each one**: `$SAVE <name> [SOURCE_DIR]` (pass `SOURCE_DIR` when the edited copy is somewhere other than the agent homes). Act on its last line:
    - `SAVED`: the installed copy overwrote the dotfiles copy.
    - `DOTFILES`: the edit was made in dotfiles; commit it, then refresh the install (step 6).
+   - `LINKED`: the install is a link to the dotfiles folder; commit it, with no copy and no refresh.
    - `UNCHANGED`: both copies match; commit only if git still shows changes for the skill.
    - `CONFLICT` (exit 3): both copies changed differently since the last commit. Nothing was copied. Show the diff and ask which side to keep; never merge by guessing.
+   - `CHECK FAILED` (exit 4): the skill's own `scripts/check` failed (its output is above). Fix the skill and save again; commit only after a passing run.
 3. **Review before committing.** Read `git -C ~/dotfiles diff -- skills/<name>` (and `git status` for new files). Stop and ask if `save.sh` printed a possible secret or address, or if the diff holds credentials, personal data or generated artifacts (built binaries, logs, caches). The repo is public.
 4. **New skill**: add `- [<name>](skills/<name>/SKILL.md)` to the "Available skills" list in `~/dotfiles/README.md`, in alphabetical order.
 5. **Commit only what belongs to the skill.** `git add -- skills/<name>` (plus `README.md` only when every change in it is this skill's list line; otherwise ask). Never stage the user's other changes. One commit per skill, with the message rules below.
-6. **Refresh the install** when the dotfiles copy is newer than the installed one (`DOTFILES`, or a conflict resolved toward dotfiles), or when the skill is new: `DISABLE_TELEMETRY=1 DO_NOT_TRACK=1 npx --yes skills add ~/dotfiles/skills --skill <name> -g -y`. If the skill folder has `.claude-plugin/`, tell the user to run `/reload-plugins`.
+6. **Refresh the install** when the dotfiles copy is newer than the installed one (`DOTFILES`, or a conflict resolved toward dotfiles), or when the skill is new: `DISABLE_TELEMETRY=1 DO_NOT_TRACK=1 npx --yes skills add ~/dotfiles/skills --skill <name> -g -y`. Skip it for `LINKED`: that command would replace the link with a copy. If the skill folder has `.claude-plugin/`, tell the user to run `/reload-plugins`.
 7. **Do not push.** Report the commit hash and subject, and offer to push (`git -C ~/dotfiles push`) as a separate step the user approves.
 
 ## Commit message rules (strict)

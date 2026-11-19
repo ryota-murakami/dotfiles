@@ -11,10 +11,12 @@
 #   save.sh <name> [SOURCE_DIR]    save one skill; SOURCE_DIR defaults to its installed copy
 #
 # Result line (last line of output) and exit status:
-#   SAVED      0  installed copy was copied over dotfiles
-#   DOTFILES   0  only the dotfiles copy was edited: commit it, then refresh the install
-#   UNCHANGED  0  installed copy and dotfiles copy are the same (commit if git still shows changes)
-#   CONFLICT   3  both copies were edited differently since HEAD: nothing was copied
+#   SAVED         0  installed copy was copied over dotfiles
+#   DOTFILES      0  only the dotfiles copy was edited: commit it, then refresh the install
+#   LINKED        0  the install is a link to the dotfiles folder: commit it; nothing to copy or refresh
+#   UNCHANGED     0  installed copy and dotfiles copy are the same (commit if git still shows changes)
+#   CONFLICT      3  both copies were edited differently since HEAD: nothing was copied
+#   CHECK FAILED  4  the skill's own scripts/check failed: fix the skill before committing
 set -euo pipefail
 
 DOT="${DOTFILES_DIR:-$HOME/dotfiles}"
@@ -30,6 +32,20 @@ installed_dir() {
   for c in "$HOME/.claude/skills/$1" "$HOME/.agents/skills/$1" "$HOME/.codex/skills/$1" "$HOME/.cursor/skills/$1"; do
     [ -f "$c/SKILL.md" ] && { (cd "$c" && pwd -P); return; }
   done
+}
+
+# Print the result line, after the skill's own static checks (scripts/check) when it ships them,
+# so a skill with a known class of mechanical bugs cannot be committed with one
+finish() {
+  local result="$1" check="$SKILLS/$2/scripts/check"
+  if [ -x "$check" ]; then
+    echo "running $check"
+    if ! "$check"; then
+      echo "CHECK FAILED"
+      return 4
+    fi
+  fi
+  echo "$result"
 }
 
 # True when two skill folders have the same content (ignoring the excluded files)
@@ -73,16 +89,16 @@ cmd_save() {
   src=$(cd "$src" && pwd -P)
   mkdir -p "$SKILLS"
 
-  # Editing dotfiles in place: nothing to copy
+  # Linked install (or editing dotfiles in place): nothing to copy, nothing to refresh
   if [ -d "$dest" ] && [ "$src" = "$(cd "$dest" && pwd -P)" ]; then
-    git -C "$DOT" status --short -- "skills/$name"; echo "DOTFILES"; return 0
+    git -C "$DOT" status --short -- "skills/$name"; finish LINKED "$name"; return
   fi
 
   if [ -d "$dest" ] && ! same_tree "$src" "$dest"; then
     head=$(head_tree "$name")
     if same_tree "$src" "$head"; then
       # Installed copy is still the committed one: the edit was made in dotfiles
-      git -C "$DOT" status --short -- "skills/$name"; echo "DOTFILES"; return 0
+      git -C "$DOT" status --short -- "skills/$name"; finish DOTFILES "$name"; return
     fi
     # A skill never committed has no HEAD to compare with: copy when the installed side is the newer one, otherwise ask
     if [ -z "$(ls -A "$head")" ] && [ "$(newest "$src")" -ge "$(newest "$dest")" ]; then
@@ -96,7 +112,7 @@ cmd_save() {
   fi
 
   if [ -d "$dest" ] && same_tree "$src" "$dest"; then
-    git -C "$DOT" status --short -- "skills/$name"; echo "UNCHANGED"; return 0
+    git -C "$DOT" status --short -- "skills/$name"; finish UNCHANGED "$name"; return
   fi
 
   rsync -a --checksum --delete "${EXCLUDES[@]}" "$src/" "$dest/"
@@ -104,7 +120,7 @@ cmd_save() {
   grep -rInE '(sk-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{20,}|github_pat_|AKIA[0-9A-Z]{16}|xox[bpa]-|-----BEGIN [A-Z ]*PRIVATE KEY|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})' "$dest" \
     | grep -v '@example\.' | sed 's/^/⚠ possible secret or address: /' | head -20 || true
   git -C "$DOT" status --short -- "skills/$name"
-  echo "SAVED"
+  finish SAVED "$name"
 }
 
 case "${1:-}" in
