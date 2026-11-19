@@ -11,8 +11,8 @@
 #   end                            quit the HUD, end the agent-desktop session, clear flags
 #   clear                          end + close every idle walkthrough terminal (what /desktop-walkthrough clear runs)
 #   step "<name>"                  set the step name shown as a prefix in the HUD
-#   say "<what and why>"           show the current action in the HUD (honors pause / stop first)
-#   gate                           only the pause / stop check
+#   say "<what and why>"           show the current action in the HUD (honors stop first; waits while the user types)
+#   gate                           only the stop / typing check
 #   ask "<question>" | ask --wait  one-click approval on the HUD: OK (exit 0) / キャンセル (1) / no answer yet (75)
 #   wait-user "<what to do>" | wait-user --wait   the user does a step themselves (login, approval):
 #                                  HUD shows 完了しました (exit 0) / できない・中断 (1) / no answer yet (75)
@@ -49,17 +49,17 @@ ad() {
 hud_alive() { local pid; pid=$(cat "$DW_HOME/hud.pid" 2>/dev/null); [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; }
 stop_on() { [ "$(cat "$BRIDGE/stop" 2>/dev/null)" = on ]; }
 
-# Honor the HUD before acting: ⏹ aborts (exit 130), ⏸ or a message being typed waits.
-# The wait is bounded so a tool call never hangs the session: exit 75 means "still paused".
+# Honor the HUD before acting: stop aborts (exit 130), a message being typed in the HUD waits.
+# The wait is bounded so a tool call never hangs the session: exit 75 means "still typing".
 gate() {
-  local waited=0 limit="${DW_PAUSE_WAIT:-100}"
+  local waited=0 limit="${DW_GATE_WAIT:-100}"
   if stop_on; then echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; fi
-  # Flags left by a HUD that is gone are stale, so only a live HUD can pause
-  while hud_alive && { [ -f "$DW_HOME/paused" ] || [ -f "$DW_HOME/typing" ]; }; do
-    [ "$waited" = 0 ] && echo "⏸ paused by the user: waiting" >&2
+  # A flag left by a HUD that is gone is stale, so only a live HUD can make the agent wait
+  while hud_alive && [ -f "$DW_HOME/typing" ]; do
+    [ "$waited" = 0 ] && echo "✍️ the user is typing a message in the HUD: waiting" >&2
     sleep 1; waited=$((waited + 1))
     if stop_on; then echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; fi
-    if [ "$waited" -ge "$limit" ]; then echo "⏸ still paused after ${limit}s: do nothing else; run 'dw gate' again to keep waiting" >&2; exit 75; fi
+    if [ "$waited" -ge "$limit" ]; then echo "✍️ the user is still typing after ${limit}s: do nothing else; run 'dw gate' again to keep waiting" >&2; exit 75; fi
   done
   [ "$waited" -gt 0 ] && { echo "▶ resumed" >&2; sleep 0.5; }
   return 0
@@ -74,12 +74,12 @@ note_owner() {
   printf '%s' "$CLAUDE_PID" > "$DW_HOME/owner.pid"
 }
 
-# Relaunch the HUD when a walkthrough is active but the HUD is gone, unless the user closed it (☰ → ✕)
+# Relaunch the HUD when a walkthrough is active but the HUD is gone, unless the user quit it from its settings
 ensure_hud() {
   [ -f "$BRIDGE/owner" ] || return 0
   hud_alive && return 0
   if [ -f "$DW_HOME/hud-closed-by-user" ]; then
-    echo "dw: note: the user closed the HUD (☰ → ✕); it stays closed until 'dw start'" >&2; return 0
+    echo "dw: note: the user quit the HUD from its settings; it stays closed until 'dw start'" >&2; return 0
   fi
   launch_hud && echo "dw: the HUD was not running: relaunched it" >&2
 }
@@ -400,9 +400,10 @@ OSA
 
 # Build the HUD when its source is newer, then start it detached (owner pid and chat window come from files)
 launch_hud() {
-  if [ ! -x "$HUD_BIN" ] || [ "$SKILL_DIR/hud/HUD.swift" -nt "$HUD_BIN" ]; then
+  # Rebuild when the binary is missing or any source is newer than it
+  if [ ! -x "$HUD_BIN" ] || [ -n "$(find "$SKILL_DIR/hud" -name '*.swift' -newer "$HUD_BIN" 2>/dev/null | head -1)" ]; then
     need swiftc
-    swiftc -O -swift-version 5 "$SKILL_DIR/hud/HUD.swift" -o "$HUD_BIN" 2> "$DW_HOME/hud-build.log" || die "HUD build failed: $DW_HOME/hud-build.log"
+    swiftc -O -swift-version 5 "$SKILL_DIR"/hud/*.swift -o "$HUD_BIN" 2> "$DW_HOME/hud-build.log" || die "HUD build failed: $DW_HOME/hud-build.log"
   fi
   DW_CLAUDE_WINDOW="$(cat "$DW_HOME/chat_window" 2>/dev/null)" DW_OWNER_PID="$(cat "$DW_HOME/owner.pid" 2>/dev/null)" \
     nohup "$HUD_BIN" "$DW_HOME" > "$DW_HOME/hud.log" 2>&1 &
@@ -416,7 +417,7 @@ cmd_start() {
   # A previous HUD must not keep running beside the new one
   if hud_alive; then touch "$DW_HOME/quit"; sleep 1.5; hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null; fi
   echo off > "$BRIDGE/stop"
-  rm -f "$DW_HOME/paused" "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
+  rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
   session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
   echo "$session" > "$DW_HOME/ad_session"
   # Claude Code exports its pid and session id to Bash; other agent CLIs fall back to the process tree
@@ -445,7 +446,7 @@ cmd_start() {
   echo "owner:    ${owner:-unknown} ${chat:+chat window w-$chat (never send input there)}"
   if [ "$bridge" = connected ]; then echo "bridge:   connected (mirror, message box and ⏹ are live)"
   elif [ -n "$sid" ] && grep -q "$sid" "$BRIDGE/mod.log" 2>/dev/null; then echo "bridge:   loaded in this session but not answering yet: check $BRIDGE/state.json in a few seconds"
-  else echo "bridge:   not loaded in this session: ask the user to run /reload-plugins (or restart the session). The status bar, ⏸ and ✕ work without it; the mirror, message box and ⏹ do not"; fi
+  else echo "bridge:   not loaded in this session: ask the user to run /reload-plugins (or restart the session). The status bar and its settings work without it; the mirror, the message box and stopping mid-command do not"; fi
   if defaults read com.apple.HIToolbox AppleSelectedInputSources 2>/dev/null | grep -q inputmethod; then
     echo "ime:      an input method is active: enter text by ref (type / set-value) or clipboard, never key by key"
   fi
@@ -460,7 +461,7 @@ cmd_end() {
     hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null
   fi
   rm -f "$DW_HOME/ask.json" "$DW_HOME/ask-answer"
-  rm -f "$DW_HOME/paused" "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/hud.pid" "$DW_HOME/step" \
+  rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/hud.pid" "$DW_HOME/step" \
     "$DW_HOME/owner.pid" "$DW_HOME/chat_window" "$DW_HOME/hud-closed-by-user"
   # Without an owner the bridge mod goes dormant in every session
   rm -f "$BRIDGE/owner"

@@ -16,13 +16,13 @@ import type { EngineInterface, Register } from 'claude-code'
  * - `bridge/mod.log`       mod → dw   one line per load: time and session id
  * - `bridge/state.json`    mod → HUD  `{ busy, turnId, stopped, sessionId, at }`
  * - `bridge/inbox.jsonl`   HUD → mod  `{"text": "..."}` lines typed in the HUD's message box
- * - `bridge/control.jsonl` HUD → mod  `{"cmd": "stop" | "resume"}` lines from the ⏹ menu item
- * - `bridge/stop`          both       "on" / "off": the one source of truth for ⏹
+ * - `bridge/control.jsonl` HUD → mod  `{"cmd": "stop" | "resume"}` lines from the stop button or shortcut
+ * - `bridge/stop`          both       "on" / "off": the one source of truth for stop
  * - `status.txt`           mod → HUD  the status line, for tools that do not narrate through `dw say`
- * - `paused`, `typing`, `hud.alive`   HUD → mod  takeover, message being typed, heartbeat
+ * - `typing`, `hud.alive`   HUD → mod  message being typed, heartbeat
  */
 const FEED_LIMIT = 300
-/** A heartbeat older than this means the HUD is gone and its pause/typing flags are stale. */
+/** A heartbeat older than this means the HUD is gone and its typing flag is stale. */
 const HUD_STALE_MS = 8000
 /** Bash commands that drive the GUI: these wait while the person has taken over the Mac. */
 const GUI_COMMAND = /agent-desktop|desktop-walkthrough|(^|[\s;&|(])dw\s/
@@ -37,7 +37,6 @@ type Paths = {
   log: string
   errors: string
   status: string
-  paused: string
   typing: string
   alive: string
 }
@@ -76,7 +75,6 @@ async function paths($: EngineInterface): Promise<Paths> {
     log: `${bridge}/mod.log`,
     errors: `${bridge}/errors.txt`,
     status: `${home}/status.txt`,
-    paused: `${home}/paused`,
     typing: `${home}/typing`,
     alive: `${home}/hud.alive`,
   }
@@ -139,10 +137,10 @@ async function isStopOn($: EngineInterface): Promise<boolean> {
   }
 }
 
-/** True while a live HUD asks GUI automation to wait: ⏸ takeover, or a message being typed. */
+/** True while a live HUD asks GUI automation to wait: the person is typing a message in it. */
 async function shouldWait($: EngineInterface): Promise<boolean> {
   const p = await paths($)
-  if (!(await $.fs.exists(p.paused)) && !(await $.fs.exists(p.typing))) return false
+  if (!(await $.fs.exists(p.typing))) return false
   return isHudAlive($)
 }
 
@@ -345,11 +343,11 @@ export const register: Register = on => {
       const input = e as unknown as Record<string, unknown>
       const command = e.tool === 'Bash' && typeof input.command === 'string' ? input.command : ''
       const isGuiCommand = GUI_COMMAND.test(command)
-      // ⏸ takeover: GUI automation waits while the person is using the Mac
+      // GUI automation waits while the person types a message in the HUD
       if (isGuiCommand) {
         while (await shouldWait($)) {
           await $.clock.sleep(500, { signal: next.signal })
-          if (await isStopOn($)) return { deny: `${$.plugin.name}: stopped from the HUD while paused.` }
+          if (await isStopOn($)) return { deny: `${$.plugin.name}: stopped from the HUD while waiting.` }
         }
       }
       // `dw say` narrates in the person's language; only un-narrated tools get this generic line

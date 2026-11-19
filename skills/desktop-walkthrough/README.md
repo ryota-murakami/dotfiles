@@ -9,7 +9,7 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `SKILL.md` | Procedure and principles the agent follows |
 | `.claude-plugin/plugin.json`, `hooks/` | Makes this folder a plugin; `hooks/register.ts` is the session bridge (conversation mirror, messages typed in the HUD, stop switch) |
 | `scripts/dw` | Helper CLI: HUD lifecycle, narration, focus checks, non-blocking Terminal commands |
-| `hud/HUD.swift` | The HUD, compiled on first `dw start` |
+| `hud/*.swift` | The HUD (bar, mirror, settings card), compiled on first `dw start`. `hud/Settings.swift` lists the options |
 | `references/pitfalls.md` | Failures seen in real runs and the rules they produced |
 
 Runtime state (built HUD, preferences, logs) lives in `~/.local/state/desktop-walkthrough/`, not in this folder, so the folder is plain source and safe to commit.
@@ -31,4 +31,4 @@ Then run `/reload-plugins` in Claude Code (or start a new session). `claude plug
 
 ## Use
 
-Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Close the HUD from its ☰ menu, with `scripts/dw end`, or by ending the session.
+Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.

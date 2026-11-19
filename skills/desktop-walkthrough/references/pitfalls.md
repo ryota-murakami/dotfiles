@@ -24,7 +24,7 @@ Each row is something that actually went wrong, why, and the rule or helper that
 | Windows could not be focused or tiled | They sat on another desktop (`visible: false`, not accessible) | Create the working windows on one desktop; `dw front` switches through the Dock |
 | A click hit the HUD mirror instead of the page | The mirror floats above apps | `dw click-xy` hides the mirror for the click |
 | The HUD disappeared mid-run while narration kept going | It quit with the agent process it was started from; the agent CLI restarted under the same session (model/effort change) with a new pid | `dw` records the current pid in `owner.pid` on every call, the HUD waits 10 minutes before giving up on a missing owner, and `say`/`ad` relaunch it |
-| The HUD stayed after the work ended | Nothing closed it | `dw end`, the ☰ menu's quit item, and the HUD exits with the owning session |
+| The HUD stayed after the work ended | Nothing closed it | `dw end`, the quit button in the HUD's settings, and the HUD exits with the owning session |
 
 ## Tools
 
@@ -43,7 +43,8 @@ Each row is something that actually went wrong, why, and the rule or helper that
 - `set-value` on text inputs and `check`/`uncheck` on checkboxes work for web forms; verify with a fresh read.
 - A file dialog is a sheet: click the sidebar folder, then the row whose child text is the file name.
 - `pgrep` on macOS skips its own ancestors unless `-a` is given.
-- The HUD bar lets clicks through except where the pointer rests: to click ☰ physically, `mouse-move` onto it, wait a moment, then `mouse-click`.
+- The HUD bar lets clicks through except where the pointer rests: to click one of its buttons physically, `mouse-move` onto it, wait a moment, then `mouse-click`; or press it through accessibility (`find --app StatusHUD --role button`), which moves no pointer.
+- The stop button and Control-Option-Command-Period abort the agent's own turn: never press them on the live HUD to test it; use a scratch state folder (`StatusHUD /tmp/x`).
 
 **JetBrains IDEs**
 - Shortcuts may be remapped: read `~/Library/Application Support/JetBrains/<IDE>/keymaps/*.xml` (active one named in `options/mac/keymap.xml`), or run actions through Find Action by name.

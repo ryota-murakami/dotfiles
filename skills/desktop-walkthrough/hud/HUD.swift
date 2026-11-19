@@ -1,12 +1,11 @@
 // Status HUD for desktop walkthroughs: shows what the agent is doing while it operates the Mac.
 //
-// Usage: StatusHUD <state-dir>   (env: DW_CLAUDE_WINDOW = CGWindowID of the chat terminal, DW_OWNER_PID)
-//
-// - Status bar: translucent, click-through, shows the current step; drag ⠿ to move, ‖ to resize
-// - ☰ menu: ⏸ takeover (pause GUI automation), ⏹ stop (abort the turn), 🪞 mirror, ✨ flash, ✕ quit
-// - 🪞 Mirror: conversation view (top-right quarter until dragged by its header; resized from the
-//   any edge or corner; background opacity in the ☰ menu) rendered from the hud-bridge mod's feed, with a
-//   message box whose text the mod delivers into the session (no Space switch, no typing into a terminal)
+// - Status bar: translucent and click-through; drag the grip to move it, the right edge to resize.
+//   Always-visible controls: mirror on/off, settings, and a one-click stop at the trailing end.
+// - Mirror: the conversation of the agent session with a message box; close button in its header,
+//   drag the header to move, any edge to resize.
+// - Settings: one registry (Settings.swift) shown as a card above the bar (SettingsCard.swift).
+// - Stop: the red button on the bar, or Control-Option-Command-Period from anywhere.
 //
 // The status bar never takes focus. Clicking the mirror makes the HUD the frontmost app so dictation
 // tools can reach its message box; Enter or Esc gives focus back to the app that had it.
@@ -15,25 +14,18 @@ import AppKit
 import QuartzCore
 
 /// State folder shared with the `dw` script and the hud-bridge mod: argument 1, else the default.
-let stateDir: String = CommandLine.arguments.count > 1
+let stateDir: String = CommandLine.arguments.count > 1 && !CommandLine.arguments[1].hasPrefix("--")
     ? CommandLine.arguments[1]
     : "\(NSHomeDirectory())/.local/state/desktop-walkthrough"
 let bridgeDir = "\(stateDir)/bridge"
 let statusPath = "\(stateDir)/status.txt"
-let pausePath = "\(stateDir)/paused"
-let mirrorOffPath = "\(stateDir)/mirror-off"
+/// Present while `dw click-xy` needs the mirror out of the way.
 let mirrorSuspendPath = "\(stateDir)/mirror-suspend"
 let positionPath = "\(stateDir)/hud-position"
 let widthPath = "\(stateDir)/hud-width"
-/// Present = flash / border / sweep effects are off (the text slide-in always plays)
-let flashOffPath = "\(stateDir)/hud-flash-off"
-let zoomPath = "\(stateDir)/mirror-zoom"
-/// Mirror frame chosen by dragging ("x,y,width,height" in screen points) and background opacity (0.2–1.0).
+/// Mirror frame chosen by dragging ("x,y,width,height" in screen points).
 let mirrorFramePath = "\(stateDir)/mirror-frame"
-let mirrorOpacityPath = "\(stateDir)/mirror-opacity"
-/// Present when the user turned off folding of long tool entries (☰ menu); folding is on by default.
-let foldOffPath = "\(stateDir)/mirror-fold-off"
-/// `dw ask` / `dw wait-user` write {"id","text"[,"ok","no","icon"]} here; the HUD shows it with OK / キャンセル and answers in askAnswerPath ("<id> ok|no").
+/// `dw ask` / `dw wait-user` write {"id","text"[,"ok","no","icon"]} here; the answer goes to askAnswerPath ("<id> ok|no").
 let askPath = "\(stateDir)/ask.json"
 let askAnswerPath = "\(stateDir)/ask-answer"
 /// Pid of the `dw` process currently waiting for the answer (absent or dead = nobody waiting).
@@ -42,7 +34,7 @@ let feedPath = "\(bridgeDir)/feed.jsonl"
 let statePath = "\(bridgeDir)/state.json"
 let inboxPath = "\(bridgeDir)/inbox.jsonl"
 let controlPath = "\(bridgeDir)/control.jsonl"
-/// ⏹ switch shared with the hud-bridge mod and the agent's shell helpers: "on" / "off"
+/// Stop switch shared with the hud-bridge mod and the agent's shell helpers: "on" / "off"
 let stopSwitchPath = "\(bridgeDir)/stop"
 /// Present while the person is typing in the HUD's message box: the agent's GUI steps wait
 let typingPath = "\(stateDir)/typing"
@@ -55,6 +47,7 @@ func setStop(_ on: Bool) {
     try? FileManager.default.createDirectory(atPath: bridgeDir, withIntermediateDirectories: true)
     try? (on ? "on" : "off").write(toFile: stopSwitchPath, atomically: true, encoding: .utf8)
 }
+
 /// CGWindowID of the terminal window hosting the agent's chat (0 = unknown): the mirror hides while it is in front.
 let claudeWindowID = CGWindowID(ProcessInfo.processInfo.environment["DW_CLAUDE_WINDOW"] ?? "") ?? 0
 /// PID of the agent process at launch (0 = none). The agent CLI can restart under the same session
@@ -63,18 +56,18 @@ let launchOwnerPID = pid_t(ProcessInfo.processInfo.environment["DW_OWNER_PID"] ?
 let ownerPidPath = "\(stateDir)/owner.pid"
 /// Seconds the owner may be gone before the HUD quits: long enough for a restarted agent to call `dw` again.
 let ownerGraceSeconds: TimeInterval = 600
-/// Written only when the user quits from the ☰ menu, so `dw` does not reopen a HUD the user closed.
+/// Written only when the user quits from the settings, so `dw` does not reopen a HUD the user closed.
 let closedByUserPath = "\(stateDir)/hud-closed-by-user"
-/// `dw end` creates this file to ask the HUD to quit through the same path as the menu item.
+/// `dw end` creates this file to ask the HUD to quit through the same path as the settings item.
 let quitRequestPath = "\(stateDir)/quit"
-/// Rewritten every second: the mod and `dw` ignore pause/typing flags once this heartbeat is stale.
+/// Rewritten every second: the mod and `dw` ignore the typing flag once this heartbeat is stale.
 let alivePath = "\(stateDir)/hud.alive"
 let pidPath = "\(stateDir)/hud.pid"
 
 let accent = NSColor(calibratedRed: 0.26, green: 0.60, blue: 1.0, alpha: 1)
-let baseColor = NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.08, alpha: 0.42)
-let pausedColor = NSColor(calibratedRed: 0.75, green: 0.35, blue: 0.0, alpha: 0.62)
-let stoppedColor = NSColor(calibratedRed: 0.70, green: 0.08, blue: 0.10, alpha: 0.66)
+
+/// Option values, shared by the HUD and the settings card.
+let settings = SettingsStore(stateDir: stateDir)
 
 func exists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
 func mtime(_ path: String) -> Date? { (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date }
@@ -100,12 +93,18 @@ final class KeyablePanel: NSPanel {
 
 /// The app that was frontmost before the HUD, updated whenever another app activates.
 var lastOtherApp: NSRunningApplication?
-let activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
-    forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-) { note in
-    if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
-       app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
-        lastOtherApp = app
+private var activationObserver: NSObjectProtocol?
+
+/// Start remembering which app the person was using, so the message box can hand focus back.
+/// Called once at launch.
+func startActivationObserver() {
+    activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+        forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+    ) { note in
+        if let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+           app.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+            lastOtherApp = app
+        }
     }
 }
 
@@ -135,20 +134,18 @@ final class MessageField: NSTextField {
     }
 }
 
-/// Drag handle for the status bar.
-final class GripView: NSView {
-    override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
+/// Conversation view whose folded entries open on the first click, even when the mirror is not key.
+final class FeedTextView: NSTextView {
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// Mirror header: drag it to move the mirror (the labels inside it are part of the handle).
-final class MirrorGrip: NSView {
+/// Drag handle: dragging it moves the window it sits in (the bar's grip, the mirror's header).
+final class DragHandle: NSView {
     override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 
 /// One edge or corner of the mirror: dragging it moves only that side, like a normal window border.
-/// `edges` uses NSRectEdge-style flags: minX (left), maxX (right), minY (bottom), maxY (top).
 final class EdgeResizeHandle: NSView {
     struct Edges: OptionSet { let rawValue: Int
         static let left = Edges(rawValue: 1), right = Edges(rawValue: 2), bottom = Edges(rawValue: 4), top = Edges(rawValue: 8) }
@@ -157,7 +154,7 @@ final class EdgeResizeHandle: NSView {
     private var start = NSPoint.zero
     private var startFrame = NSRect.zero
     init(_ edges: Edges) { self.edges = edges; super.init(frame: .zero) }
-    required init?(coder: NSCoder) { fatalError() }
+    required init?(coder: NSCoder) { fatalError("not used") }
     override func mouseDown(with event: NSEvent) {
         start = NSEvent.mouseLocation
         startFrame = window?.frame ?? .zero
@@ -191,7 +188,8 @@ final class EdgeResizeHandle: NSView {
     }
 }
 
-/// Right-edge handle: drag to change the HUD's width.
+/// Right edge of the bar: drag it to change the bar's width.
+/// It draws nothing; the pointer turns into a left-right resize cursor over it.
 final class ResizeHandle: NSView {
     var onResize: ((CGFloat) -> Void)?
     private var startX: CGFloat = 0
@@ -202,20 +200,26 @@ final class ResizeHandle: NSView {
     }
     override func mouseDragged(with event: NSEvent) { onResize?(startWidth + NSEvent.mouseLocation.x - startX) }
     override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeLeftRight) }
-    override func draw(_ dirtyRect: NSRect) {
-        NSColor.white.withAlphaComponent(0.45).setFill()
-        for dx in [3.0, 7.0] { NSBezierPath(roundedRect: NSRect(x: dx, y: bounds.midY - 10, width: 2, height: 20), xRadius: 1, yRadius: 1).fill() }
-    }
 }
 
+/// The HUD: status bar, conversation mirror and approval prompt.
+///
+/// Why it exists: it is the user's window into what the agent is doing, and their controls over it.
+/// Created once at launch; timers poll the state files.
 final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
+    static let barHeight: CGFloat = 60
+    let settingsCard = SettingsCard()
+
     // Status bar
     let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let box = NSView()
     let label = NSTextField(labelWithString: "")
-    let menuButton = NSButton(title: "☰", target: nil, action: nil)
+    lazy var mirrorButton = IconButton(symbol: "bubble.left.and.text.bubble.right", label: "ミラーを表示／隠す", target: self, action: #selector(toggleMirror))
+    lazy var settingsButton = IconButton(symbol: "slider.horizontal.3", label: "設定", target: self, action: #selector(toggleSettings))
+    lazy var stopButton = StopButton(target: self, action: #selector(toggleStop))
+    let divider = NSView()
     let resizeHandle = ResizeHandle()
-    let grip = GripView()
+    let grip = DragHandle()
     let gripLabel = NSTextField(labelWithString: "⠿")
     let sweep = CAGradientLayer()
     var lastText = ""
@@ -226,32 +230,26 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     // Not .nonactivatingPanel: clicking the mirror must make the HUD the frontmost app, or dictation tools
     // (which insert into the frontmost app's focused element) cannot reach the message box
     let mirror = KeyablePanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    let mirrorHeader = NSTextField(labelWithString: "⠿ 🪞 Claude Code")
+    let mirrorTitle = NSTextField(labelWithString: "⠿ Claude Code")
     let mirrorRoot = NSView()
-    let mirrorGrip = MirrorGrip()
+    let mirrorGrip = DragHandle()
+    lazy var closeButton = IconButton(symbol: "xmark", label: "ミラーを閉じる", pointSize: 11, target: self, action: #selector(closeMirror))
     let mirrorHandles: [EdgeResizeHandle] = [
         EdgeResizeHandle([.left]), EdgeResizeHandle([.right]), EdgeResizeHandle([.top]), EdgeResizeHandle([.bottom]),
         EdgeResizeHandle([.left, .top]), EdgeResizeHandle([.right, .top]), EdgeResizeHandle([.left, .bottom]), EdgeResizeHandle([.right, .bottom]),
     ]
-    var mirrorOpacity: CGFloat = {
-        if let s = try? String(contentsOfFile: mirrorOpacityPath, encoding: .utf8), let v = Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return CGFloat(v) }
-        return 0.95
-    }()
     let busyLabel = NSTextField(labelWithString: "")
     let scroll = NSScrollView()
-    let textView = NSTextView()
+    let textView = FeedTextView()
     let input = MessageField()
     let sendButton = NSButton(title: "送信", target: nil, action: nil)
-    let zoomIn = NSButton(title: "＋", target: nil, action: nil)
-    let zoomOut = NSButton(title: "－", target: nil, action: nil)
+    lazy var zoomIn = IconButton(symbol: "plus", label: "文字を大きく", pointSize: 11, target: self, action: #selector(zoomInTapped))
+    lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 11, target: self, action: #selector(zoomOutTapped))
     let zoomLabel = NSTextField(labelWithString: "")
     var feedStamp: Date?
     /// Keys of long tool entries the user expanded (like an open <details>), kept while the HUD runs.
     var expandedEntries = Set<String>()
-    var zoom: CGFloat = {
-        if let s = try? String(contentsOfFile: zoomPath, encoding: .utf8), let v = Double(s.trimmingCharacters(in: .whitespacesAndNewlines)) { return CGFloat(v) }
-        return 1.0
-    }()
+    var zoom: CGFloat { CGFloat(settings.value("mirror.zoom")) }
 
     // Approval prompt (dw ask)
     let askPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -261,15 +259,31 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var askID = ""
     var askStamp: Date?
 
-    var mode: String { isStopOn() ? "stopped" : (exists(pausePath) ? "paused" : (exists(typingPath) ? "typing" : "running")) }
+    let stopHotKey = StopHotKey()
+
+    var mode: String { isStopOn() ? "stopped" : (exists(typingPath) ? "typing" : "running") }
 
     override init() {
         super.init()
         buildStatusBar()
         buildMirror()
         buildAskPanel()
+        settings.actions["mirror.reset"] = { [weak self] in self?.resetMirrorFrame() }
+        settings.actions["bar.reset"] = { [weak self] in self?.resetBarFrame() }
+        settings.actions["hud.quit"] = { [weak self] in self?.quitByUser() }
+        NotificationCenter.default.addObserver(forName: SettingsStore.changed, object: settings, queue: .main) { [weak self] note in
+            if let id = note.userInfo?["id"] as? String { self?.applySetting(id) }
+        }
+        // The shortcut only ever stops: pressing it again must not clear a stop by accident
+        StopHotKey.onPress = { [weak self] in
+            if !isStopOn() { self?.toggleStop() }
+        }
+        stopHotKey.setEnabled(settings.isOn("stop.hotkey"))
+        // "Open" is a passing state, so the settings button lights up more quietly than the mirror toggle
+        settingsButton.activeColor = NSColor.white.withAlphaComponent(0.34)
+        settingsCard.attach(to: self)
         Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.refresh() }
-        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] _ in self?.updateClickThrough() }
+        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in self?.updateClickThrough() }
         Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.reloadFeed(force: false) }
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTypingFlag() }
         try? FileManager.default.createDirectory(atPath: bridgeDir, withIntermediateDirectories: true)
@@ -280,16 +294,29 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         reloadFeed(force: true)
     }
 
-    // MARK: status bar
+    // MARK: settings
 
-    func styleButton(_ b: NSButton, _ action: Selector) {
-        b.bezelStyle = .rounded
-        b.controlSize = .large
-        b.font = NSFont.systemFont(ofSize: 13, weight: .bold)
-        b.target = self
-        b.action = action
-        b.translatesAutoresizingMaskIntoConstraints = false
+    /// React to a changed option; called for every change, whichever control made it.
+    func applySetting(_ id: String) {
+        switch id {
+        case "mirror.visible": updateMirrorVisibility()
+        case "mirror.fold": reloadFeed(force: true, keepScroll: true)
+        case "mirror.zoom":
+            updateZoomLabel()
+            reloadFeed(force: true, keepScroll: true)
+        case "mirror.opacity": applyMirrorOpacity()
+        case "bar.opacity": applyBarColor()
+        case "stop.hotkey": stopHotKey.setEnabled(settings.isOn(id))
+        default: break
+        }
     }
+
+    @objc func toggleSettings() {
+        settingsCard.toggle()
+        settingsButton.isActive = settingsCard.isOpen
+    }
+
+    // MARK: status bar
 
     func buildStatusBar() {
         // Not .screenSaver: windows at screen-saver level make macOS refuse Space switching (3-finger swipe)
@@ -305,9 +332,9 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         box.wantsLayer = true
         box.layer?.cornerRadius = 14
         box.layer?.masksToBounds = true
-        box.layer?.backgroundColor = baseColor.cgColor
         box.layer?.borderColor = accent.withAlphaComponent(0.55).cgColor
         box.layer?.borderWidth = 1
+        applyBarColor()
 
         sweep.colors = [NSColor.clear.cgColor, NSColor.white.withAlphaComponent(0.16).cgColor, NSColor.clear.cgColor]
         sweep.startPoint = CGPoint(x: 0, y: 0.5)
@@ -324,24 +351,24 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         label.lineBreakMode = .byTruncatingTail
         label.maximumNumberOfLines = 1
         label.wantsLayer = true
-        label.translatesAutoresizingMaskIntoConstraints = false
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        // Pause / stop / mirror live in the ☰ menu so the status text gets the full width
-        styleButton(menuButton, #selector(showMenu))
-        menuButton.font = NSFont.systemFont(ofSize: 16, weight: .bold)
-        menuButton.toolTip = "一時停止・停止・ミラー表示"
-        resizeHandle.translatesAutoresizingMaskIntoConstraints = false
         resizeHandle.onResize = { [weak self] w in self?.resizeBar(to: w) }
-
-        grip.translatesAutoresizingMaskIntoConstraints = false
         gripLabel.font = NSFont.systemFont(ofSize: 22, weight: .bold)
         gripLabel.textColor = NSColor.white.withAlphaComponent(0.8)
         gripLabel.translatesAutoresizingMaskIntoConstraints = false
         grip.addSubview(gripLabel)
+        grip.toolTip = "ドラッグでバーを移動"
+        resizeHandle.toolTip = "ドラッグでバーの幅を変更"
+        // A hairline keeps the stop button visually apart from the everyday controls
+        divider.wantsLayer = true
+        divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.35).cgColor
 
-        for v in [grip, label, menuButton, resizeHandle] as [NSView] { box.addSubview(v) }
+        for v in [grip, label, mirrorButton, settingsButton, divider, stopButton, resizeHandle] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            box.addSubview(v)
+        }
         NSLayoutConstraint.activate([
             grip.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             grip.topAnchor.constraint(equalTo: box.topAnchor),
@@ -350,11 +377,24 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             gripLabel.centerXAnchor.constraint(equalTo: grip.centerXAnchor),
             gripLabel.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
             label.leadingAnchor.constraint(equalTo: grip.trailingAnchor, constant: 4),
-            label.trailingAnchor.constraint(equalTo: menuButton.leadingAnchor, constant: -8),
+            label.trailingAnchor.constraint(equalTo: mirrorButton.leadingAnchor, constant: -12),
             label.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-            menuButton.trailingAnchor.constraint(equalTo: resizeHandle.leadingAnchor, constant: -2),
-            menuButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-            menuButton.widthAnchor.constraint(equalToConstant: 44),
+            mirrorButton.trailingAnchor.constraint(equalTo: settingsButton.leadingAnchor, constant: -6),
+            mirrorButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            mirrorButton.widthAnchor.constraint(equalToConstant: 38),
+            mirrorButton.heightAnchor.constraint(equalToConstant: 36),
+            settingsButton.trailingAnchor.constraint(equalTo: divider.leadingAnchor, constant: -12),
+            settingsButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            settingsButton.widthAnchor.constraint(equalToConstant: 38),
+            settingsButton.heightAnchor.constraint(equalToConstant: 36),
+            divider.trailingAnchor.constraint(equalTo: stopButton.leadingAnchor, constant: -12),
+            divider.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            divider.widthAnchor.constraint(equalToConstant: 1),
+            divider.heightAnchor.constraint(equalToConstant: 26),
+            stopButton.trailingAnchor.constraint(equalTo: resizeHandle.leadingAnchor, constant: -6),
+            stopButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            stopButton.widthAnchor.constraint(equalToConstant: 88),
+            stopButton.heightAnchor.constraint(equalToConstant: 36),
             resizeHandle.trailingAnchor.constraint(equalTo: box.trailingAnchor),
             resizeHandle.topAnchor.constraint(equalTo: box.topAnchor),
             resizeHandle.bottomAnchor.constraint(equalTo: box.bottomAnchor),
@@ -364,6 +404,16 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         placeStatusBar()
         panel.orderFrontRegardless()
     }
+
+    /// Bar background: the chosen opacity, or red while stopped.
+    func barColor(stopped: Bool) -> NSColor {
+        let alpha = CGFloat(settings.value("bar.opacity"))
+        return stopped
+            ? NSColor(calibratedRed: 0.70, green: 0.08, blue: 0.10, alpha: max(0.66, alpha))
+            : NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.08, alpha: alpha)
+    }
+
+    func applyBarColor() { box.layer?.backgroundColor = barColor(stopped: isStopOn()).cgColor }
 
     func placeStatusBar() {
         guard !positioned, let screen = NSScreen.main else { return }
@@ -378,52 +428,26 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             let parts = saved.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
             if parts.count == 2 { origin = NSPoint(x: parts[0], y: parts[1]) }
         }
-        panel.setFrame(NSRect(x: origin.x, y: origin.y, width: w, height: 60), display: true)
-        sweep.frame = CGRect(x: -w * 0.35, y: 0, width: w * 0.35, height: 60)
+        panel.setFrame(NSRect(x: origin.x, y: origin.y, width: w, height: HUD.barHeight), display: true)
+        sweep.frame = CGRect(x: -w * 0.35, y: 0, width: w * 0.35, height: HUD.barHeight)
     }
 
     /// Change the bar's width from the right-edge handle and remember it.
     func resizeBar(to width: CGFloat) {
         guard let screen = NSScreen.main else { return }
         var frame = panel.frame
-        frame.size.width = min(max(360, width), screen.frame.maxX - frame.minX)
+        frame.size.width = min(max(480, width), screen.frame.maxX - frame.minX)
         panel.setFrame(frame, display: true)
-        sweep.frame = CGRect(x: -frame.width * 0.35, y: 0, width: frame.width * 0.35, height: 60)
+        sweep.frame = CGRect(x: -frame.width * 0.35, y: 0, width: frame.width * 0.35, height: HUD.barHeight)
         try? "\(frame.width)".write(toFile: widthPath, atomically: true, encoding: .utf8)
     }
 
-    /// ☰: the controls that used to sit on the bar.
-    @objc func showMenu() {
-        let menu = NSMenu()
-        let m = mode
-        let items: [(String, Selector)] = [
-            (m == "paused" ? "▶ 再開（エージェントに戻す）" : "⏸ 一時停止（操作を引き取る）", #selector(togglePause)),
-            (m == "stopped" ? "⏹ 停止を解除" : "⏹ 停止して話しかける", #selector(toggleStop)),
-            (exists(mirrorOffPath) ? "🪞 Claudeミラーを表示" : "🪞 Claudeミラーを隠す", #selector(toggleMirror)),
-        ]
-        for (title, action) in items {
-            menu.addItem(withTitle: title, action: action, keyEquivalent: "").target = self
-        }
-        let foldItem = menu.addItem(withTitle: "📁 長いコマンドを折りたたむ", action: #selector(toggleFold), keyEquivalent: "")
-        foldItem.target = self
-        foldItem.state = exists(foldOffPath) ? .off : .on
-        let opacityItem = menu.addItem(withTitle: "🌫 ミラー背景の不透明度", action: nil, keyEquivalent: "")
-        let opacityMenu = NSMenu()
-        for percent in [100, 95, 90, 75, 60, 45, 30] {
-            let item = opacityMenu.addItem(withTitle: "\(percent)%", action: #selector(chooseMirrorOpacity(_:)), keyEquivalent: "")
-            item.target = self
-            item.tag = percent
-            item.state = Int((mirrorOpacity * 100).rounded()) == percent ? .on : .off
-        }
-        opacityItem.submenu = opacityMenu
-        menu.addItem(withTitle: "↺ ミラーの位置とサイズを初期状態に戻す", action: #selector(resetMirrorFrame), keyEquivalent: "").target = self
-        menu.addItem(.separator())
-        let flashItem = menu.addItem(withTitle: "✨ 更新時のフラッシュ効果", action: #selector(toggleFlash), keyEquivalent: "")
-        flashItem.target = self
-        flashItem.state = exists(flashOffPath) ? .off : .on
-        menu.addItem(.separator())
-        menu.addItem(withTitle: "✕ HUDを終了", action: #selector(quitByUser), keyEquivalent: "").target = self
-        menu.popUp(positioning: nil, at: NSPoint(x: 0, y: menuButton.bounds.height + 4), in: menuButton)
+    /// Settings → bar → reset: back to the bottom centre at the default width.
+    func resetBarFrame() {
+        try? FileManager.default.removeItem(atPath: positionPath)
+        try? FileManager.default.removeItem(atPath: widthPath)
+        positioned = false
+        placeStatusBar()
     }
 
     func windowDidMove(_ notification: Notification) {
@@ -433,40 +457,38 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         try? "\(o.x),\(o.y)".write(toFile: positionPath, atomically: true, encoding: .utf8)
     }
 
-    /// Accept mouse events only over the buttons and the grip; everything else clicks through.
+    func screenRect(of view: NSView) -> NSRect { panel.convertToScreen(view.convert(view.bounds, to: nil)) }
+
+    /// Accept mouse events only over the controls and the handles; everything else clicks through.
     func updateClickThrough() {
         let mouse = NSEvent.mouseLocation
-        let hot = [menuButton, resizeHandle, grip].map {
-            panel.convertToScreen($0.convert($0.bounds, to: nil)).insetBy(dx: -4, dy: -4)
-        }
+        let hot = ([mirrorButton, settingsButton, stopButton, resizeHandle, grip] as [NSView]).map { screenRect(of: $0).insetBy(dx: -4, dy: -4) }
+        mirrorButton.isHovered = screenRect(of: mirrorButton).contains(mouse)
+        settingsButton.isHovered = screenRect(of: settingsButton).contains(mouse)
+        stopButton.isHovered = screenRect(of: stopButton).contains(mouse)
         let dragging = NSEvent.pressedMouseButtons & 1 == 1 && !panel.ignoresMouseEvents
         panel.ignoresMouseEvents = !(hot.contains { $0.contains(mouse) } || dragging)
     }
 
-    @objc func togglePause() {
-        if exists(pausePath) {
-            try? FileManager.default.removeItem(atPath: pausePath)
-        } else {
-            FileManager.default.createFile(atPath: pausePath, contents: Data())
-        }
-        refresh()
-    }
-
-    /// ⏹: the mod aborts the running turn; the flag file also stops the agent's shell helpers.
+    /// Stop: the mod aborts the running turn; the flag file also stops the agent's shell helpers.
+    /// Pressed again, it only clears the red state (sending a message clears it too).
     @objc func toggleStop() {
         if isStopOn() {
             setStop(false)
             appendLine(controlPath, ["cmd": "resume"])
         } else {
             setStop(true)
-            try? FileManager.default.removeItem(atPath: pausePath)
             appendLine(controlPath, ["cmd": "stop"])
-            try? FileManager.default.removeItem(atPath: mirrorOffPath)
+            // The next thing the person does is tell the agent what to do instead
+            settings.set("mirror.visible", 1)
         }
         refresh()
     }
 
-    /// Heartbeat for the mod and `dw`, plus the two ways to quit without the menu:
+    @objc func toggleMirror() { settings.toggle("mirror.visible") }
+    @objc func closeMirror() { settings.set("mirror.visible", 0) }
+
+    /// Heartbeat for the mod and `dw`, plus the two ways to quit without the settings:
     /// a quit request file (`dw end`) and the owning agent session having exited.
     func housekeeping() {
         try? "\(Date().timeIntervalSince1970)".write(toFile: alivePath, atomically: true, encoding: .utf8)
@@ -491,36 +513,19 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         return kill(pid, 0) != 0 && errno == ESRCH
     }
 
-    /// ☰ → ✕: the user's own decision to close the HUD, remembered so `dw` does not reopen it.
+    /// Settings → quit: the user's own decision to close the HUD, remembered so `dw` does not reopen it.
     @objc func quitByUser() {
         FileManager.default.createFile(atPath: closedByUserPath, contents: Data())
         quitHUD()
     }
 
-    /// Quit the HUD. Removes every flag that could keep the agent waiting (pause, typing, mirror
-    /// suspend) so automation never blocks on a HUD that is no longer there.
+    /// Quit the HUD. Removes every flag that could keep the agent waiting (typing, mirror suspend)
+    /// so automation never blocks on a HUD that is no longer there.
     @objc func quitHUD() {
-        for path in [pausePath, typingPath, mirrorSuspendPath, quitRequestPath, pidPath, alivePath] {
+        for path in [typingPath, mirrorSuspendPath, quitRequestPath, pidPath, alivePath] {
             try? FileManager.default.removeItem(atPath: path)
         }
         NSApp.terminate(nil)
-    }
-
-    @objc func toggleFlash() {
-        if exists(flashOffPath) {
-            try? FileManager.default.removeItem(atPath: flashOffPath)
-        } else {
-            FileManager.default.createFile(atPath: flashOffPath, contents: Data())
-        }
-    }
-
-    @objc func toggleMirror() {
-        if exists(mirrorOffPath) {
-            try? FileManager.default.removeItem(atPath: mirrorOffPath)
-        } else {
-            FileManager.default.createFile(atPath: mirrorOffPath, contents: Data())
-        }
-        refresh()
     }
 
     func playChangeEffect(flashColor: NSColor, base: NSColor) {
@@ -533,7 +538,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
         label.layer?.add(slide, forKey: "slide")
 
-        guard !exists(flashOffPath) else {
+        guard settings.isOn("bar.flash") else {
             layer.backgroundColor = base.cgColor
             return
         }
@@ -565,7 +570,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         sweep.add(fade, forKey: "fade")
     }
 
-    /// The mod's state says busy/idle; a stop it already lifted (you spoke) clears the flag file.
+    /// The mod's state says busy/idle.
     func syncModState() {
         guard let data = FileManager.default.contents(atPath: statePath),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
@@ -583,8 +588,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         let m = mode
         let text: String
         switch m {
-        case "stopped": text = "⏹ 停止中：処理を止めました。右上の入力欄からメッセージを送ると再開します"
-        case "paused": text = "⏸ 一時停止中：あなたが自由に操作できます（終わったら「▶ 再開」）"
+        case "stopped": text = "⏹ 停止しました。ミラーの入力欄からメッセージを送ると再開します"
         case "typing": text = "✍️ 入力中のため、エージェントの画面操作は待機しています"
         default: text = "🤖 " + raw
         }
@@ -592,19 +596,22 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             let modeChanged = m != lastMode
             lastText = text
             lastMode = m
-            menuButton.title = m == "paused" ? "⏸" : (m == "stopped" ? "⏹" : "☰")
+            stopButton.setStopped(m == "stopped")
             label.stringValue = text
-            let base = m == "stopped" ? stoppedColor : (m == "paused" ? pausedColor : baseColor)
-            playChangeEffect(flashColor: modeChanged ? (m == "stopped" ? NSColor.systemRed : NSColor.systemOrange) : accent, base: base)
+            playChangeEffect(flashColor: modeChanged ? (m == "stopped" ? NSColor.systemRed : NSColor.systemOrange) : accent,
+                             base: barColor(stopped: m == "stopped"))
         }
+        mirrorButton.isActive = settings.isOn("mirror.visible")
+        settingsButton.isActive = settingsCard.isOpen
         updateMirrorVisibility()
         updateAsk()
+        settingsCard.follow()
         panel.orderFrontRegardless()
     }
 
     // MARK: approval prompt
 
-    /// A small clickable panel above the status bar for one-click approvals asked by `dw ask`.
+    /// A small clickable panel above the status bar for one-click answers asked by `dw ask` / `dw wait-user`.
     func buildAskPanel() {
         askPanel.level = .statusBar
         askPanel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
@@ -665,7 +672,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             askOK.title = (obj["ok"] as? String) ?? "OK"
             askNo.title = (obj["no"] as? String) ?? "キャンセル"
             askLabel.stringValue = ((obj["icon"] as? String) ?? "❓") + " " + text
-            NSSound(named: "Glass")?.play()
+            if settings.isOn("ask.sound") { NSSound(named: "Glass")?.play() }
         }
         guard !askID.isEmpty else { return }
         let bar = panel.frame
@@ -726,8 +733,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         root.layer?.borderColor = accent.cgColor
         root.layer?.borderWidth = 2
 
-        mirrorHeader.font = NSFont.systemFont(ofSize: 12, weight: .bold)
-        mirrorHeader.textColor = NSColor.white.withAlphaComponent(0.85)
+        mirrorTitle.font = NSFont.systemFont(ofSize: 12, weight: .bold)
+        mirrorTitle.textColor = NSColor.white.withAlphaComponent(0.85)
         busyLabel.font = NSFont.systemFont(ofSize: 12, weight: .bold)
 
         textView.delegate = self
@@ -752,26 +759,20 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         sendButton.target = self
         sendButton.action = #selector(sendMessage)
 
-        for (b, sel) in [(zoomIn, #selector(zoomInTapped)), (zoomOut, #selector(zoomOutTapped))] {
-            b.bezelStyle = .rounded
-            b.controlSize = .small
-            b.font = NSFont.systemFont(ofSize: 13, weight: .bold)
-            b.target = self
-            b.action = sel
-        }
         zoomLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
         zoomLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+        zoomLabel.alignment = .center
         updateZoomLabel()
 
         mirrorGrip.toolTip = "ドラッグでミラーを移動"
         // Invisible 6pt borders on every side and 14pt corners: drag any of them to resize
         for h in mirrorHandles { h.onResize = { [weak self] r in self?.resizeMirror(to: r) } }
         // The header labels sit inside the grip so a drag that starts on them moves the mirror too
-        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel] as [NSView] {
+        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel, closeButton] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
-        for v in [mirrorHeader, busyLabel] as [NSView] {
+        for v in [mirrorTitle, busyLabel] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             mirrorGrip.addSubview(v)
         }
@@ -779,18 +780,29 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             mirrorGrip.topAnchor.constraint(equalTo: root.topAnchor),
             mirrorGrip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             mirrorGrip.trailingAnchor.constraint(equalTo: zoomOut.leadingAnchor, constant: -6),
-            mirrorGrip.bottomAnchor.constraint(equalTo: mirrorHeader.bottomAnchor, constant: 5),
-            mirrorHeader.topAnchor.constraint(equalTo: root.topAnchor, constant: 7),
-            mirrorHeader.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
-            busyLabel.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
-            busyLabel.leadingAnchor.constraint(equalTo: mirrorHeader.trailingAnchor, constant: 12),
-            zoomIn.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
-            zoomIn.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
-            zoomLabel.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
-            zoomLabel.trailingAnchor.constraint(equalTo: zoomIn.leadingAnchor, constant: -4),
-            zoomOut.centerYAnchor.constraint(equalTo: mirrorHeader.centerYAnchor),
-            zoomOut.trailingAnchor.constraint(equalTo: zoomLabel.leadingAnchor, constant: -4),
-            scroll.topAnchor.constraint(equalTo: mirrorHeader.bottomAnchor, constant: 6),
+            mirrorGrip.heightAnchor.constraint(equalToConstant: 32),
+            mirrorTitle.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
+            mirrorTitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
+            busyLabel.centerYAnchor.constraint(equalTo: mirrorTitle.centerYAnchor),
+            busyLabel.leadingAnchor.constraint(equalTo: mirrorTitle.trailingAnchor, constant: 12),
+
+            closeButton.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
+            closeButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
+            closeButton.widthAnchor.constraint(equalToConstant: 24),
+            closeButton.heightAnchor.constraint(equalToConstant: 22),
+            zoomIn.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
+            zoomIn.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -12),
+            zoomIn.widthAnchor.constraint(equalToConstant: 24),
+            zoomIn.heightAnchor.constraint(equalToConstant: 22),
+            zoomLabel.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
+            zoomLabel.trailingAnchor.constraint(equalTo: zoomIn.leadingAnchor, constant: -2),
+            zoomLabel.widthAnchor.constraint(equalToConstant: 42),
+            zoomOut.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
+            zoomOut.trailingAnchor.constraint(equalTo: zoomLabel.leadingAnchor, constant: -2),
+            zoomOut.widthAnchor.constraint(equalToConstant: 24),
+            zoomOut.heightAnchor.constraint(equalToConstant: 22),
+
+            scroll.topAnchor.constraint(equalTo: mirrorGrip.bottomAnchor, constant: 2),
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 4),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -4),
             scroll.bottomAnchor.constraint(equalTo: input.topAnchor, constant: -6),
@@ -873,21 +885,15 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     }
 
     func applyMirrorOpacity() {
-        mirrorRoot.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: mirrorOpacity).cgColor
+        mirrorRoot.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: CGFloat(settings.value("mirror.opacity"))).cgColor
     }
 
-    /// ☰ → 🌫: the item's tag is the opacity in percent.
-    @objc func chooseMirrorOpacity(_ sender: NSMenuItem) {
-        mirrorOpacity = CGFloat(sender.tag) / 100
-        try? "\(mirrorOpacity)".write(toFile: mirrorOpacityPath, atomically: true, encoding: .utf8)
-        applyMirrorOpacity()
-    }
-
-    /// Show the mirror unless it is switched off, suspended for a click, or the real Claude window is in front.
+    /// Show the mirror unless it is switched off, suspended for a click, or the real chat window is in front.
     func updateMirrorVisibility() {
-        let off = exists(mirrorOffPath) || exists(mirrorSuspendPath)
+        let off = !settings.isOn("mirror.visible") || exists(mirrorSuspendPath)
         var claudeInFront = false
-        if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+        if claudeWindowID != 0,
+           let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
             let normal = list.first { ($0[kCGWindowLayer as String] as? Int) == 0 }
             claudeInFront = (normal?[kCGWindowNumber as String] as? Int).map { CGWindowID($0) == claudeWindowID } ?? false
         }
@@ -898,7 +904,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         }
     }
 
-    /// Re-render the conversation when the mod rewrote the feed (or the zoom changed).
+    /// Re-render the conversation when the mod rewrote the feed (or an option changed).
     /// `keepScroll` keeps the reader's position (used when an entry is folded or unfolded).
     func reloadFeed(force: Bool, keepScroll: Bool = false) {
         let stamp = mtime(feedPath)
@@ -906,7 +912,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         feedStamp = stamp
         guard let data = FileManager.default.contents(atPath: feedPath), let text = String(data: data, encoding: .utf8) else { return }
         let size = 13 * zoom
-        let fold = !exists(foldOffPath)
+        let fold = settings.isOn("mirror.fold")
         let out = NSMutableAttributedString()
         let para = NSMutableParagraphStyle()
         para.paragraphSpacing = 6 * zoom
@@ -956,13 +962,6 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         return true
     }
 
-    /// ☰ → 📁: fold long tool entries (default) or always show them in full.
-    @objc func toggleFold() {
-        if exists(foldOffPath) { try? FileManager.default.removeItem(atPath: foldOffPath) }
-        else { FileManager.default.createFile(atPath: foldOffPath, contents: Data()) }
-        reloadFeed(force: true, keepScroll: true)
-    }
-
     /// While the message box is being edited (focused, or holding a draft), keep the agent's GUI steps waiting.
     func updateTypingFlag() {
         let editing = mirror.isKeyWindow && mirror.firstResponder is NSTextView && (mirror.firstResponder as? NSTextView)?.delegate === input
@@ -974,17 +973,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         }
     }
 
-    func updateZoomLabel() { zoomLabel.stringValue = String(format: "%.0f%%", zoom * 100) }
+    func updateZoomLabel() { zoomLabel.stringValue = percentText(Double(zoom)) }
 
-    func setZoom(_ z: CGFloat) {
-        zoom = min(2.5, max(0.6, (z * 10).rounded() / 10))
-        try? "\(zoom)".write(toFile: zoomPath, atomically: true, encoding: .utf8)
-        updateZoomLabel()
-        reloadFeed(force: true)
-    }
-
-    @objc func zoomInTapped() { setZoom(zoom + 0.1) }
-    @objc func zoomOutTapped() { setZoom(zoom - 0.1) }
+    @objc func zoomInTapped() { settings.set("mirror.zoom", Double(zoom) + 0.1) }
+    @objc func zoomOutTapped() { settings.set("mirror.zoom", Double(zoom) - 0.1) }
 
     /// Hand the typed message to the mod through the inbox file; it reaches the session without any GUI step.
     @objc func sendMessage() {
@@ -1018,9 +1010,3 @@ func installEditMenu() {
     editItem.submenu = edit
     NSApp.mainMenu = main
 }
-
-let app = NSApplication.shared
-app.setActivationPolicy(.accessory)
-installEditMenu()
-let hud = HUD()
-app.run()
