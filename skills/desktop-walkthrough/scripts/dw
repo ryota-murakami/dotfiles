@@ -1,0 +1,434 @@
+#!/bin/bash
+# dw — helper for desktop walkthroughs (HUD lifecycle, narration, focus checks, non-blocking Terminal).
+#
+# Why it exists: every command here encodes a failure seen in real runs (keys typed into the wrong
+# window, a session blocked on a slow command, a HUD nobody could dismiss). Called by the agent
+# following SKILL.md; nothing is hardcoded — window ids, shells and owners are detected at run time.
+#
+# Usage: dw <command> [args]
+#   doctor                         check agent-desktop install, permissions, tools
+#   start                          build + launch the HUD, start an agent-desktop session, report the environment
+#   end                            quit the HUD, end the agent-desktop session, clear flags
+#   clear                          end + close every idle walkthrough terminal (what /desktop-walkthrough clear runs)
+#   step "<name>"                  set the step name shown as a prefix in the HUD
+#   say "<what and why>"           show the current action in the HUD (honors pause / stop first)
+#   gate                           only the pause / stop check
+#   ad <agent-desktop args>        agent-desktop bound to the walkthrough session, after the gate
+#   windows [App]                  list windows: id, app, focused, visible, title
+#   front <w-ID|App> [App]         bring a window/app to the front (Dock click across desktops) and verify
+#   press <combo> --in <w-ID|App>  press keys only if that window/app is focused
+#   click-xy <X,Y> --in <w-ID|App> physical click only if focused; hides the mirror for the click
+#   layout <left w-ID> <right w-ID>  tile two windows side by side
+#   term open [-n NAME] [DIR]      dedicated Terminal window with an exit-status hook
+#   term run  [-n NAME] "<cmd>"    start a command and return at once
+#   term check [-n NAME] [SECONDS] [LINES]   RUNNING (exit 2) / OK (0) / FAILED (1) + output tail
+#   term text [-n NAME] [LINES]    tail of the terminal scrollback
+#   term close [-n NAME]           close that terminal window (refused while a command runs)
+set -u
+
+SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DW_HOME="${DW_HOME:-$HOME/.local/state/desktop-walkthrough}"
+BRIDGE="$DW_HOME/bridge"
+HUD_BIN="$DW_HOME/bin/StatusHUD"
+mkdir -p "$BRIDGE" "$DW_HOME/bin" "$DW_HOME/term"
+
+die() { echo "dw: $*" >&2; exit 1; }
+need() { command -v "$1" >/dev/null 2>&1 || die "$1 is required but not installed"; }
+
+# agent-desktop bound to the walkthrough session (the session is what draws the cursor overlay)
+ad() {
+  local session
+  session=$(cat "$DW_HOME/ad_session" 2>/dev/null)
+  if [ -n "$session" ]; then AGENT_DESKTOP_SESSION="$session" agent-desktop "$@"; else agent-desktop "$@"; fi
+}
+
+hud_alive() { local pid; pid=$(cat "$DW_HOME/hud.pid" 2>/dev/null); [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; }
+stop_on() { [ "$(cat "$BRIDGE/stop" 2>/dev/null)" = on ]; }
+
+# Honor the HUD before acting: ⏹ aborts (exit 130), ⏸ or a message being typed waits.
+# The wait is bounded so a tool call never hangs the session: exit 75 means "still paused".
+gate() {
+  local waited=0 limit="${DW_PAUSE_WAIT:-100}"
+  if stop_on; then echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; fi
+  # Flags left by a HUD that is gone are stale, so only a live HUD can pause
+  while hud_alive && { [ -f "$DW_HOME/paused" ] || [ -f "$DW_HOME/typing" ]; }; do
+    [ "$waited" = 0 ] && echo "⏸ paused by the user: waiting" >&2
+    sleep 1; waited=$((waited + 1))
+    if stop_on; then echo "⏹ stopped by the user: do not continue, wait for their message" >&2; exit 130; fi
+    if [ "$waited" -ge "$limit" ]; then echo "⏸ still paused after ${limit}s: do nothing else; run 'dw gate' again to keep waiting" >&2; exit 75; fi
+  done
+  [ "$waited" -gt 0 ] && { echo "▶ resumed" >&2; sleep 0.5; }
+  return 0
+}
+
+# The agent CLI can restart under the same session (model or effort change, update) with a new pid.
+# Record the current one so the HUD follows it instead of quitting with the old process.
+note_owner() {
+  [ -n "${CLAUDE_PID:-}" ] || return 0
+  [ -f "$BRIDGE/owner" ] || return 0
+  [ "$(cat "$BRIDGE/owner")" = "${CLAUDE_CODE_SESSION_ID:-}" ] || return 0
+  printf '%s' "$CLAUDE_PID" > "$DW_HOME/owner.pid"
+}
+
+# Relaunch the HUD when a walkthrough is active but the HUD is gone, unless the user closed it (☰ → ✕)
+ensure_hud() {
+  [ -f "$BRIDGE/owner" ] || return 0
+  hud_alive && return 0
+  if [ -f "$DW_HOME/hud-closed-by-user" ]; then
+    echo "dw: note: the user closed the HUD (☰ → ✕); it stays closed until 'dw start'" >&2; return 0
+  fi
+  launch_hud && echo "dw: the HUD was not running: relaunched it" >&2
+}
+
+cmd_say() {
+  gate
+  note_owner; ensure_hud
+  local step text
+  step=$(cat "$DW_HOME/step" 2>/dev/null)
+  # Braces matter: bash 3.2 would read the multibyte "】" as part of the variable name
+  text="${step:+【${step}】 }$*"
+  printf '%s\n' "$text" > "$DW_HOME/status.txt"
+  printf '%s %s\n' "$(date +%H:%M:%S)" "$text" >> "$DW_HOME/narration.log"
+}
+
+cmd_step() { printf '%s' "$*" > "$DW_HOME/step"; cmd_say "$*"; }
+
+# ---- windows and focus ---------------------------------------------------------------------------
+
+windows_json() { ad list-windows 2>/dev/null | jq -c '[.data[]? | select(.bounds.height > 100)]'; }
+
+# True when the given window id (w-N) or app name owns the focused window right now
+is_focused() {
+  windows_json | jq -e --arg t "$1" '[.[] | select(.is_focused == true and (.id == $t or .app_name == $t))] | length > 0' >/dev/null
+}
+
+focused_brief() { windows_json | jq -r '[.[] | select(.is_focused == true)][0] | "\(.id // "none") \(.app_name // "")"'; }
+
+cmd_windows() {
+  windows_json | jq -r --arg a "${1:-}" '.[] | select($a == "" or .app_name == $a) |
+    "\(.id)\t\(.app_name)\t\(if .is_focused then "FOCUSED" else "-" end)\t\(if .visible then "visible" else "other-desktop/hidden" end)\t\(.title[0:70])"'
+}
+
+# Click an app's Dock icon: the way a person switches to an app whose window sits on another desktop
+dock_click() {
+  local ref
+  ref=$(ad snapshot --surface dock -i --compact 2>/dev/null | jq -r --arg a "$1" '[.. | objects | select(.name? == $a) | .ref_id][0] // empty')
+  [ -n "$ref" ] && ad click "$ref" >/dev/null 2>&1
+}
+
+cmd_front() {
+  local target="${1:?usage: dw front <w-ID|App> [App]}" app="${2:-}" i
+  gate
+  if [[ "$target" == w-* ]]; then
+    ad focus-window --window-id "$target" >/dev/null 2>&1
+    if ! is_focused "$target"; then
+      # A window on another desktop is not reachable by id: switch desktops through the Dock first
+      [ -n "$app" ] || app=$(ad list-windows 2>/dev/null | jq -r --arg t "$target" '.data[]? | select(.id == $t) | .app_name')
+      [ -n "$app" ] && dock_click "$app"
+      for i in 1 2 3 4 5 6 7 8; do
+        sleep 0.4
+        ad focus-window --window-id "$target" >/dev/null 2>&1
+        is_focused "$target" && break
+      done
+    fi
+  elif ! is_focused "$target"; then
+    dock_click "$target" || ad launch "$target" --activate >/dev/null 2>&1
+    for i in 1 2 3 4 5 6 7 8 9 10; do sleep 0.4; is_focused "$target" && break; done
+  fi
+  is_focused "$target" || die "could not bring $target to the front (focused: $(focused_brief))"
+  echo "front: $(focused_brief)"
+}
+
+# Parse the trailing "--in <target>" shared by press and click-xy, and verify focus
+require_focus() {
+  [ "${1:-}" = "--in" ] && [ -n "${2:-}" ] || die "missing --in <w-ID|App>: keys and coordinates go to whatever is focused, so name the target"
+  is_focused "$2" || die "refused: $2 is not focused (focused: $(focused_brief)). Run: dw front $2"
+}
+
+cmd_press() {
+  local combo="${1:?usage: dw press <combo> --in <w-ID|App>}"; shift
+  gate; require_focus "$@"
+  if [[ "$2" == w-* ]]; then ad press "$combo" --window-id "$2"; else ad press "$combo" --app "$2"; fi | jq -c '{ok, error: .error.code}'
+}
+
+cmd_click_xy() {
+  local xy="${1:?usage: dw click-xy <X,Y> --in <w-ID|App>}"; shift
+  gate; require_focus "$@"
+  # The mirror panel floats above apps and would swallow a click that lands on it
+  touch "$DW_HOME/mirror-suspend"; sleep 0.45
+  ad --headed mouse-click --xy "$xy" | jq -c '{ok, error: .error.code}'
+  sleep 0.3; rm -f "$DW_HOME/mirror-suspend"
+}
+
+cmd_layout() {
+  local left="${1:?usage: dw layout <left w-ID> <right w-ID>}" right="${2:?usage: dw layout <left w-ID> <right w-ID>}" w h top=33
+  gate
+  w=$(ad list-displays 2>/dev/null | jq -r '[.data[] | select(.is_primary)][0].bounds.width | floor')
+  h=$(ad list-displays 2>/dev/null | jq -r '[.data[] | select(.is_primary)][0].bounds.height | floor')
+  [ -n "$w" ] && [ "$w" != null ] || die "could not read the display size"
+  local half=$((w / 2)) id x
+  for pair in "$left:0" "$right:$half"; do
+    id=${pair%%:*}; x=${pair##*:}
+    ad move-window --window-id "$id" --x "$x" --y "$top" >/dev/null 2>&1 || die "cannot move $id (on another desktop? run: dw front $id)"
+    ad resize-window --window-id "$id" --width "$half" --height $((h - top)) >/dev/null 2>&1
+  done
+  echo "layout: $left | $right (${half}pt each)"
+}
+
+# ---- Terminal.app: addressed, non-blocking commands ------------------------------------------------
+
+term_name=main
+term_dir() { echo "$DW_HOME/term/$term_name"; }
+term_id() { cat "$(term_dir)/window" 2>/dev/null; }
+term_shell_pid() { cat "$(term_dir)/shell_pid" 2>/dev/null; }
+# A foreground command is running while the shell has a child process
+term_busy() { local pid; pid=$(term_shell_pid); [ -n "$pid" ] && pgrep -P "$pid" >/dev/null 2>&1; }
+# The window may have been closed by the user: say so instead of reporting a confusing empty result
+term_require() {
+  [ -n "$(term_id)" ] || die "no walkthrough terminal '$term_name': run dw term open first"
+  osascript -e "tell application \"Terminal\" to return id of window id $(term_id)" >/dev/null 2>&1 \
+    || die "walkthrough terminal '$term_name' (w-$(term_id)) no longer exists (closed?): run dw term open again"
+}
+term_text() { osascript -e "tell application \"Terminal\" to return history of (first tab of window id $(term_id))" 2>/dev/null; }
+
+# Type text + Return into the walkthrough terminal by window id: no focus, clipboard or IME involved.
+# Ctrl-U first, so anything already sitting on the prompt line cannot merge with the command.
+term_send() {
+  osascript - "$(term_id)" "$1" <<'OSA' >/dev/null
+on run argv
+  tell application "Terminal" to do script ((ASCII character 21) & (item 2 of argv)) in window id ((item 1 of argv) as integer)
+end run
+OSA
+}
+
+cmd_term_open() {
+  local dir="${1:-$PWD}" out id tty pid shell hook sf
+  gate
+  mkdir -p "$(term_dir)"; sf="$(term_dir)/status"
+  out=$(osascript -e 'tell application "Terminal" to do script ""' 2>&1) || die "cannot drive Terminal.app (grant Automation permission): $out"
+  id=$(printf '%s' "$out" | sed -n 's/.*window id \([0-9][0-9]*\).*/\1/p')
+  [ -n "$id" ] || die "unexpected answer from Terminal: $out"
+  echo "$id" > "$(term_dir)/window"
+  sleep 1.2
+  tty=$(osascript -e "tell application \"Terminal\" to return tty of (first tab of window id $id)" 2>/dev/null)
+  pid=$(ps -t "${tty#/dev/}" -o pid=,comm= | awk '$2 ~ /(^|[-\/])(fish|zsh|bash|sh)$/ {print $1; exit}')
+  [ -n "$pid" ] || die "no shell found on $tty"
+  echo "$pid" > "$(term_dir)/shell_pid"
+  shell=$(ps -o comm= -p "$pid" | sed 's/^-//; s|.*/||')
+  # Record every command's exit status in a file, so success is read from the shell itself
+  # instead of being guessed from a prompt theme
+  case "$shell" in
+    fish) hook="function __dw_status --on-event fish_postexec; echo \$status > $sf; end" ;;
+    zsh)  hook="__dw_status() { echo \$? > $sf }; precmd_functions=(__dw_status \$precmd_functions)" ;;
+    bash) hook="PROMPT_COMMAND='echo \$? > $sf;'\"\${PROMPT_COMMAND:-}\"" ;;
+    *)    hook="" ;;
+  esac
+  term_send "cd $(printf '%q' "$dir")${hook:+; $hook}; clear"
+  sleep 0.8
+  echo "terminal[$term_name]: w-$id $tty shell=$shell pid=$pid${hook:+ (exit-status hook installed)}"
+  [ -n "$hook" ] || echo "note: unknown shell '$shell': term check can report finished/running but not the exit status"
+}
+
+cmd_term_run() {
+  local cmd="$*"
+  [ -n "$cmd" ] || die "usage: dw term run [-n NAME] \"<command>\""
+  gate
+  term_require
+  term_busy && die "terminal '$term_name' is busy with a running command: dw term check"
+  rm -f "$(term_dir)/status"
+  printf '%s' "$cmd" > "$(term_dir)/last_cmd"
+  term_send "$cmd" || die "could not reach Terminal window $(term_id)"
+  echo "started: $cmd"
+}
+
+cmd_term_check() {
+  local wait="${1:-8}" lines="${2:-12}" cmd sf out i ec
+  term_require
+  cmd=$(cat "$(term_dir)/last_cmd" 2>/dev/null); sf="$(term_dir)/status"
+  # Look for a bounded time only: a long command is reported as RUNNING and checked again later
+  for ((i = 0; i < wait * 2; i++)); do
+    { ! term_busy && [ -f "$sf" ]; } && break
+    sleep 0.5
+  done
+  out=$(term_text | awk -v c="$cmd" 'c != "" && index($0, c) {buf = ""; found = 1} found || c == "" {buf = buf $0 "\n"} END {printf "%s", buf}' | grep -v '^[[:space:]]*$')
+  if term_busy; then
+    printf '%s\n' "$out" | tail -n 5; echo "⏳ RUNNING: $cmd"; exit 2
+  fi
+  printf '%s\n' "$out" | tail -n "$lines"
+  [ -f "$sf" ] || { echo "❓ finished, but no exit status was recorded: read the output above"; exit 3; }
+  ec=$(tr -dc '0-9' < "$sf")
+  if [ "$ec" = 0 ]; then echo "✅ OK (exit 0): $cmd"; else echo "❌ FAILED (exit $ec): $cmd"; exit 1; fi
+}
+
+cmd_term() {
+  local sub="${1:-}"; shift || true
+  if [ "${1:-}" = "-n" ]; then term_name="${2:?-n needs a name}"; shift 2; fi
+  case "$sub" in
+    open)  cmd_term_open "$@" ;;
+    run)   cmd_term_run "$@" ;;
+    check) cmd_term_check "$@" ;;
+    close) term_require; term_busy && die "terminal '$term_name' is still running a command"
+           osascript -e "tell application \"Terminal\" to close window id $(term_id)" >/dev/null 2>&1; rm -rf "$(term_dir)"; echo "closed terminal '$term_name'" ;;
+    text)  term_require; term_text | grep -v '^[[:space:]]*$' | tail -n "${1:-20}" ;;
+    *)     die "usage: dw term open|run|check|text|close [-n NAME] ..." ;;
+  esac
+}
+
+# ---- lifecycle -------------------------------------------------------------------------------------
+
+# The agent CLI process this run belongs to: an ancestor named like an agent CLI, else the ancestor
+# started from a login shell. The HUD quits when it exits; its tty identifies the chat window.
+owner_pid() {
+  local pid=$PPID comm parent fallback=""
+  while [ -n "$pid" ] && [ "$pid" -gt 1 ]; do
+    comm=$(ps -o comm= -p "$pid" 2>/dev/null | sed 's|.*/||')
+    parent=$(ps -o ppid= -p "$pid" 2>/dev/null | tr -d ' ')
+    case "$comm" in claude|codex|opencode|gemini|cursor-agent) echo "$pid"; return ;; esac
+    # comm starting with "-" marks a login shell: its direct child is what the user launched
+    if [ -z "$fallback" ] && ps -o comm= -p "$parent" 2>/dev/null | grep -q '^-'; then fallback=$pid; fi
+    pid=$parent
+  done
+  echo "$fallback"
+}
+
+# Terminal.app window id whose tab runs on the given tty ("" when unknown or not Terminal.app)
+window_for_tty() {
+  # -a: macOS pgrep skips its own ancestors by default, and Terminal usually is one
+  pgrep -a -x Terminal >/dev/null 2>&1 || return 0
+  osascript - "/dev/$1" <<'OSA' 2>/dev/null
+on run argv
+  tell application "Terminal"
+    repeat with w in windows
+      -- Some Terminal windows (settings, inspectors) have no tabs: skip them instead of failing
+      try
+        repeat with t in tabs of w
+          if tty of t is (item 1 of argv) then return id of w
+        end repeat
+      end try
+    end repeat
+  end tell
+  return ""
+end run
+OSA
+}
+
+# Build the HUD when its source is newer, then start it detached (owner pid and chat window come from files)
+launch_hud() {
+  if [ ! -x "$HUD_BIN" ] || [ "$SKILL_DIR/hud/HUD.swift" -nt "$HUD_BIN" ]; then
+    need swiftc
+    swiftc -O -swift-version 5 "$SKILL_DIR/hud/HUD.swift" -o "$HUD_BIN" 2> "$DW_HOME/hud-build.log" || die "HUD build failed: $DW_HOME/hud-build.log"
+  fi
+  DW_CLAUDE_WINDOW="$(cat "$DW_HOME/chat_window" 2>/dev/null)" DW_OWNER_PID="$(cat "$DW_HOME/owner.pid" 2>/dev/null)" \
+    nohup "$HUD_BIN" "$DW_HOME" > "$DW_HOME/hud.log" 2>&1 &
+  sleep 1.2
+  hud_alive
+}
+
+cmd_start() {
+  need agent-desktop; need jq
+  local owner tty chat session sid i bridge=""
+  # A previous HUD must not keep running beside the new one
+  if hud_alive; then touch "$DW_HOME/quit"; sleep 1.5; hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null; fi
+  echo off > "$BRIDGE/stop"
+  rm -f "$DW_HOME/paused" "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
+  session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
+  echo "$session" > "$DW_HOME/ad_session"
+  # Claude Code exports its pid and session id to Bash; other agent CLIs fall back to the process tree
+  owner="${CLAUDE_PID:-$(owner_pid)}"
+  sid="${CLAUDE_CODE_SESSION_ID:-}"
+  tty=$([ -n "$owner" ] && ps -o tty= -p "$owner" | tr -d ' ')
+  chat=$([ -n "$tty" ] && [ "$tty" != "??" ] && window_for_tty "$tty")
+  # The bridge mod loads in every Claude Code session: name the one this walkthrough belongs to,
+  # and drop the old state so that a fresh one proves this session's mod answered
+  printf '%s' "$sid" > "$BRIDGE/owner"
+  rm -f "$BRIDGE/state.json"
+  echo "準備中…" > "$DW_HOME/status.txt"
+  rm -f "$DW_HOME/hud-closed-by-user"
+  printf '%s' "${owner:-}" > "$DW_HOME/owner.pid"
+  printf '%s' "${chat:-}" > "$DW_HOME/chat_window"
+  launch_hud
+  if [ -n "$sid" ]; then
+    for i in 1 2 3 4 5 6; do
+      grep -q "\"sessionId\":\"$sid\"" "$BRIDGE/state.json" 2>/dev/null && { bridge=connected; break; }
+      sleep 0.5
+    done
+  fi
+  echo "state:    $DW_HOME"
+  echo "hud:      $(hud_alive && echo "running (pid $(cat "$DW_HOME/hud.pid"))" || echo "NOT running: see $DW_HOME/hud.log")"
+  echo "session:  ${session:-none (agent-desktop session start failed)}"
+  echo "owner:    ${owner:-unknown} ${chat:+chat window w-$chat (never send input there)}"
+  if [ "$bridge" = connected ]; then echo "bridge:   connected (mirror, message box and ⏹ are live)"
+  elif [ -n "$sid" ] && grep -q "$sid" "$BRIDGE/mod.log" 2>/dev/null; then echo "bridge:   loaded in this session but not answering yet: check $BRIDGE/state.json in a few seconds"
+  else echo "bridge:   not loaded in this session: ask the user to run /reload-plugins (or restart the session). The status bar, ⏸ and ✕ work without it; the mirror, message box and ⏹ do not"; fi
+  if defaults read com.apple.HIToolbox AppleSelectedInputSources 2>/dev/null | grep -q inputmethod; then
+    echo "ime:      an input method is active: enter text by ref (type / set-value) or clipboard, never key by key"
+  fi
+  echo "focused:  $(focused_brief)"
+}
+
+cmd_end() {
+  local session i
+  if hud_alive; then
+    touch "$DW_HOME/quit"
+    for i in 1 2 3 4 5 6; do sleep 0.5; hud_alive || break; done
+    hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null
+  fi
+  rm -f "$DW_HOME/paused" "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/hud.pid" "$DW_HOME/step" \
+    "$DW_HOME/owner.pid" "$DW_HOME/chat_window" "$DW_HOME/hud-closed-by-user"
+  # Without an owner the bridge mod goes dormant in every session
+  rm -f "$BRIDGE/owner"
+  session=$(cat "$DW_HOME/ad_session" 2>/dev/null)
+  if [ -n "$session" ]; then
+    AGENT_DESKTOP_SESSION="$session" agent-desktop cursor-overlay disable >/dev/null 2>&1
+    AGENT_DESKTOP_SESSION="$session" agent-desktop session end >/dev/null 2>&1
+    rm -f "$DW_HOME/ad_session"
+  fi
+  echo "ended: HUD closed, agent-desktop session ended (terminals from 'dw term open' stay open: dw term close -n NAME)"
+}
+
+# End the walkthrough and close the terminals it opened; a terminal still running a command is left open
+cmd_clear() {
+  local d name
+  cmd_end >/dev/null; echo "ended: HUD closed, agent-desktop session ended"
+  for d in "$DW_HOME"/term/*/; do
+    [ -d "$d" ] || continue
+    name=$(basename "$d")
+    ( "$0" term close -n "$name" ) 2>&1 | sed 's/^/  /'
+  done
+  echo "cleared: nothing of the walkthrough is left on screen (files you edited and app windows stay as they are)"
+}
+
+cmd_doctor() {
+  need jq
+  local bin real ok=0
+  bin=$(command -v agent-desktop) || die "agent-desktop is not installed (npm i -g agent-desktop)"
+  real=$(readlink -f "$bin" 2>/dev/null || echo "$bin")
+  # The npm launcher (a script) spawns a platform-named binary: the cursor overlay then draws
+  # nothing while reporting success, and the clipboard helper is rejected
+  if [ "$(head -c 2 "$real")" = "#!" ]; then
+    echo "✗ agent-desktop is the Node launcher: its postinstall did not run"
+    echo "  fix: (cd \"$(dirname "$real")/..\" && node scripts/postinstall.js)"; ok=1
+  else echo "✓ agent-desktop native binary ($(agent-desktop version 2>/dev/null | jq -r '.data.version'))"; fi
+  agent-desktop permissions 2>/dev/null | jq -r '.data | to_entries[] | "\(if .value.state == "granted" then "✓" else "•" end) permission \(.key): \(.value.state)"'
+  if agent-desktop clipboard-get >/dev/null 2>&1; then echo "✓ clipboard helper"; else echo "✗ clipboard helper unavailable (same postinstall fix)"; ok=1; fi
+  if command -v swiftc >/dev/null 2>&1; then echo "✓ swiftc (HUD can be built)"; else echo "✗ swiftc missing: install Xcode Command Line Tools"; ok=1; fi
+  return $ok
+}
+
+case "${1:-}" in
+  doctor)   cmd_doctor ;;
+  start)    cmd_start ;;
+  end)      cmd_end ;;
+  clear)    cmd_clear ;;
+  step)     shift; cmd_step "$*" ;;
+  say)      shift; cmd_say "$*" ;;
+  gate)     gate ;;
+  ad)       shift; gate; note_owner; ensure_hud; ad "$@" ;;
+  windows)  shift; cmd_windows "${1:-}" ;;
+  front)    shift; cmd_front "$@" ;;
+  press)    shift; cmd_press "$@" ;;
+  click-xy) shift; cmd_click_xy "$@" ;;
+  layout)   shift; cmd_layout "$@" ;;
+  term)     shift; cmd_term "$@" ;;
+  *)        awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 2 ;;
+esac
