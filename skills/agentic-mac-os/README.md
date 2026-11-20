@@ -1,4 +1,4 @@
-# desktop-walkthrough
+# agentic-mac-os
 
 A personal Claude Code skill and plugin (macOS): the agent operates real apps the way a person would while an on-screen HUD says what it is doing, so you can learn by watching.
 
@@ -20,20 +20,18 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `references/pitfalls.md` | Failures seen in real runs and the rules they produced |
 | `references/this-mac.md` | Facts about the one machine this skill runs on: PhpStorm keymap, screen, shell, projects |
 
-Runtime state (built HUD, preferences, logs) lives in `~/.local/state/desktop-walkthrough/`, not in this folder, so the folder is plain source and safe to commit. Recorded walkthroughs (pages, journal, handbook) live in `~/.config/desktop-walkthrough/walkthroughs/`, which the dotfiles repository ignores.
+Runtime state (built HUD, preferences, logs) lives in `~/.local/state/agentic-mac-os/`, not in this folder, so the folder is plain source and safe to commit. Recorded walkthroughs (pages, journal, handbook) live in `~/.config/agentic-mac-os/walkthroughs/`, which the dotfiles repository ignores.
 
 ## Install or refresh
 
-The source of truth is `~/dotfiles/skills/desktop-walkthrough/`. Run `scripts/check` after every change.
-
-While the skill is being developed, the install is a link to that folder, so edits are live:
+While the skill is being developed, the install is a link to `~/dotfiles/skills/agentic-mac-os/`: the folder Claude Code runs and its backup are one folder, so edits are live. Run `scripts/check` after every change.
 
 ```sh
-rm -rf ~/.agents/skills/desktop-walkthrough   # the copied install, once nothing in it is newer than dotfiles
-ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
+rm -rf ~/.agents/skills/agentic-mac-os   # the copied install, once nothing in it is newer than dotfiles
+ln -s ~/dotfiles/skills/agentic-mac-os ~/.agents/skills/agentic-mac-os
 ```
 
-`npx skills add ~/dotfiles/skills --skill desktop-walkthrough -g -y` (or `npx skills update`) replaces the link with a copy again. After a change to `hooks/` or `.claude-plugin/`, run `/reload-plugins` in Claude Code (or start a new session). `claude plugin list` shows it as `desktop-walkthrough@skills-dir`.
+`npx skills add ~/dotfiles/skills --skill agentic-mac-os -g -y` (or `npx skills update`) replaces the link with a copy again. After a change to `hooks/` or `.claude-plugin/`, run `/reload-plugins` in Claude Code (or start a new session). `claude plugin list` shows it as `agentic-mac-os@skills-dir`.
 
 ## Requirements
 
@@ -42,4 +40,4 @@ ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
 
 ## Use
 
-Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.
+Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/agentic-mac-os`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.

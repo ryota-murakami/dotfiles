@@ -24,7 +24,7 @@ import QuartzCore
 /// State folder shared with the `dw` script and the hud-bridge mod: argument 1, else the default.
 let stateDir: String = CommandLine.arguments.count > 1 && !CommandLine.arguments[1].hasPrefix("--")
     ? CommandLine.arguments[1]
-    : "\(NSHomeDirectory())/.local/state/desktop-walkthrough"
+    : "\(NSHomeDirectory())/.local/state/agentic-mac-os"
 let bridgeDir = "\(stateDir)/bridge"
 let statusPath = "\(stateDir)/status.txt"
 /// Present while `dw click-xy` needs the mirror out of the way.

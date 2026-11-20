@@ -120,7 +120,7 @@ test('the bar shows a command the agent runs without narrating', () => {
 
 test('the bar says the skill is being updated while a HUD source file is edited', () => {
   // Arrange
-  const input = { file_path: '/Users/someone/dotfiles/skills/desktop-walkthrough/hud/Bar.swift' }
+  const input = { file_path: '/Users/someone/dotfiles/skills/agentic-mac-os/hud/Bar.swift' }
 
   // Act
   const toolClass = classifyTool('Edit', input)
@@ -131,7 +131,7 @@ test('the bar says the skill is being updated while a HUD source file is edited'
 
 test('the bar says the skill is being updated while the HUD is built', () => {
   // Arrange
-  const input = { command: 'cd ~/dotfiles/skills/desktop-walkthrough && swiftc hud/*.swift -o /tmp/x/StatusHUD' }
+  const input = { command: 'cd ~/dotfiles/skills/agentic-mac-os && swiftc hud/*.swift -o /tmp/x/StatusHUD' }
 
   // Act
   const toolClass = classifyTool('Bash', input)
@@ -142,7 +142,7 @@ test('the bar says the skill is being updated while the HUD is built', () => {
 
 test('running the dw helper is not taken for updating the skill', () => {
   // Arrange
-  const input = { command: '~/.claude/skills/desktop-walkthrough/scripts/dw say "次の場所を開きます"' }
+  const input = { command: '~/.claude/skills/agentic-mac-os/scripts/dw say "次の場所を開きます"' }
 
   // Act
   const toolClass = classifyTool('Bash', input)

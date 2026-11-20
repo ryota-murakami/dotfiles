@@ -1,7 +1,7 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 /**
- * hud-bridge: connects a Claude Code session to the desktop-walkthrough HUD through plain files,
+ * hud-bridge: connects a Claude Code session to the agentic-mac-os HUD through plain files,
  * so the person can read the conversation, talk to the agent and stop it from any desktop
  * without switching to the terminal that hosts the session.
  *
@@ -10,7 +10,7 @@ import type { EngineInterface, Register } from 'claude-code'
  * loads in every Claude Code session; it stays dormant unless a HUD is running and `dw start`
  * named this session as the walkthrough's owner.
  *
- * Files under the state folder (`$DW_HOME`, default `~/.local/state/desktop-walkthrough`):
+ * Files under the state folder (`$DW_HOME`, default `~/.local/state/agentic-mac-os`):
  * - `bridge/feed.jsonl`    mod → HUD  the conversation: prompts, the agent's text, one line per tool call
  * - `bridge/owner`         dw → mod   id of the session the walkthrough belongs to
  * - `bridge/mod.log`       mod → dw   one line per load: time and session id
@@ -28,7 +28,7 @@ const FEED_LIMIT = 300
 /** A heartbeat older than this means the HUD is gone and its typing flag is stale. */
 const HUD_STALE_MS = 8000
 /** Bash commands that drive the GUI: these wait while the person has taken over the Mac. */
-const GUI_COMMAND = /agent-desktop|desktop-walkthrough|(^|[\s;&|(])dw\s/
+const GUI_COMMAND = /agent-desktop|agentic-mac-os|(^|[\s;&|(])dw\s/
 
 /**
  * Values that must never reach the HUD, each written out literally, paired with what is shown
@@ -115,7 +115,7 @@ const S = {
 async function paths($: EngineInterface): Promise<Paths> {
   if (S.paths) return S.paths
   const custom = await $.env.get('DW_HOME')
-  const home = custom ?? `${(await $.env.get('HOME')) ?? ''}/.local/state/desktop-walkthrough`
+  const home = custom ?? `${(await $.env.get('HOME')) ?? ''}/.local/state/agentic-mac-os`
   const bridge = `${home}/bridge`
   S.paths = {
     feed: `${bridge}/feed.jsonl`,
@@ -269,14 +269,14 @@ export function showsToolOnBar(tool: string, isGuiCommand: boolean, questionPend
 export type ToolClass = 'skill' | 'waiting' | 'other'
 
 /** Files of this skill: its source, wherever it is installed or checked out, and its private notes. */
-const SKILL_FILE = /skills\/desktop-walkthrough\/|\.config\/desktop-walkthrough\/notes\.md/
+const SKILL_FILE = /skills\/agentic-mac-os\/|\.config\/agentic-mac-os\/notes\.md/
 /**
  * A Bash command that works on the skill rather than with it: it names a source folder of the
  * skill, changes into the skill folder, builds or runs the HUD binary, or drives a scratch HUD.
- * Merely calling `…/desktop-walkthrough/scripts/dw` is using the skill and does not match.
+ * Merely calling `…/agentic-mac-os/scripts/dw` is using the skill and does not match.
  */
 const SKILL_COMMAND =
-  /desktop-walkthrough\/(hud|hooks|explainer|references|\.claude-plugin|SKILL\.md|README\.md|scripts\/check)|cd\s+\S*skills\/desktop-walkthrough(?![\w/.-])|\bStatusHUD\b|\bDW_HOME=/
+  /agentic-mac-os\/(hud|hooks|explainer|references|\.claude-plugin|SKILL\.md|README\.md|scripts\/check)|cd\s+\S*skills\/agentic-mac-os(?![\w/.-])|\bStatusHUD\b|\bDW_HOME=/
 /** A Bash command that blocks until the user answers on the HUD. */
 const WAIT_COMMAND = /(^|[\s;&|(/])dw["']?\s+(wait-user|ask)\b|\$\{?DW\}?["']?\s+(wait-user|ask)\b/
 /** Tools that exist to wait: for the user, for a timer, for a background task. */
@@ -295,7 +295,7 @@ const WAITING_TOOLS: ReadonlySet<string> = new Set(['AskUserQuestion', 'Monitor'
  *   the class of the call before it stays.
  *
  * @example
- * classifyTool('Edit', { file_path: '/x/skills/desktop-walkthrough/hud/Bar.swift' }) // 'skill'
+ * classifyTool('Edit', { file_path: '/x/skills/agentic-mac-os/hud/Bar.swift' }) // 'skill'
  * classifyTool('Bash', { command: '$DW wait-user "読んでください"' })                  // 'waiting'
  * classifyTool('Bash', { command: 'git status' })                                    // 'other'
  */

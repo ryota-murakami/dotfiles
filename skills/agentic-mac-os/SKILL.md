@@ -1,5 +1,5 @@
 ---
-name: desktop-walkthrough
+name: agentic-mac-os
 description: |
   Perform a task on the user's Mac the way a person would (real apps, visible clicks, typing and commands) while an on-screen HUD says what is happening and why, so the user learns by watching.
   Use when: the user wants a tutorial carried out in front of them, an app's setup steps shown, a tool demonstrated, or asks to "do it like a human while explaining".
@@ -7,11 +7,11 @@ description: |
 argument-hint: "[task, tutorial URL or app to demonstrate | clear]"
 ---
 
-# Desktop Walkthrough
+# Agentic macOS
 
 The user watches the screen, not the chat. Every action is visible, announced before it happens, and checked after. GUI primitives come from the `agent-desktop` skill (load it and its platform guide first); this skill adds the HUD, the safety checks and the rhythm.
 
-`DW=~/.claude/skills/desktop-walkthrough/scripts/dw` (run `$DW` with no arguments for the command list). macOS only. State lives in `~/.local/state/desktop-walkthrough/` and survives a reboot.
+`DW=~/.claude/skills/agentic-mac-os/scripts/dw` (run `$DW` with no arguments for the command list). macOS only. State lives in `~/.local/state/agentic-mac-os/` and survives a reboot.
 
 Argument `clear`: run `$DW clear` (closes the HUD, the agent-desktop session and the idle terminals it opened), report what it printed, and stop.
 
@@ -125,5 +125,5 @@ Every walkthrough is recorded as it runs (`references/records.md`); what you add
 - `references/records.md`: what a record holds and who writes each part, and the procedures to **resume** a paused walkthrough and to **repeat** a recorded one. Read it before either, and before writing a record's README for the first time.
 - `references/this-mac.md`: facts about this one machine (the user's PhpStorm keymap and how to drive it, screen, shell, how the user arranges a walkthrough). Read it before the first GUI action; add what you learn.
 - `references/pitfalls.md`: failures seen in real runs, their causes and the rule each one produced, plus per-app notes (agent-desktop, JetBrains IDEs, Chrome, Terminal, macOS). Read it before the first GUI action in an app you have not driven in this session.
-- `~/.config/desktop-walkthrough/notes.md`: private notes about the user's own projects (how their local services are wired, what a walkthrough there needs). It is outside the repository on purpose: facts about someone's work go there, not into the files above. Read it when a walkthrough touches one of those projects; add what you learn.
+- `~/.config/agentic-mac-os/notes.md`: private notes about the user's own projects (how their local services are wired, what a walkthrough there needs). It is outside the repository on purpose: facts about someone's work go there, not into the files above. Read it when a walkthrough touches one of those projects; add what you learn.
 - `references/developing.md`: how to change the HUD, the bridge or `dw` itself and try the change without disturbing the walkthrough on screen. Read it before editing anything under `hud/`, `hooks/`, `explainer/` or `scripts/`.

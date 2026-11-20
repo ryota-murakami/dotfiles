@@ -136,11 +136,11 @@ npx skills update apollousa coderabbit-resolver -g -y
 
 Available skills:
 
+- [agentic-mac-os](skills/agentic-mac-os/SKILL.md) (also a Claude Code plugin: run `/reload-plugins` after installing)
 - [apollousa](skills/apollousa/SKILL.md)
 - [ci-hardening](skills/ci-hardening/SKILL.md)
 - [claude-skill-name-only](skills/claude-skill-name-only/SKILL.md)
 - [coderabbit-resolver](skills/coderabbit-resolver/SKILL.md)
-- [desktop-walkthrough](skills/desktop-walkthrough/SKILL.md) (also a Claude Code plugin: run `/reload-plugins` after installing)
 - [electron-release](skills/electron-release/SKILL.md)
 - [github-actions-pnpm-ci](skills/github-actions-pnpm-ci/SKILL.md)
 - [laststance-publish-skill](skills/laststance-publish-skill/SKILL.md)
