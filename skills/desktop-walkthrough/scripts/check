@@ -3,7 +3,7 @@
 #
 # Why it exists: mechanical slips came back during real runs (bash 3.2 "unbound variable" after a
 # variable followed by a multibyte character, twice; the hooks module type-checked a different way
-# each time). update-my-skill's save.sh runs this file whenever a skill ships one.
+# each time). save-my-skill's save.sh runs this file whenever a skill ships one.
 #
 # Usage: scripts/check   exit 0 when every check passed; a missing optional tool is reported and skipped
 set -u

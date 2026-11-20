@@ -1,17 +1,17 @@
 ---
-name: update-my-skill
+name: save-my-skill
 description: |
   Save a personal agent skill into ~/dotfiles/skills (overwriting the dotfiles copy with the edited one), commit it with the dotfiles commit message rules, ending in :green_apple:, and push it.
   Use when: the user asks to back up, save, sync, commit or push one of their own skills to dotfiles, or after editing a personal skill they want kept.
-  Keywords: update my skill, save skill to dotfiles, back up skill, commit skill, push skill, スキルをdotfilesに保存, スキルをバックアップ, スキルをコミット, スキルをpush, 個人スキルを更新.
+  Keywords: save my skill, save skill to dotfiles, back up skill, commit skill, push skill, スキルをdotfilesに保存, スキルをバックアップ, スキルをコミット, スキルをpush, 個人スキルを更新.
 argument-hint: "[skill name ... | status]"
 ---
 
-# Update My Skill
+# Save My Skill
 
 Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public GitHub repo) and are installed with `npx skills add ~/dotfiles/skills --skill <name> -g -y`, which copies them to `~/.agents/skills/<name>` and links `~/.claude/skills/<name>`. A skill under active development may instead be a link: `~/.agents/skills/<name>` pointing at the dotfiles folder, so edits are live. Edits happen in either place; this skill brings them back into dotfiles, commits and pushes.
 
-`SAVE=~/.claude/skills/update-my-skill/scripts/save.sh`
+`SAVE=~/.claude/skills/save-my-skill/scripts/save.sh`
 
 ## Steps
 

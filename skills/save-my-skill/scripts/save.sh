@@ -4,7 +4,7 @@
 # Why it exists: skills are edited in their installed copy (~/.claude/skills/<name>, usually a symlink
 # into ~/.agents/skills) or directly in dotfiles. Copying in the wrong direction silently loses edits,
 # so the direction is decided from the committed version (HEAD), never guessed from timestamps.
-# Called by the update-my-skill SKILL.md procedure.
+# Called by the save-my-skill SKILL.md procedure.
 #
 # Usage:
 #   save.sh status                 skills in ~/dotfiles/skills whose installed copy or dotfiles copy has changes

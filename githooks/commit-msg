@@ -1,7 +1,7 @@
 #!/bin/bash
 # commit-msg — dotfiles commit subjects end with " :green_apple:" (this repository's rule).
 #
-# Why it exists: the rule used to be checked only by update-my-skill after committing, so commits
+# Why it exists: the rule used to be checked only by save-my-skill after committing, so commits
 # made any other way could miss it. Linked as .git/hooks/commit-msg; git runs it with the message
 # file as $1. Merges and fixup!/squash!/amend! commits pass unchanged.
 subject=$(awk '!/^#/ && NF { print; exit }' "$1" | sed 's/[[:space:]]*$//')
