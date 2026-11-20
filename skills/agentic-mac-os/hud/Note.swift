@@ -40,6 +40,17 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     private var placedOrigin: NSPoint?
     /// The note's selection, for Command-C (see {@link PageSelection}).
     private(set) lazy var selection = PageSelection(panel: panel, webView: webView)
+    /// Shown in the header once the reader pressed "理解した" (see Reading.swift).
+    private let doneBadge = NSTextField(labelWithString: "✓ 理解")
+    private var doneBadgeWidth: NSLayoutConstraint?
+    /// "理解した" was pressed in the note: its id and title.
+    var onUnderstood: ((String, String) -> Void)?
+    /// A note finished loading: its id.
+    var onLoaded: ((String) -> Void)?
+    /// Id of the note on screen ("" when none).
+    var currentID: String { noteID }
+    /// Title of the note on screen.
+    var title: String { titleLabel.stringValue }
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -80,8 +91,15 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         grip.toolTip = "ドラッグでメモを移動"
+        doneBadge.font = .systemFont(ofSize: 11, weight: .semibold)
+        doneBadge.textColor = NSColor(calibratedRed: 0.16, green: 0.11, blue: 0, alpha: 1)
+        doneBadge.alignment = .center
+        doneBadge.wantsLayer = true
+        doneBadge.layer?.cornerRadius = 8
+        doneBadge.layer?.backgroundColor = noteAccent.hudCG
+        doneBadge.isHidden = true
 
-        for v in [grip, webView, closeButton] as [NSView] {
+        for v in [grip, webView, doneBadge, closeButton] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -92,7 +110,10 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         NSLayoutConstraint.activate([
             grip.topAnchor.constraint(equalTo: root.topAnchor),
             grip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            grip.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -4),
+            grip.trailingAnchor.constraint(equalTo: doneBadge.leadingAnchor, constant: -4),
+            doneBadge.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
+            doneBadge.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -2),
+            doneBadge.heightAnchor.constraint(equalToConstant: 17),
             grip.heightAnchor.constraint(equalToConstant: Self.headerHeight),
             titleIcon.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
             titleIcon.leadingAnchor.constraint(equalTo: grip.leadingAnchor, constant: 12),
@@ -108,6 +129,9 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -2),
             webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -2),
         ])
+        let badgeWidth = doneBadge.widthAnchor.constraint(equalToConstant: 0)
+        badgeWidth.isActive = true
+        doneBadgeWidth = badgeWidth
         panel.contentView = root
     }
 
@@ -155,6 +179,8 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         placedOrigin = nil
         contentHeight = 0
         selection.reset()
+        doneBadge.isHidden = true
+        doneBadgeWidth?.constant = 0
         webView.pageZoom = CGFloat(settings.value("explain.zoom"))
         // The page is laid out at the popup's width before it is shown, so the height it reports is the real one
         panel.setFrame(NSRect(origin: panel.frame.origin, size: NSSize(width: width, height: 240)), display: false)
@@ -201,6 +227,7 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any] else { return }
         if body["type"] as? String == "selection" { selection.update(text: body["text"] as? String ?? "") }
+        if body["type"] as? String == "understood", "\(body["id"] ?? "")" == noteID { onUnderstood?(noteID, titleLabel.stringValue) }
         guard body["type"] as? String == "size",
               "\(body["id"] ?? "")" == noteID, let height = (body["height"] as? NSNumber)?.doubleValue else { return }
         let first = contentHeight == 0
@@ -213,6 +240,33 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
                 DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in self?.remeasure(id) }
             }
         }
+    }
+
+    /// A note finished loading: the HUD gives it back whether it was understood (see Reading.swift).
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if !noteID.isEmpty { onLoaded?(noteID) }
+    }
+
+    /// Tell the note's page whether it was understood before and whether its button shows at all.
+    func restore(done: Bool, enabled: Bool) {
+        guard !noteID.isEmpty else { return }
+        evaluate("window.dwNote && dwNote.restore({ done: \(done), enabled: \(enabled) })")
+        if done, enabled { showUnderstood(animated: false) }
+    }
+
+    /// Run a script in the note's page.
+    func evaluate(_ script: String) { webView.evaluateJavaScript(script) }
+
+    /// Mark the popup as understood: a badge in its header, and (animated) its outline swelling once.
+    func showUnderstood(animated: Bool) {
+        doneBadge.isHidden = false
+        doneBadgeWidth?.constant = 50
+        guard animated, !DisplayOptions.reduceMotion, let layer = root.layer else { return }
+        let swell = CAKeyframeAnimation(keyPath: "borderWidth")
+        swell.values = [surfaceBorderWidth, 4, surfaceBorderWidth]
+        swell.keyTimes = [0, 0.3, 1]
+        swell.duration = 0.7
+        layer.add(swell, forKey: "understood")
     }
 
     /// Ask the page for its height now that it is on screen; a note that was replaced meanwhile is left alone.

@@ -156,6 +156,103 @@ extension HUD {
     }
 }
 
+/// The count of blocks read on the page, in the explainer's header: "✓ 4/9", filled once all are read.
+///
+/// Why it exists: the page draws its own marks, but how far the reader is belongs where the page's
+/// number and title are, in sight while the page scrolls. Owned by {@link Explainer}, which sets
+/// it from what the page reports.
+final class ReadChip: NSView {
+    private let label = NSTextField(labelWithString: "")
+    private var width: NSLayoutConstraint?
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        label.font = .monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        let width = widthAnchor.constraint(equalToConstant: 0)
+        self.width = width
+        NSLayoutConstraint.activate([
+            label.centerXAnchor.constraint(equalTo: centerXAnchor), label.centerYAnchor.constraint(equalTo: centerYAnchor),
+            heightAnchor.constraint(equalToConstant: 20), width,
+        ])
+        isHidden = true
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Show `read` of `total`; a page without blocks (or with the marks switched off) shows no chip.
+    func set(read: Int, total: Int, animated: Bool) {
+        guard total > 0 else {
+            isHidden = true
+            width?.constant = 0
+            return
+        }
+        let complete = read >= total
+        label.stringValue = "✓ \(read)/\(total)"
+        label.textColor = complete ? NSColor(calibratedRed: 0.05, green: 0.10, blue: 0.08, alpha: 1) : NSColor(calibratedRed: 0.65, green: 0.90, blue: 0.79, alpha: 1)
+        layer?.backgroundColor = (complete ? explainAccent : explainAccent.withAlphaComponent(0.16)).hudCG
+        isHidden = false
+        width?.constant = ceil(label.intrinsicContentSize.width) + 18
+        guard animated, !DisplayOptions.reduceMotion, let layer else { return }
+        // A small bounce about the centre (a view's layer scales about its corner unless told otherwise)
+        let centre = CGPoint(x: bounds.midX, y: bounds.midY)
+        func scaled(_ scale: CGFloat) -> NSValue {
+            var transform = CATransform3DMakeTranslation(centre.x, centre.y, 0)
+            transform = CATransform3DScale(transform, scale, scale, 1)
+            return NSValue(caTransform3D: CATransform3DTranslate(transform, -centre.x, -centre.y, 0))
+        }
+        let bounce = CAKeyframeAnimation(keyPath: "transform")
+        bounce.values = [scaled(0.9), scaled(1.12), scaled(1)]
+        bounce.keyTimes = [0, 0.55, 1]
+        bounce.duration = 0.26
+        layer.add(bounce, forKey: "bounce")
+    }
+}
+
+/// The line under the explainer's header that fills as the page is read.
+final class ProgressLine: NSView {
+    private let fill = CALayer()
+    private var fraction: CGFloat = 0
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.masksToBounds = true
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(0.08).cgColor
+        fill.anchorPoint = .zero
+        layer?.addSublayer(fill)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func layout() {
+        super.layout()
+        // The panel was resized: the fill keeps its share of the new width, without animating
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fill.frame = NSRect(x: 0, y: 0, width: bounds.width * fraction, height: bounds.height)
+        CATransaction.commit()
+    }
+
+    /// Fill to `value` (0…1). Animated, the line goes a little too far and settles, with the mark that moved it.
+    func set(_ value: CGFloat, animated: Bool) {
+        fraction = max(0, min(1, value))
+        fill.backgroundColor = explainAccent.hudCG
+        CATransaction.begin()
+        if animated, !DisplayOptions.reduceMotion {
+            CATransaction.setAnimationDuration(0.5)
+            CATransaction.setAnimationTimingFunction(CAMediaTimingFunction(controlPoints: 0.3, 1.5, 0.5, 1))
+        } else {
+            CATransaction.setDisableActions(true)
+        }
+        fill.frame = NSRect(x: 0, y: 0, width: bounds.width * fraction, height: bounds.height)
+        CATransaction.commit()
+    }
+}
+
 /// One entry of `index.json`.
 struct ExplainPage {
     let n: Int
@@ -198,12 +295,19 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     ]
     private var pages: [ExplainPage] = []
     /// Number of the page on screen (0 = none).
-    private var shown = 0
+    private(set) var shown = 0
     /// `current` of the last index read: a change means `dw explain` added a page.
     private var announced = 0
     private var indexStamp: Date?
     /// The page's selection, for Command-C (see {@link PageSelection}).
     private(set) lazy var selection = PageSelection(panel: panel, webView: webView)
+    /// How much of the page is marked as read (see Reading.swift): the count in the header, the line under it.
+    private let readChip = ReadChip()
+    private let progressLine = ProgressLine()
+    /// The page reported a change of its reading marks (`{type: "reading", …}`).
+    var onReading: (([String: Any]) -> Void)?
+    /// A page finished loading: the number of the page on screen.
+    var onPageLoaded: ((Int) -> Void)?
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -256,7 +360,7 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         // Invisible borders on every side and corner: drag any of them to resize
         for h in handles { h.onResize = { [weak self] r in self?.resize(to: r) } }
 
-        for v in [grip, webView, listButton, prevButton, nextButton, zoomOut, zoomLabel, zoomIn, closeButton] as [NSView] {
+        for v in [grip, webView, readChip, progressLine, listButton, prevButton, nextButton, zoomOut, zoomLabel, zoomIn, closeButton] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -268,7 +372,14 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         NSLayoutConstraint.activate([
             grip.topAnchor.constraint(equalTo: root.topAnchor),
             grip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
-            grip.trailingAnchor.constraint(equalTo: listButton.leadingAnchor, constant: -6),
+            grip.trailingAnchor.constraint(equalTo: readChip.leadingAnchor, constant: -6),
+            readChip.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
+            readChip.trailingAnchor.constraint(equalTo: listButton.leadingAnchor, constant: -6),
+            // In the two points between the header and the page
+            progressLine.topAnchor.constraint(equalTo: grip.bottomAnchor),
+            progressLine.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 1),
+            progressLine.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -1),
+            progressLine.heightAnchor.constraint(equalToConstant: 2),
             grip.heightAnchor.constraint(equalToConstant: Self.headerHeight),
             heading.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
             heading.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
@@ -373,6 +484,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// Put page `n` on screen; an unknown number (the pages were cleared) empties the panel.
     private func show(_ n: Int) {
         selection.reset()
+        // Until the new page says what is read on it
+        setProgress(read: 0, total: 0, animated: false)
         guard let page = pages.first(where: { $0.n == n }) else {
             shown = 0
             webView.loadHTMLString("", baseURL: nil)
@@ -570,8 +683,43 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             NSPasteboard.general.setString(text, forType: .string)
         case "selection":
             selection.update(text: body["text"] as? String ?? "")
+        case "reading":
+            onReading?(body)
         default:
             break
         }
     }
+
+    /// A page finished loading: the HUD gives it back what is kept for it (see Reading.swift).
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if shown > 0 { onPageLoaded?(shown) }
+    }
+
+    // MARK: reading marks
+
+    /// Run a script in the page on screen.
+    func evaluate(_ script: String) { webView.evaluateJavaScript(script) }
+
+    /// Show how much of the page is read: the count in the header and the line under it. `total` 0 hides both.
+    func setProgress(read: Int, total: Int, animated: Bool) {
+        readChip.set(read: read, total: total, animated: animated)
+        progressLine.isHidden = total <= 0
+        progressLine.set(total > 0 ? CGFloat(read) / CGFloat(total) : 0, animated: animated)
+    }
+
+    /// Where the count in the header is on screen, or nil while it is not shown.
+    func chipCentre() -> NSPoint? {
+        guard !readChip.isHidden, let window = readChip.window else { return nil }
+        let frame = window.convertToScreen(readChip.convert(readChip.bounds, to: nil))
+        return NSPoint(x: frame.midX, y: frame.midY)
+    }
+
+    /// The part of the panel under its header, on screen: where a page lies.
+    var contentFrame: NSRect {
+        let frame = panel.frame
+        return NSRect(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height - Self.headerHeight)
+    }
+
+    /// Title of page `n` ("" when there is no such page).
+    func title(of n: Int) -> String { pages.first { $0.n == n }?.title ?? "" }
 }

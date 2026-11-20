@@ -128,6 +128,7 @@ extension HUD {
             askOK.label = (obj["ok"] as? String) ?? "OK"
             askNo.label = (obj["no"] as? String) ?? "キャンセル"
             let icon = (obj["icon"] as? String) ?? "❓"
+            askIconText = icon
             // What the session is told about this question keeps the icon as text
             askQuestion = icon + " " + text
             if let symbol = askSymbol(for: icon) {
@@ -181,6 +182,7 @@ extension HUD {
         // Lit while the card is out of sight: behind the explainer, or on another desktop (with its
         // page, or left there)
         askButton.isActive = askTucked || !askPanel.isVisible || askPanel.isOnAnotherSpace
+        updateAskBreathing()
     }
 
     /// Send the card behind the explainer, the way a click on a window puts it over its neighbours.
@@ -379,6 +381,7 @@ extension HUD {
         appendLine(inboxPath, ["text": "[HUD] フィードバック「\(label)」（確認「\(askQuestion)」は開いたままです）"])
         appendJournal("💬 フィードバック「\(label)」")
         notePending(label, route: .message)
+        feedbackPressed(sender)
         // Show that it was sent, then let it be pressed again later ("still reading")
         (sender as? CapsuleButton)?.label = "✓ " + label
         sender.isEnabled = false
@@ -392,6 +395,9 @@ extension HUD {
 
     func answerAsk(_ answer: String) {
         guard !askID.isEmpty else { return }
+        // While the card and what it was about are still on screen
+        if answer == "ok" { celebrateClear() }
+        askOK.isBreathing = false
         try? "\(askID) \(answer)".write(toFile: askAnswerPath, atomically: true, encoding: .utf8)
         // Until the agent reacts, the bar shows that the press is on its way and when it arrived
         notePending(answer == "ok" ? askOK.attributedTitle.string : askNo.title, route: askWaiterAlive() ? .answer : .message)

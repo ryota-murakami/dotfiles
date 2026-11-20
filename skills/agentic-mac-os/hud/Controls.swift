@@ -117,6 +117,35 @@ final class CapsuleButton: NSButton {
     private var isPressed = false { didSet { if oldValue != isPressed { updateLook() } } }
     private var trackingArea: NSTrackingArea?
 
+    /// A light that swells and fades around the button: the next move is here. Set by the prompt card
+    /// while the page in front is read to its end ({@link HUD.updateAskBreathing}).
+    var isBreathing = false {
+        didSet {
+            guard oldValue != isBreathing else { return }
+            layer?.removeAnimation(forKey: "breathe")
+            guard isBreathing else {
+                shadow = nil
+                return
+            }
+            // Through the view's own shadow: AppKit owns the layer of a view and drops a shadow set on the layer itself
+            let glow = NSShadow()
+            glow.shadowColor = primaryFill
+            glow.shadowBlurRadius = 10
+            glow.shadowOffset = .zero
+            shadow = glow
+            // "Reduce motion": the light stays, steady
+            guard !DisplayOptions.reduceMotion, let layer else { return }
+            let pulse = CABasicAnimation(keyPath: "shadowOpacity")
+            pulse.fromValue = 0.2
+            pulse.toValue = 1
+            pulse.duration = 0.75
+            pulse.autoreverses = true
+            pulse.repeatCount = .infinity
+            pulse.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(pulse, forKey: "breathe")
+        }
+    }
+
     /// The words on the button. Set this, not `title`: it carries the style's font and colour.
     var label: String {
         get { title }

@@ -17,7 +17,8 @@
 // stored views, launch, settings, stop and lifecycle. Each surface adds its methods in a file of
 // its own: Bar.swift (status bar), Mirror.swift (conversation and message box), AskPrompt.swift
 // (one-click answers), SettingsCard.swift (settings UI over Settings.swift), Controls.swift
-// (shared controls and the stop shortcut).
+// (shared controls and the stop shortcut). Reading.swift holds the reading feedback (what was read,
+// achievements, the cleared page), with Sound.swift and Effects.swift for what answers it.
 import AppKit
 import Carbon.HIToolbox
 import QuartzCore
@@ -219,6 +220,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let explainer = Explainer()
     // Note popup (dw note): a short explanation beside what it explains, see Note.swift
     let notePopup = NotePopup()
+    // Reading feedback, see Reading.swift: what was read, the sounds that answer it, the layer that celebrates it
+    let reading = ReadingStore()
+    let sounds = SoundPlayer()
+    let effects = Effects()
 
     // Approval prompt (dw ask)
     let askPanel = AskPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -238,6 +243,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// Size the card needs for the current question (see `layoutAsk`).
     var askSize = NSSize(width: 420, height: 58)
     var askID = ""
+    /// The icon `dw` gave the open question: "🙋" for a hand-over (read this, do this), "❓" for an approval.
+    var askIconText = "❓"
     var askStamp: Date?
     /// Origin the HUD last gave the prompt: a different origin later means the user dragged it.
     var askPlacedOrigin: NSPoint?
@@ -274,6 +281,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         // A click in the explainer puts it over the prompt card too
         explainer.panel.onMouseDown = { [weak self] in self?.tuckAsk() }
         notePopup.attach()
+        effects.attach()
+        startReading()
         settings.actions["explain.reset"] = { [weak self] in self?.explainer.resetFrame() }
         settings.actions["ask.reset"] = { [weak self] in self?.resetAskPosition() }
         settings.actions["mirror.reset"] = { [weak self] in self?.resetMirrorFrame() }
@@ -325,6 +334,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         case "mirror.opacity": applyMirrorOpacity()
         case "bar.opacity": applyBarColor()
         case "stop.hotkey": stopHotKey.setEnabled(settings.isOn(id))
+        case "reading.marks", "reading.dim": applyReadingOptions()
         default: break
         }
     }

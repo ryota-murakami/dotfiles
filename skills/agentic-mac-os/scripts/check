@@ -69,6 +69,29 @@ JSON
   return $status
 }
 
+# The inline scripts of the page templates parse (a template is only run inside the HUD's web views)
+page_scripts() {
+  local tmp status=0 file
+  tmp=$(mktemp -d)
+  python3 -I - "$tmp" explainer/*.html <<'PY' || { rm -rf "$tmp"; return 1; }
+import re, sys, pathlib
+out = pathlib.Path(sys.argv[1])
+for path in sys.argv[2:]:
+    text = pathlib.Path(path).read_text()
+    # Scripts with a src are libraries, and a type other than JavaScript is data
+    for i, match in enumerate(re.finditer(r"<script(?P<attrs>[^>]*)>(?P<body>.*?)</script>", text, re.S)):
+        if "src=" in match.group("attrs") or "type=" in match.group("attrs"):
+            continue
+        (out / f"{pathlib.Path(path).stem}-{i}.js").write_text(match.group("body"))
+PY
+  for file in "$tmp"/*.js; do
+    [ -f "$file" ] || continue
+    node --check "$file" || status=1
+  done
+  rm -rf "$tmp"
+  return $status
+}
+
 run "bash syntax (/bin/bash 3.2)" bash_syntax
 if command -v shellcheck >/dev/null 2>&1; then
   run "shellcheck" shellcheck -S warning scripts/dw scripts/check
@@ -77,6 +100,16 @@ else
 fi
 run "bash 3.2: brace a variable followed by a multibyte character" multibyte_after_variable
 run "HUD: swiftc -typecheck" swiftc -typecheck hud/*.swift
+if command -v python3 >/dev/null 2>&1; then
+  run "sounds: synth.py parses" python3 -I -c 'import ast, sys; ast.parse(open(sys.argv[1]).read())' sounds/synth.py
+  if command -v node >/dev/null 2>&1; then
+    run "page templates: inline scripts parse" page_scripts
+  else
+    echo "== page templates: skipped (node is not installed)"
+  fi
+else
+  echo "== sounds and page templates: skipped (python3 is not installed)"
+fi
 if command -v claude >/dev/null 2>&1; then
   run "plugin: claude plugin validate" validate_plugin
   run "hooks tests: claude plugin test" claude plugin test .

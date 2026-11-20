@@ -13,7 +13,9 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `hud/HUD.swift` | The HUD class (stored views, launch, settings, stop, lifecycle) and the state-file paths shared with `dw` and the hooks |
 | `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift`, `hud/Explainer.swift`, `hud/Note.swift` | One surface each: status bar (with the session state at its end), conversation mirror with its message box, prompt card with answers and feedback buttons, explainer panel (long-form pages in a web view), note popup beside what it explains |
 | `hud/Border.swift`, `hud/Pending.swift` | The green line around the screen while the walkthrough acts; the delivery progress of a press (on its way, taken, reacted) |
-| `explainer/page.html`, `explainer/note.html` | Templates of an explainer page and of a note: `dw explain` / `dw note` fill in the Markdown, the page renders it with marked, highlight.js and mermaid (fetched once into the state folder, pinned by digest) |
+| `explainer/page.html`, `explainer/note.html` | Templates of an explainer page and of a note: `dw explain` / `dw note` fill in the Markdown, the page renders it with marked, highlight.js and mermaid (fetched once into the state folder, pinned by digest). The page draws the reading marks (a check per block, the frame on the block being read), the note its 理解した button |
+| `hud/Reading.swift`, `hud/Sound.swift`, `hud/Effects.swift`, `explainer/effects.html` | Reading feedback: what was read (kept in `progress.json`, with a copy in the record), the achievements, the sounds that answer a mark, and the see-through layer that draws the banner of a cleared page and an achievement under the bar |
+| `sounds/synth.py` | The sound effects as source: `dw` renders them to WAV files in the state folder before it starts the HUD (no audio files in the repository) |
 | `hud/Settings.swift`, `hud/SettingsCard.swift`, `hud/Controls.swift`, `hud/Appearance.swift` | The options registry, the settings card, shared controls and the hot keys (stop, Command-C over a page), and the look every surface shares (appearance, colours, materials, accessibility display settings). Compiled on first `dw start` |
 | `references/records.md` | What a recorded walkthrough holds, and how to resume or repeat one |
 | `references/developing.md` | How to change the HUD, the bridge or `dw` and try the change on a scratch HUD |
@@ -35,7 +37,7 @@ ln -s ~/dotfiles/skills/agentic-mac-os ~/.agents/skills/agentic-mac-os
 
 ## Requirements
 
-- [agent-desktop](https://github.com/vercel-labs/agent-desktop) with Accessibility permission, `jq`, and Xcode Command Line Tools (`swiftc`). `scripts/dw doctor` checks them.
+- [agent-desktop](https://github.com/vercel-labs/agent-desktop) with Accessibility permission, `jq`, and Xcode Command Line Tools (`swiftc`, and `python3` for the sound effects: without it the HUD is silent). `scripts/dw doctor` checks them.
 - Terminal.app for the `dw term` commands.
 
 ## Use

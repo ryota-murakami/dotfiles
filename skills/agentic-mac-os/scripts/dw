@@ -25,6 +25,8 @@
 #   explain --back | --show        put the panel behind the app's window (the app is the thing to watch) / in front again
 #   explain --hide                 close the panel (the book button on the bar, a new page or --show reopens it)
 #   explain --clear                remove every explainer page
+#   explain --progress             what the reader marked as read: blocks of each page, notes understood, achievements
+#   explain --rebuild              build every page again from its Markdown (after the page template changed)
 #   note "<markdown>"|<file.md>|- [--title "<title>"] [--anchor X,Y,W,H] [--width N]
 #                                  show a short explanation in a popup beside what it explains: the anchor is that
 #                                  thing's screen rectangle (points from the top-left corner, as element bounds and
@@ -311,7 +313,12 @@ cmd_ask() {
     ans=$(cat "$DW_HOME/ask-answer" 2>/dev/null)
     if [ "${ans%% *}" = "$id" ]; then
       rm -f "$DW_HOME/ask-answer"
-      if [ "${ans##* }" = ok ]; then journal "  → 「${ok_label}」"; echo "✅ ${ok_label}: the user answered yes / finished"; exit 0; fi
+      if [ "${ans##* }" = ok ]; then
+        journal "  → 「${ok_label}」"; echo "✅ ${ok_label}: the user answered yes / finished"
+        # After a hand-over the agent learns how much of the page was marked as read
+        [ "$kind" = wait-user ] && reading_brief
+        exit 0
+      fi
       journal "  → 「${no_label}」"
       echo "❌ ${no_label}: the user declined / could not do it: ask in the chat what happened"; exit 1
     fi
@@ -624,6 +631,48 @@ LIST
 
 # Build page N of the explainer from its Markdown and list it in the index. CURRENT is the page the
 # panel shows afterwards. Used by explain (one new page) and resume (every page of a record).
+# What the reader marked as read, for the agent: one line per page, then the notes and achievements.
+# The HUD keeps it in progress.json (hud/Reading.swift)
+explain_progress() {
+  local file="$EXPLAIN/progress.json" index="$EXPLAIN/index.json"
+  [ -f "$file" ] || { echo "reading: nothing marked yet"; return 0; }
+  [ -f "$index" ] || index=/dev/null
+  jq -r --slurpfile index "$index" '
+    (($index[0].pages // []) | map({key: (.n | tostring), value: .title}) | from_entries) as $titles
+    | (($index[0].current // 0) | tostring) as $current
+    | ((.pages // {}) | to_entries | sort_by(.key | tonumber)
+        | map("page \(.key)\(if .key == $current then " (on screen)" else "" end) [\($titles[.key] // "")]: \(.value.read | length)/\(.value.total) blocks marked as read\(if .value.cleared then ", cleared" else "" end)")
+        | .[]),
+      "notes understood: \(.notes // 0)",
+      "achievements: \((.achievements // []) | length) (\(.points // 0) G)"' "$file"
+}
+
+# One line for the agent when the user finished a hand-over: how much of the page on screen they marked
+reading_brief() {
+  local current
+  [ -f "$EXPLAIN/progress.json" ] && [ -f "$EXPLAIN/index.json" ] || return 0
+  current=$(jq -r '.current // 0' "$EXPLAIN/index.json")
+  jq -r --arg n "$current" '(.pages // {})[$n] // empty | select(.total > 0) | "📖 page \($n): \(.read | length)/\(.total) blocks marked as read (dw explain --progress shows every page)"' "$EXPLAIN/progress.json"
+}
+
+# Build every page again from the Markdown kept beside it, so that pages already shown take up a
+# change of the page template. The HUD loads the page on screen again
+explain_rebuild() {
+  local md n title step current count=0
+  [ -f "$EXPLAIN/index.json" ] || { echo "explainer: no pages to rebuild"; return 0; }
+  current=$(jq -r '.current // 0' "$EXPLAIN/index.json")
+  for md in "$EXPLAIN"/pages/[0-9][0-9][0-9].md; do
+    [ -f "$md" ] || continue
+    n=$((10#$(basename "$md" .md)))
+    title=$(jq -r --argjson n "$n" '.pages[] | select(.n == $n) | .title' "$EXPLAIN/index.json")
+    step=$(jq -r --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json")
+    [ -n "$title" ] || continue
+    explain_build "$n" "$title" "$step" "$md" "$current"
+    count=$((count + 1))
+  done
+  echo "explainer: $count page(s) rebuilt with the current template; the page on screen is loaded again"
+}
+
 explain_build() {
   local n="$1" title="$2" step="$3" md="$4" current="$5" file data
   file=$(printf 'pages/%03d.html' "$n")
@@ -657,6 +706,8 @@ cmd_explain() {
         rm -rf "$EXPLAIN/pages" "$EXPLAIN/rendered.json"
         mkdir -p "$EXPLAIN"; printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
         echo "explainer: every page removed"; return 0 ;;
+      --progress) explain_progress; return 0 ;;
+      --rebuild)  explain_rebuild; return 0 ;;
       -)         src=/dev/stdin; shift ;;
       *)         src="$1"; shift ;;
     esac
@@ -813,8 +864,28 @@ end run
 OSA
 }
 
+# What the HUD shows and plays besides its own code: the effects page (copied from the skill, so the
+# HUD and its page are of one version) and the sounds (rendered from sounds/synth.py when they are
+# missing or older than the script). Without python3 the HUD is silent; everything else works
+prepare_assets() {
+  mkdir -p "$EXPLAIN"
+  cp "$SKILL_DIR/explainer/effects.html" "$EXPLAIN/effects.html" 2>/dev/null
+  if [ -f "$DW_HOME/sounds/sounds.json" ] && [ ! "$SKILL_DIR/sounds/synth.py" -nt "$DW_HOME/sounds/sounds.json" ]; then return 0; fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "dw: note: python3 is missing: the HUD's sound effects are not rendered" >&2; return 0
+  fi
+  rm -rf "$DW_HOME/sounds.part"
+  if python3 -I "$SKILL_DIR/sounds/synth.py" "$DW_HOME/sounds.part" >/dev/null 2>"$DW_HOME/sounds-build.log"; then
+    rm -rf "$DW_HOME/sounds"; mv "$DW_HOME/sounds.part" "$DW_HOME/sounds"
+  else
+    rm -rf "$DW_HOME/sounds.part"
+    echo "dw: note: the sounds could not be rendered (see $DW_HOME/sounds-build.log): the HUD stays silent" >&2
+  fi
+}
+
 # Build the HUD when its source is newer, then start it detached (owner pid and chat window come from files)
 launch_hud() {
+  prepare_assets
   # Rebuild when the binary is missing or any source is newer than it
   if [ ! -x "$HUD_BIN" ] || [ -n "$(find "$SKILL_DIR/hud" -name '*.swift' -newer "$HUD_BIN" 2>/dev/null | head -1)" ]; then
     need swiftc
@@ -842,7 +913,8 @@ cmd_start() {
   echo off > "$BRIDGE/stop"
   rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
   # A new walkthrough starts with an empty explainer (the HUD would open the previous one's last page)
-  rm -rf "$EXPLAIN/pages" "$EXPLAIN/index.json" "$EXPLAIN/rendered.json" "$EXPLAIN/note.json" "$EXPLAIN/note-shown.json"
+  rm -rf "$EXPLAIN/pages" "$EXPLAIN/index.json" "$EXPLAIN/rendered.json" "$EXPLAIN/note.json" "$EXPLAIN/note-shown.json" \
+    "$EXPLAIN/progress.json"
   # A resumed walkthrough gets its pages back before the HUD starts: the HUD takes pages that are there
   # at launch as already read, so the panel stays open or closed as the user left it
   [ -z "$restore" ] || explain_restore "$restore"
@@ -908,6 +980,9 @@ explain_restore() {
     explain_build "$n" "$title" "$step" "$EXPLAIN/$(printf 'pages/%03d.md' "$n")" "$n"
     RESTORED_LAST=$n; RESTORED_COUNT=$((RESTORED_COUNT + 1))
   done
+  # What was marked as read, the notes understood and the achievements come back with the pages
+  [ -f "$dir/progress.json" ] && cp "$dir/progress.json" "$EXPLAIN/progress.json"
+  return 0
 }
 
 # Take up a paused walkthrough: the same record goes on, and its pages return to the explainer under
@@ -970,6 +1045,7 @@ cmd_doctor() {
   agent-desktop permissions 2>/dev/null | jq -r '.data | to_entries[] | "\(if .value.state == "granted" then "✓" else "•" end) permission \(.key): \(.value.state)"'
   if agent-desktop clipboard-get >/dev/null 2>&1; then echo "✓ clipboard helper"; else echo "✗ clipboard helper unavailable (same postinstall fix)"; ok=1; fi
   if command -v swiftc >/dev/null 2>&1; then echo "✓ swiftc (HUD can be built)"; else echo "✗ swiftc missing: install Xcode Command Line Tools"; ok=1; fi
+  if command -v python3 >/dev/null 2>&1; then echo "✓ python3 (sound effects can be rendered)"; else echo "• python3 missing: the HUD works, without its sound effects"; fi
   return $ok
 }
 

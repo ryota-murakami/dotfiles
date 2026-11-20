@@ -18,6 +18,9 @@ Judge a change by that. The HUD is with the user all day, over any app, like a p
 | `hud/Border.swift` | the green line around the screen while the walkthrough acts |
 | `hud/Explainer.swift`, `explainer/page.html` | the explainer panel and the template of a page; the reading panel shared with the note, and Command-C for a selection in either (`PageSelection`) |
 | `hud/Note.swift`, `explainer/note.html` | the note popup and the template of a note |
+| `hud/Reading.swift` | reading feedback: the progress kept in `progress.json`, the achievements, what a mark, an understood note and 次へ lead to |
+| `hud/Sound.swift`, `sounds/synth.py` | playing the sound effects; their source (rendered to `<state>/sounds` by `dw` before it starts the HUD) |
+| `hud/Effects.swift`, `explainer/effects.html` | the effects layer: a see-through window over the screen and the page that draws in it (banner, achievement, sparks, ring) |
 | `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking, stepping behind the explainer, staying on the desktop of its page |
 | `hud/Pending.swift` | the delivery progress of a press |
 | `hud/Mirror.swift` | the conversation mirror and its message box; the shared edge resize handle |
@@ -40,7 +43,8 @@ Everything the three parts say to each other goes through small files in the sta
    - quit it: `touch <tmp state folder>/quit`
 4. Compare what is on screen with what was meant: `screencapture -x -R x,y,w,h file.png` for a still, and for anything that moves or changes over time `screencapture -V <seconds> out.mov`, then frames with `ffmpeg -i out.mov -vf fps=5 frame_%03d.png`.
 5. Put the new build in front of the user: `dw note --clear` (a note still on file is shown again at launch, on whichever desktop is active), `touch <state>/quit`, wait for the HUD to exit, then any `dw say`: it rebuilds and relaunches, with the explainer and the mirror open or closed as the user left them. A HUD the user quit from its settings is not relaunched (`hud-closed-by-user`): leave it closed and say so.
-6. A change under `hooks/` or `.claude-plugin/` reaches the running session only after the user runs `/reload-plugins`. Make the HUD work with the bridge that is loaded until then (a missing file means "not known", never "no").
+6. A change to `explainer/page.html` reaches pages already shown with `dw explain --rebuild` (every page is built again from its Markdown); `explainer/effects.html` and `sounds/synth.py` are taken up when `dw` next starts the HUD.
+7. A change under `hooks/` or `.claude-plugin/` reaches the running session only after the user runs `/reload-plugins`. Make the HUD work with the bridge that is loaded until then (a missing file means "not known", never "no").
 
 ## Things that bit
 
@@ -49,6 +53,10 @@ Everything the three parts say to each other goes through small files in the sta
 - A web view in a panel that is not on screen can report a size it will not keep: measure again once the panel shows.
 - Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`). The window server also ignores `NSCursor.set()` from an app that is not active, which the HUD almost never is: `allowCursorInBackground` lifts that at launch.
 - A cursor is checked with another app active, as in a walkthrough. The HUD's own `NSCursor.current` changes even when the screen keeps the arrow: read `NSCursor.currentSystem` from a throwaway tool that moves the pointer with posted mouse-moved events, and capture with `screencapture -C`. The pointer is the user's: move it only when `CGEventSource.secondsSinceLastEventType` says their hands are off, and put it back.
+- A page template is tried in a browser before the HUD: build it with test data in place of `<!--DW_DATA-->`, serve it over http beside a copy of `<state>/explain/vendor` (the page's own policy allows `file:` only: widen it to `'self'` in the copy), and define `window.webkit.messageHandlers.dw.postMessage` before the page loads to collect what it reports. Headless, nothing shows on the user's screen, and what the page sends the HUD is the result. `effects.html` is tried the same way by calling `fx.banner(…)`.
+- To look at a scratch surface, capture its window, never a region of the screen: `screencapture -x -o -l <window number>` (a test-only file writes the surfaces' `windowNumber` to a state file). A region shows whatever is there now, and that was the user's chat app twice: they had brought their window over the scratch panel, and later moved to another desktop. The effects layer captured by its window is the effect on a clear background.
+- A scratch HUD is driven without the pointer: a test-only file evaluates script in the web views (`document.querySelector('#rd-go').click()`), calls `hud.answerAsk("ok")`, and logs every sound and effect. A scratch `settings.json` with a low `feedback.volume` and `mirror.visible` 0 keeps it quiet and small.
+- A shadow set on the layer of a view (`layer.shadowOpacity`) is not drawn: AppKit owns that layer and takes the shadow from the view (`view.shadow = NSShadow()`); the layer's `shadowOpacity` can then be animated. Found when the glow of the main answer never showed.
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
 - A keyboard shortcut reaches the HUD only as a Carbon hot key (`HotKey`), and a registered hot key is taken from every other app, the live HUD included: the stop shortcut pressed for a scratch HUD stops the live one too. Register one only while it means something (Command-C: `HUD.updateCopyHotKey`), and test it on a scratch HUD with a posted key event (`CGEvent`, `.cghidEventTap`) after a test-only file confirmed that it is registered: an unregistered key would land in the user's app.
 - A page can run script for a test without a click: Markdown passes HTML through, so `<img src="x" onerror="…">` runs when the page renders (selecting a paragraph, for the copy shortcut).

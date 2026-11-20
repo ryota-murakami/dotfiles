@@ -44,6 +44,16 @@
   th, td { border: 1px solid rgba(255, 255, 255, .2); padding: .28em .55em; text-align: left; vertical-align: top; overflow-wrap: break-word; }
   th { background: rgba(255, 199, 77, .14); white-space: nowrap; }
   blockquote { margin: .6em 0; padding: .3em .8em; border-left: 3px solid var(--accent); background: rgba(255, 199, 77, .07); }
+  /* "理解した": the reader says the note is understood. At least 28px high: the system's size for a control */
+  #understood { display: flex; justify-content: flex-end; margin-top: 10px; }
+  #understood[hidden] { display: none; }
+  #understood button {
+    display: inline-flex; align-items: center; gap: 6px; box-sizing: border-box; min-height: 28px; padding: 0 14px; border-radius: 14px;
+    border: 1px solid rgba(255, 199, 77, .6); background: rgba(255, 199, 77, .1); color: #ffd98a; cursor: pointer;
+    font: 600 13px/1 -apple-system, "Hiragino Sans", sans-serif; -webkit-appearance: none;
+  }
+  #understood button:active { transform: scale(.96); }
+  #understood.done button { background: var(--accent); border-color: var(--accent); color: #2a1d00; cursor: default; }
   /* System setting "Increase contrast": full-strength text, visible lines, links told apart by more than colour */
   @media (prefers-contrast: more) {
     body { color: #fff; }
@@ -57,6 +67,7 @@
 </head>
 <body>
 <div id="content"></div>
+<div id="understood"><button type="button" aria-pressed="false"><span class="ic">○</span><span class="tx">理解した</span></button></div>
 <script id="dw-data" type="application/json">
 <!--DW_DATA-->
 </script>
@@ -79,6 +90,27 @@
       try { hljs.highlightElement(code); } catch (_) { /* unknown language: leave as is */ }
     }
   }
+  // "理解した": pressed once, it stays pressed. The HUD keeps the fact, answers with sound and
+  // light, and gives it back through `dwNote.restore` when the same note is shown again
+  const understood = document.getElementById('understood');
+  const button = understood.querySelector('button');
+  function showDone() {
+    understood.classList.add('done');
+    button.setAttribute('aria-pressed', 'true');
+    button.querySelector('.ic').textContent = '✓';
+  }
+  button.addEventListener('click', () => {
+    if (understood.classList.contains('done')) return;
+    showDone();
+    post({ type: 'understood', id: data.id });
+  });
+  window.dwNote = {
+    /** What the HUD kept for this note, and whether the button shows at all (the settings decide). */
+    restore({ done = false, enabled = true } = {}) {
+      understood.hidden = enabled === false;
+      if (done) showDone();
+    },
+  };
   // The popup is as tall as its text: report the height now and whenever wrapping changes it
   const report = () => post({ type: 'size', id: data.id, height: Math.ceil(document.body.getBoundingClientRect().height) });
   report();

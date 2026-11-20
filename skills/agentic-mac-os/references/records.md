@@ -16,6 +16,7 @@ Every walkthrough is recorded in a folder of its own under `~/.config/agentic-ma
 | `journal.md` | `dw`, as you work: sections (`step`), narration (`say`), commands and their results (`term run` / `term check`), questions with their answers, feedback buttons | repeating the walkthrough step by step |
 | `pages/NN-title.md`, `handbook.md` | `dw explain`: each page, and all of them in reading order | reading again, sharing with other people |
 | `notes/NNN-title.md` | `dw note`: each note, in the order shown | showing the same notes beside the same code in a repeat |
+| `progress.json` | the HUD, as the reader marks blocks | what was marked as read on each page, the notes understood, the achievements. `dw resume` gives it back to the HUD, so the marks are there again; `dw explain --progress` prints it |
 | `README.md` | you | starting a repeat or a resume without the old conversation |
 | `tools/`, input files | you | the helper scripts and inputs a repeat needs. Nothing secret: tokens and env files stay out |
 
