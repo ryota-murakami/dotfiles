@@ -77,6 +77,8 @@ final class SettingsStore {
                 kind: .toggle, defaultValue: 1, short: "フラッシュ"),
         Setting(id: "bar.opacity", section: "bar", title: "背景の不透明度", symbol: "circle.lefthalf.filled",
                 kind: .slider(min: 0.2, max: 1, step: 0.05), defaultValue: 0.42, short: "バーの不透明度"),
+        Setting(id: "border.performing", section: "bar", title: "実演中は画面の端を緑の線で囲む", symbol: "rectangle.dashed",
+                kind: .toggle, defaultValue: 1, short: "実演中の枠"),
         Setting(id: "bar.reset", section: "bar", title: "位置と幅", symbol: "arrow.counterclockwise",
                 kind: .action(button: "リセット", destructive: false), short: "バーを初期位置へ"),
         Setting(id: "ask.sound", section: "ask", title: "確認時にサウンドを鳴らす", symbol: "speaker.wave.2",

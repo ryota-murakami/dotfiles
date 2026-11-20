@@ -152,6 +152,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var lastActivity: Activity?
     /// `busy` of the bridge's state file: true while a turn runs, nil without a bridge.
     var modBusy: Bool?
+    /// One outline window per screen, shown while the walkthrough acts (see Border.swift).
+    var performingBorders: [NSPanel] = []
+    /// When the walkthrough was last seen acting: the state holds for a moment after that (see currentActivity).
+    var lastPerformingAt: Date?
     /// The input the user gave last, until the agent has reacted to it (see Pending.swift).
     var pendingInput: PendingInput?
     /// Thin progress line along the bottom of the bar while an input is on its way.
@@ -275,6 +279,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         switch id {
         case "explain.visible": explainer.updateVisibility()
         case "explain.floating": explainer.applyLevel()
+        case "border.performing": updatePerformingBorder(visible: lastActivity == .performing)
         case "explain.zoom": explainer.applyZoom()
         case "mirror.visible": updateMirrorVisibility()
         case "mirror.fold": reloadFeed(force: true, keepScroll: true)

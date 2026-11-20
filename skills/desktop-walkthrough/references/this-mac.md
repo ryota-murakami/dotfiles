@@ -54,7 +54,7 @@ The skill is used on one machine by one person, so what was learned about that m
 
 - PhpStorm maximized, the explainer panel over its right side and widened to about two thirds of the screen while reading. The panel must not sit on top of the code: it stacks like a window (asked for on 2026-11-20).
 - When code is the thing to read: PhpStorm in front, the lines being explained selected, and the explanation in a note popup beside the selection (the bar is too short for it: asked for on 2026-11-20). The long page stays behind and comes forward with the book button.
-- The bar must say what is going on: the stop button only while the walkthrough acts, a state label otherwise.
+- The bar must say what is going on: the stop button only while the walkthrough acts, a state label otherwise. With the green line around the screen the user keeps their hands off; without it they check mail or chat, also in the middle of a walkthrough.
 - Other apps are used in between (Slack, the chat). Keys are never sent while PhpStorm is not the focused window: wait for it to be in front again, or bring it forward as part of an announced step.
 - The status bar at the very top, beside the menu bar and the notch. The prompt card parked at the left edge.
 - Presses 読んでいます while reading and 質問・中断 to give feedback about the HUD itself, then types in the chat.

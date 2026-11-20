@@ -327,11 +327,24 @@ extension HUD {
         }
     }
 
-    /// What the session is doing right now, from the bridge's turn state, the class of its newest tool
-    /// call and the times `dw` last acted or narrated.
+    /// What the session is doing right now, held steady: between two performed steps the agent often
+    /// reads or checks something for a second or two, and a stop button and a screen border that
+    /// blink off and on would say "you may use the Mac" when the next key press is a moment away.
+    /// So "acting" lasts a few seconds past its last sign, unless the agent has started to wait.
     ///
-    /// @returns The state for the bar's trailing end (see {@link Activity}).
+    /// @returns The state for the bar's trailing end and the screen border (see {@link Activity}).
     func currentActivity() -> Activity {
+        let raw = rawActivity()
+        let now = Date()
+        if raw == .performing { lastPerformingAt = now }
+        // Waiting and stopped mean it: the agent will not touch the screen until the user acts
+        if raw == .other || raw == .skill, let last = lastPerformingAt, now.timeIntervalSince(last) < 6 { return .performing }
+        return raw
+    }
+
+    /// The state as the files say it this instant, from the bridge's turn state, the class of its
+    /// newest tool call and the times `dw` last acted or narrated.
+    private func rawActivity() -> Activity {
         if isStopOn() { return .stopped }
         let tool = mtime(toolClassPath)
         let action = mtime(actionStampPath), narration = mtime(narrationStampPath)
@@ -358,6 +371,8 @@ extension HUD {
 
     /// Show the stop button while the walkthrough acts (or was stopped), the state badge otherwise.
     func applyActivity(_ activity: Activity) {
+        // Every tick: a screen that was connected or rearranged gets its border too
+        updatePerformingBorder(visible: activity == .performing)
         guard activity != lastActivity else { return }
         lastActivity = activity
         let button = activity == .performing || activity == .stopped
