@@ -389,6 +389,7 @@ extension HUD {
         let text = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
         appendLine(inboxPath, ["text": text])
+        notePending("メッセージ", route: .message)
         input.stringValue = ""
         input.returnFocus()
         // Speaking lifts a stop, as typing in Claude Code would

@@ -152,6 +152,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var lastActivity: Activity?
     /// `busy` of the bridge's state file: true while a turn runs, nil without a bridge.
     var modBusy: Bool?
+    /// The input the user gave last, until the agent has reacted to it (see Pending.swift).
+    var pendingInput: PendingInput?
+    /// Thin progress line along the bottom of the bar while an input is on its way.
+    let pendingBar = CALayer()
     let divider = NSView()
     let resizeHandle = ResizeHandle()
     let barTopHandle = EdgeResizeHandle([.top])
@@ -250,7 +254,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         settingsButton.activeColor = NSColor.white.withAlphaComponent(0.34)
         settingsCard.attach(to: self)
         Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.refresh() }
-        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in self?.updateClickThrough() }
+        Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
+            self?.updateClickThrough()
+            self?.updatePending()
+        }
         Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.reloadFeed(force: false) }
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTypingFlag() }
         try? FileManager.default.createDirectory(atPath: bridgeDir, withIntermediateDirectories: true)
@@ -297,6 +304,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         } else {
             setStop(true)
             appendLine(controlPath, ["cmd": "stop"])
+            notePending("停止", route: .stop)
             // The next thing the person does is tell the agent what to do instead
             settings.set("mirror.visible", 1)
         }
@@ -379,7 +387,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         switch m {
         case "stopped": text = "⏹ 停止しました。ミラーの入力欄からメッセージを送ると再開します"
         case "typing": text = "✍️ 入力中のため、エージェントの画面操作は待機しています"
-        default: text = "🤖 " + raw
+        // An input on its way to the session is said first; the agent's next line takes over when it reacts
+        default: text = pendingText() ?? ("🤖 " + raw)
         }
         if text != lastText || m != lastMode {
             let modeChanged = m != lastMode

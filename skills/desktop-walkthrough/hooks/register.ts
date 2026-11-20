@@ -19,6 +19,8 @@ import type { EngineInterface, Register } from 'claude-code'
  * - `bridge/control.jsonl` HUD → mod  `{"cmd": "stop" | "resume"}` lines from the stop button or shortcut
  * - `bridge/stop`          both       "on" / "off": the one source of truth for stop
  * - `bridge/tool-class`    mod → HUD  what the newest tool call of the running turn is: "skill", "waiting" or "other"
+ * - `bridge/tool-at`       mod → HUD  rewritten at every tool call: the agent reacted (ends the HUD's delivery progress)
+ * - `bridge/ack`           mod → HUD  `{ kind, at }` after a HUD message or stop was handed to the session
  * - `status.txt`           mod → HUD  the status line, for tools that do not narrate through `dw say`
  * - `typing`, `hud.alive`   HUD → mod  message being typed, heartbeat
  */
@@ -87,6 +89,8 @@ type Paths = {
   typing: string
   alive: string
   toolClass: string
+  toolAt: string
+  ack: string
 }
 
 type FeedEntry = { role: 'you' | 'agent' | 'tool' | 'hud'; text: string; ts: number }
@@ -127,6 +131,8 @@ async function paths($: EngineInterface): Promise<Paths> {
     typing: `${home}/typing`,
     alive: `${home}/hud.alive`,
     toolClass: `${bridge}/tool-class`,
+    toolAt: `${bridge}/tool-at`,
+    ack: `${bridge}/ack`,
   }
   return S.paths
 }
@@ -374,6 +380,8 @@ async function pollHud($: EngineInterface) {
       await abortRunningTurn($)
     }
     await writeState($)
+    // The HUD shows the press as "on its way" until this says the session took it
+    await $.fs.write(p.ack, JSON.stringify({ kind: 'control', at: Date.now() })).catch(() => undefined)
   }
 
   const inbox = await readNewLines($, p.inbox, S.inboxOffset)
@@ -393,6 +401,7 @@ async function pollHud($: EngineInterface) {
       await writeState($)
       void $.prompt.submit({ text, asUser: true })
     }
+    await $.fs.write(p.ack, JSON.stringify({ kind: 'inbox', at: Date.now() })).catch(() => undefined)
   }
 }
 
@@ -480,6 +489,8 @@ export const register: Register = on => {
       // `dw say` narrates in the person's language; only un-narrated tools get this generic line,
       // never over an open question and never for a tool that only looks
       const p = await paths($)
+      // Any tool call is a reaction: it ends the delivery progress of a press the HUD is still showing
+      if (await isHudAlive($)) await $.fs.write(p.toolAt, String(Date.now())).catch(() => undefined)
       // The class of this call, for the state badge of the bar
       const toolClass = classifyTool(e.tool, input)
       if (toolClass !== undefined && (await isHudAlive($))) await $.fs.write(p.toolClass, toolClass).catch(() => undefined)

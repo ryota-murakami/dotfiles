@@ -241,6 +241,7 @@ extension HUD {
         let label = askExtraLabels[sender.tag]
         appendLine(inboxPath, ["text": "[HUD] フィードバック「\(label)」（確認「\(askLabel.stringValue)」は開いたままです）"])
         appendJournal("💬 フィードバック「\(label)」")
+        notePending(label, route: .message)
         // Show that it was sent, then let it be pressed again later ("still reading")
         sender.title = "✓ " + label
         sender.isEnabled = false
@@ -255,6 +256,8 @@ extension HUD {
     func answerAsk(_ answer: String) {
         guard !askID.isEmpty else { return }
         try? "\(askID) \(answer)".write(toFile: askAnswerPath, atomically: true, encoding: .utf8)
+        // Until the agent reacts, the bar shows that the press is on its way and when it arrived
+        notePending(answer == "ok" ? askOK.attributedTitle.string : askNo.title, route: askWaiterAlive() ? .answer : .message)
         // Nobody is waiting (the agent's bounded wait ended and its turn is over): deliver the answer
         // as a message, the same way the mirror's message box does, so the click is never lost
         if !askWaiterAlive() {

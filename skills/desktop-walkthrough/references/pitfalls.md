@@ -42,6 +42,7 @@ Each row is something that actually went wrong, why, and the rule or helper that
 | The red stop button showed while nothing was happening on screen (the agent waited, or edited the skill) | It was a fixed control | The trailing end of the bar follows the session: stop button while the walkthrough acts, otherwise 待機中 / スキル更新中 / その他作業中 |
 | The settings card opened outside the screen | It always opened above the bar, and the bar sat at the top | Popups are placed like tooltips (`popupFrame`): the first side with room, never off the screen |
 | A wait for the user's answer ended by itself (exit 3) | The HUD was replaced by a new build while the question was open | The wait tolerates a HUD that is gone for a few seconds; after a HUD change, check that the open question is still being waited for |
+| The user could not tell whether a button press had registered: nothing changed for three to five seconds | The press travels through files the session polls, then a turn starts and the model thinks before its first action | The bar shows the press on its way, then delivered, with a progress line that completes at the agent's first reaction (`Pending.swift`); the first action after a press is a quick `dw say` |
 | The first page appeared half an hour after the walkthrough started | Tools were built and the environment explored before anything was shown | Show a roadmap page first, prepare while the user reads |
 | The HUD stayed after the work ended | Nothing closed it | `dw end`, the quit button in the HUD's settings, and the HUD exits with the owning session |
 
