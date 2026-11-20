@@ -801,14 +801,24 @@ launch_hud() {
 
 cmd_start() {
   need agent-desktop; need jq
-  local owner tty chat session sid i bridge="" name="" record
-  if [ "${1:-}" = "--name" ]; then name="${2:?--name needs a value}"; fi
+  local owner tty chat session sid i bridge="" name="" record restore=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --name) name="${2:?--name needs a value}"; shift 2 ;;
+      # dw resume: the record whose pages go back into the explainer
+      --pages-of) restore="${2:?--pages-of needs a record folder}"; shift 2 ;;
+      *) shift ;;
+    esac
+  done
   # A previous HUD must not keep running beside the new one
   if hud_alive; then touch "$DW_HOME/quit"; sleep 1.5; hud_alive && kill "$(cat "$DW_HOME/hud.pid")" 2>/dev/null; fi
   echo off > "$BRIDGE/stop"
   rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/step"
   # A new walkthrough starts with an empty explainer (the HUD would open the previous one's last page)
   rm -rf "$EXPLAIN/pages" "$EXPLAIN/index.json" "$EXPLAIN/rendered.json" "$EXPLAIN/note.json" "$EXPLAIN/note-shown.json"
+  # A resumed walkthrough gets its pages back before the HUD starts: the HUD takes pages that are there
+  # at launch as already read, so the panel stays open or closed as the user left it
+  [ -z "$restore" ] || explain_restore "$restore"
   rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration"
   session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
   echo "$session" > "$DW_HOME/ad_session"
@@ -850,14 +860,11 @@ cmd_start() {
   echo "focused:  $(focused_brief)"
 }
 
-# Take up a paused walkthrough: the same record goes on, and its pages return to the explainer under
-# their numbers, so new pages continue the count and the reader can page back to the earlier days.
-cmd_resume() {
-  local name="${1:-}" dir page base n title step last=0 count=0
-  [ -n "$name" ] || die "usage: dw resume <record name> (dw records lists them)"
-  dir="$RECORDS/$name"
-  [ -f "$dir/journal.md" ] || die "no such record: $dir (dw records lists them)"
-  cmd_start --name "$name"
+# Put the pages of the record in DIR back into the explainer under their numbers, the newest one
+# current. Sets RESTORED_COUNT and RESTORED_LAST. Called by start (for resume) before the HUD launches.
+explain_restore() {
+  local dir="$1" page base n title step
+  RESTORED_COUNT=0; RESTORED_LAST=0
   explain_vendor
   mkdir -p "$EXPLAIN/pages"
   printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
@@ -870,11 +877,22 @@ cmd_resume() {
     [ -n "$title" ] || title="${base#*-}"
     step=$(awk -F '\t' -v n="$n" '$1 == n { print $2 }' "$dir/pages/sections.tsv" 2>/dev/null)
     explain_build "$n" "$title" "$step" "$EXPLAIN/$(printf 'pages/%03d.md' "$n")" "$n"
-    last=$n; count=$((count + 1))
+    RESTORED_LAST=$n; RESTORED_COUNT=$((RESTORED_COUNT + 1))
   done
+}
+
+# Take up a paused walkthrough: the same record goes on, and its pages return to the explainer under
+# their numbers, so new pages continue the count and the reader can page back to the earlier days.
+# The pages are not news: the panel comes back open or closed, as the user left it.
+cmd_resume() {
+  local name="${1:-}" dir
+  [ -n "$name" ] || die "usage: dw resume <record name> (dw records lists them)"
+  dir="$RECORDS/$name"
+  [ -f "$dir/journal.md" ] || die "no such record: $dir (dw records lists them)"
+  cmd_start --name "$name" --pages-of "$dir"
   printf '\n## 再開 %s\n\n' "$(date '+%Y-%m-%d %H:%M')" >> "$dir/journal.md"
-  journal "⏯ 再開：解説 ${count} 枚をパネルに戻した（次のページは $((last + 1))）"
-  echo "resumed:  $count page(s) back in the explainer, showing page $last; the next page is $((last + 1))"
+  journal "⏯ 再開：解説 ${RESTORED_COUNT} 枚をパネルに戻した（次のページは $((RESTORED_LAST + 1))）"
+  echo "resumed:  $RESTORED_COUNT page(s) back in the explainer (open or closed as the user left it); the next page is $((RESTORED_LAST + 1))"
   echo "          read $dir/README.md for where it stopped and what to prepare"
 }
 

@@ -58,3 +58,4 @@ The skill is used on one machine by one person, so what was learned about that m
 - Other apps are used in between (Slack, the chat). Keys are never sent while PhpStorm is not the focused window: wait for it to be in front again, or bring it forward as part of an announced step.
 - The status bar at the very top, beside the menu bar and the notch. The prompt card parked at the left edge.
 - Presses 読んでいます while reading and 質問・中断 to give feedback about the HUD itself, then types in the chat.
+- While an answer or a fix to the skill is being prepared, moves between desktops (the chat, Slack) and quits the HUD from its settings; asks for the walkthrough to go on in the chat, which takes `dw resume <record>` (seen twice on 2026-11-20).

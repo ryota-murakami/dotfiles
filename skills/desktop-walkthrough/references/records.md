@@ -30,7 +30,7 @@ Write it while the reasons are fresh, before finishing or pausing:
 
 ## Resume a paused walkthrough
 
-1. `$DW resume <name>` instead of `$DW start`. It starts the HUD, keeps recording into the same record and puts its pages back in the explainer under their numbers, so the next page continues the count and the user can page back to the earlier day.
+1. `$DW resume <name>` instead of `$DW start`. It starts the HUD, keeps recording into the same record and puts its pages back in the explainer under their numbers, so the next page continues the count and the user can page back to the earlier day. The pages are not news: the panel comes back open or closed, as the user left it.
 2. Read the record's `README.md` for the resume point.
 3. Show one page first: where it stopped, today's order, what is being prepared.
 4. Redo the preparation while the user reads it (a pause puts the environment back).

@@ -395,12 +395,30 @@ func makeScrollable(_ content: NSView, inset: CGFloat) -> NSScrollView {
     return scroll
 }
 
+/// Let this process set the pointer's shape while another app is active.
+///
+/// Why it exists: the window server takes `NSCursor.set()` only from the active app, and the HUD is
+/// active only while the user types in the mirror. The handles asked for their cursor and the arrow
+/// stayed. The connection property `SetsCursorInBackground` lifts that for this process. It is a
+/// private window-server call, so it is looked up at run time: on a system without it the HUD runs
+/// as before and only the cursor shapes are missing. Called once at launch.
+func allowCursorInBackground() {
+    typealias MainConnection = @convention(c) () -> Int32
+    typealias SetConnectionProperty = @convention(c) (Int32, Int32, CFString, CFTypeRef) -> Int32
+    guard let image = dlopen(nil, RTLD_LAZY),
+          let mainConnection = dlsym(image, "CGSMainConnectionID"),
+          let setProperty = dlsym(image, "CGSSetConnectionProperty") else { return }
+    let connection = unsafeBitCast(mainConnection, to: MainConnection.self)()
+    _ = unsafeBitCast(setProperty, to: SetConnectionProperty.self)(connection, connection, "SetsCursorInBackground" as CFString, kCFBooleanTrue)
+}
+
 /// View that changes the pointer's shape while the pointer is over it.
 ///
 /// Why it exists: cursor rects (`resetCursorRects`) only work in the key window of the active app,
 /// and the HUD's panels are never that, because they must not take focus from the app being
 /// demonstrated. So an edge could be dragged, but nothing showed it. A tracking area that is always
-/// active sets the cursor directly instead. Subclassed by every resize handle of the HUD.
+/// active sets the cursor directly instead, which the window server accepts from the HUD after
+/// {@link allowCursorInBackground}. Subclassed by every resize handle and drag handle of the HUD.
 class HoverCursorView: NSView {
     /// The shape to show over this view. Subclasses override it.
     var hoverCursor: NSCursor { .arrow }

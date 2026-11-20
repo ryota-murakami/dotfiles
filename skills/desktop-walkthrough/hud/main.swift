@@ -8,6 +8,7 @@ import AppKit
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+allowCursorInBackground()
 installEditMenu()
 startActivationObserver()
 let hud = HUD()

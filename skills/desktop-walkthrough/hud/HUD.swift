@@ -123,10 +123,11 @@ func appendLine(_ path: String, _ object: [String: String]) {
     }
 }
 
-/// Drag handle: dragging it moves the window it sits in (the bar's grip, the mirror's header).
-final class DragHandle: NSView {
+/// Drag handle: dragging it moves the window it sits in (the grip of the bar and of each panel),
+/// and the pointer shows an open hand over it.
+final class DragHandle: HoverCursorView {
+    override var hoverCursor: NSCursor { .openHand }
     override func mouseDown(with event: NSEvent) { window?.performDrag(with: event) }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .openHand) }
 }
 
 /// The HUD: status bar, conversation mirror and approval prompt.

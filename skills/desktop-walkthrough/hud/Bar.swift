@@ -315,8 +315,9 @@ extension HUD {
         let dragging = NSEvent.pressedMouseButtons & 1 == 1 && !panel.ignoresMouseEvents
         panel.ignoresMouseEvents = !(hot.contains { $0.contains(mouse) } || dragging)
         // The bar ignores the pointer until it rests on a control, so a tracking area misses a pointer
-        // that arrived meanwhile: this polling also shows the resize cursor over the three edges
+        // that arrived meanwhile: this polling also shows the cursor of the grip and of the three edges
         let edge: HoverCursorView? = screenRect(of: resizeHandle).contains(mouse) ? resizeHandle
+            : screenRect(of: grip).contains(mouse) ? grip
             : [barTopHandle, barBottomHandle].first { screenRect(of: $0).insetBy(dx: 0, dy: -2).contains(mouse) }
         if let edge, panel.isVisible {
             edge.hoverCursor.set()

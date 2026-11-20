@@ -40,7 +40,8 @@ Everything the three parts say to each other goes through small files in the sta
 - The live HUD and a scratch HUD are both called `StatusHUD`: accessibility queries by app name reach the live one. Click the scratch one by coordinates read from a screenshot.
 - The bar ignores the pointer until it rests on a control: `mouse-move`, wait half a second, then click.
 - A web view in a panel that is not on screen can report a size it will not keep: measure again once the panel shows.
-- Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`).
+- Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`). The window server also ignores `NSCursor.set()` from an app that is not active, which the HUD almost never is: `allowCursorInBackground` lifts that at launch.
+- A cursor is checked with another app active, as in a walkthrough. The HUD's own `NSCursor.current` changes even when the screen keeps the arrow: read `NSCursor.currentSystem` from a throwaway tool that moves the pointer with posted mouse-moved events, and capture with `screencapture -C`. The pointer is the user's: move it only when `CGEventSource.secondsSinceLastEventType` says their hands are off, and put it back.
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
 - A window at the ordinary level (the explainer) that is ordered out and in again returns to the desktop (Space) it was on; a `.transient` one comes to the active desktop. Every surface but the bar and the border is `.transient` (`stageCollectionBehavior`), and is moved only by `orderFrontOnActiveSpace`.
 - Ordering a surface out and in to hide it for a moment moves it to whichever desktop is active when it returns: hide it with `setConcealed` (invisible and click-through, still on its desktop).
