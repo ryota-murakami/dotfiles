@@ -46,6 +46,116 @@ final class ReadingWebView: WKWebView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
+/// Added to every page of a reading surface: the page says what is selected (`{type: "selection",
+/// text}` on the `dw` channel) whenever that changes. Added by the HUD and not written in the page
+/// templates, so pages rendered by an older version report it too.
+private let selectionReportScript = """
+(() => {
+  let timer = 0;
+  const report = () => {
+    try { window.webkit.messageHandlers.dw.postMessage({ type: 'selection', text: String(window.getSelection()) }); } catch (_) { /* no HUD */ }
+  };
+  document.addEventListener('selectionchange', () => { clearTimeout(timer); timer = setTimeout(report, 60); });
+})();
+"""
+
+/// What is selected in the page of a reading surface (explainer, note), and Command-C for it.
+///
+/// Why it exists: a reading panel never takes the keyboard ({@link ReadingPanel}), so Command-C goes
+/// to the app in front and never reaches the page; only the page's context menu could copy. The
+/// page reports its selection, and while that selection is what the reader is working with (their
+/// last click was in this panel and the pointer is on it), the HUD takes Command-C as a hot key and
+/// copies here ({@link HUD.updateCopyHotKey}). Created by the surface that owns the web view, which
+/// passes on the page's "selection" messages.
+final class PageSelection {
+    let panel: NSPanel
+    private weak var webView: WKWebView?
+    /// The selected text as the page last reported it ("" = nothing is selected).
+    private var text = ""
+    /// False once the reader clicked anywhere else: the selection is still drawn, and Command-C
+    /// belongs to the app they went to.
+    private var isCurrent = false
+    /// Called when {@link PageSelection.canCopy} may have changed.
+    var onChange: (() -> Void)?
+
+    /// Must be created before the web view loads its first page: the report script is added to pages loaded afterwards.
+    init(panel: NSPanel, webView: WKWebView) {
+        self.panel = panel
+        self.webView = webView
+        webView.configuration.userContentController.addUserScript(
+            WKUserScript(source: selectionReportScript, injectionTime: .atDocumentEnd, forMainFrameOnly: true))
+    }
+
+    /// True while Command-C should copy from this page: text is selected, the reader's last click was
+    /// here, and the pointer is on the panel (not on a window lying over it).
+    var canCopy: Bool {
+        guard isCurrent, !text.isEmpty, panel.isVisible, panel.alphaValue > 0 else { return false }
+        return NSWindow.windowNumber(at: NSEvent.mouseLocation, belowWindowWithWindowNumber: 0) == panel.windowNumber
+    }
+
+    /// The page reported its selection. Only the reader changes it, so it is theirs to copy now.
+    func update(text reported: String) {
+        text = reported
+        isCurrent = !reported.isEmpty
+        onChange?()
+    }
+
+    /// Another page was loaded: nothing is selected in it.
+    func reset() {
+        text = ""
+        isCurrent = false
+        onChange?()
+    }
+
+    /// A click landed in this panel (the selection is being worked with) or anywhere else (it is left behind).
+    func clicked(inside: Bool) {
+        isCurrent = inside
+        onChange?()
+    }
+
+    /// Put the selection on the clipboard. Called for Command-C while {@link PageSelection.canCopy}.
+    func copy() {
+        guard !text.isEmpty, let webView else { return }
+        let board = NSPasteboard.general
+        let before = board.changeCount
+        let plain = text
+        // The page's own Copy, as its context menu does it: formatted text and plain text
+        NSApp.sendAction(#selector(NSText.copy(_:)), to: webView, from: nil)
+        // The page copies in its own process and may refuse a view that has no focus: the text it reported is the fallback
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+            guard board.changeCount == before else { return }
+            board.clearContents()
+            board.setString(plain, forType: .string)
+        }
+    }
+}
+
+extension HUD {
+    /// The surfaces Command-C can copy from. The note first: it floats over the explainer.
+    private var pageSelections: [PageSelection] { [notePopup.selection, explainer.selection] }
+
+    /// Wire Command-C to the reading surfaces and watch where the reader clicks. Called once at launch.
+    func startCopyShortcut() {
+        copyHotKey.onPress = { [weak self] in self?.pageSelections.first { $0.canCopy }?.copy() }
+        for selection in pageSelections { selection.onChange = { [weak self] in self?.updateCopyHotKey() } }
+        // Every click, in the HUD or in another app: only the surface under it keeps its selection for Command-C
+        copyClickWatcher.start(isInside: { _ in false }, onOutside: { [weak self] in
+            guard let self else { return }
+            let clicked = NSWindow.windowNumber(at: NSEvent.mouseLocation, belowWindowWithWindowNumber: 0)
+            for selection in self.pageSelections { selection.clicked(inside: selection.panel.windowNumber == clicked) }
+        })
+    }
+
+    /// Take Command-C from the other apps only while it would copy here.
+    ///
+    /// Why it exists: a registered hot key is swallowed whichever app has the keyboard, so it is on
+    /// only while a reading surface has a selection the reader is working with, under the pointer.
+    /// Called as the pointer moves (every 30 ms) and when a selection or a click changes the answer.
+    func updateCopyHotKey() {
+        copyHotKey.setEnabled(pageSelections.contains { $0.canCopy })
+    }
+}
+
 /// One entry of `index.json`.
 struct ExplainPage {
     let n: Int
@@ -92,6 +202,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// `current` of the last index read: a change means `dw explain` added a page.
     private var announced = 0
     private var indexStamp: Date?
+    /// The page's selection, for Command-C (see {@link PageSelection}).
+    private(set) lazy var selection = PageSelection(panel: panel, webView: webView)
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -122,6 +234,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
 
         webView.navigationDelegate = self
         webView.configuration.userContentController.add(self, name: "dw")
+        // Before the first page loads: its script goes into the pages loaded after this
+        _ = selection
         // The page paints its own dark background; without this the view flashes white while loading
         if webView.responds(to: Selector(("_setDrawsBackground:"))) { webView.setValue(false, forKey: "drawsBackground") }
         applyZoom()
@@ -258,6 +372,7 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
 
     /// Put page `n` on screen; an unknown number (the pages were cleared) empties the panel.
     private func show(_ n: Int) {
+        selection.reset()
         guard let page = pages.first(where: { $0.n == n }) else {
             shown = 0
             webView.loadHTMLString("", baseURL: nil)
@@ -292,7 +407,7 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// when a display setting changes.
     func applyLook() {
         root.layer?.borderColor = explainAccent.hudCG
-        root.layer?.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
+        root.layer?.borderWidth = surfaceBorderWidth
     }
 
     // MARK: stacking
@@ -440,8 +555,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         decisionHandler(.cancel)
     }
 
-    /// Messages from the page script: its render report, and text for the clipboard (the panel never
-    /// becomes key, so Command-C cannot reach it).
+    /// Messages from the page: its render report, the text of a code block's copy button, and what is
+    /// selected (the panel never becomes key, so Command-C reaches the page through {@link PageSelection}).
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let body = message.body as? [String: Any], let type = body["type"] as? String else { return }
         switch type {
@@ -453,6 +568,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             guard let text = body["text"] as? String else { return }
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(text, forType: .string)
+        case "selection":
+            selection.update(text: body["text"] as? String ?? "")
         default:
             break
         }

@@ -16,13 +16,13 @@ Judge a change by that. The HUD is with the user all day, over any app, like a p
 | `hud/HUD.swift` | the HUD class: stored views, launch, timers, settings, stop, lifecycle, and the paths of the state files |
 | `hud/Bar.swift` | the status bar, its click-through, and the session state (`currentActivity`) |
 | `hud/Border.swift` | the green line around the screen while the walkthrough acts |
-| `hud/Explainer.swift`, `explainer/page.html` | the explainer panel and the template of a page |
+| `hud/Explainer.swift`, `explainer/page.html` | the explainer panel and the template of a page; the reading panel shared with the note, and Command-C for a selection in either (`PageSelection`) |
 | `hud/Note.swift`, `explainer/note.html` | the note popup and the template of a note |
 | `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking, stepping behind the explainer, staying on the desktop of its page |
 | `hud/Pending.swift` | the delivery progress of a press |
 | `hud/Mirror.swift` | the conversation mirror and its message box; the shared edge resize handle |
 | `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting) and the card that shows them |
-| `hud/Controls.swift` | shared controls: buttons, the state badge, tooltip-style placement (`popupFrame`), cursors, the stop shortcut |
+| `hud/Controls.swift` | shared controls: buttons, the state badge, tooltip-style placement (`popupFrame`), cursors, hot keys (`HotKey`) |
 | `hud/Appearance.swift` | the look every surface shares: the dark appearance, each surface's colour, the material behind translucent surfaces, the accessibility display settings |
 | `hooks/register.ts`, `hooks/register.test.ts` | the session bridge (the plugin's hooks module) and its tests |
 
@@ -50,6 +50,8 @@ Everything the three parts say to each other goes through small files in the sta
 - Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`). The window server also ignores `NSCursor.set()` from an app that is not active, which the HUD almost never is: `allowCursorInBackground` lifts that at launch.
 - A cursor is checked with another app active, as in a walkthrough. The HUD's own `NSCursor.current` changes even when the screen keeps the arrow: read `NSCursor.currentSystem` from a throwaway tool that moves the pointer with posted mouse-moved events, and capture with `screencapture -C`. The pointer is the user's: move it only when `CGEventSource.secondsSinceLastEventType` says their hands are off, and put it back.
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
+- A keyboard shortcut reaches the HUD only as a Carbon hot key (`HotKey`), and a registered hot key is taken from every other app, the live HUD included: the stop shortcut pressed for a scratch HUD stops the live one too. Register one only while it means something (Command-C: `HUD.updateCopyHotKey`), and test it on a scratch HUD with a posted key event (`CGEvent`, `.cghidEventTap`) after a test-only file confirmed that it is registered: an unregistered key would land in the user's app.
+- A page can run script for a test without a click: Markdown passes HTML through, so `<img src="x" onerror="…">` runs when the page renders (selecting a paragraph, for the copy shortcut).
 - `dw start` on a scratch folder starts a real agent-desktop session, whose cursor overlay shows on the user's screen and stays after the folder is deleted. To test `dw`'s own flow, put stand-ins first: a script named `agent-desktop` on `PATH` that logs its arguments and `AGENT_DESKTOP_SESSION`, and a script at `<scratch>/bin/StatusHUD` that writes `hud.pid` and waits for `quit`. Nothing shows on screen, and the log is the result.
 - A system colour (`systemBlue`, `labelColor`) read outside of drawing can resolve for the light theme, and a layer keeps the value it was given: give layers `color.hudCG`. Text fields and symbols take the colour itself and follow the app's appearance (`hudAppearance`).
 - A new translucent surface gets `makeHUDMaterial` under its tint and `surfaceAlpha` for its opacity, and an `applyLook()` that `HUD.applyDisplayOptions` calls. The three accessibility display settings (contrast, transparency, motion) are the user's system settings: their code paths have not been watched on screen yet, and switching them for a test needs the user's word.

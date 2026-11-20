@@ -19,6 +19,7 @@
 // (one-click answers), SettingsCard.swift (settings UI over Settings.swift), Controls.swift
 // (shared controls and the stop shortcut).
 import AppKit
+import Carbon.HIToolbox
 import QuartzCore
 
 /// State folder shared with the `dw` script and the hud-bridge mod: argument 1, else the default.
@@ -250,7 +251,14 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// page it asks about (see {@link HUD.showAsk}).
     var askSummoned = false
 
-    let stopHotKey = StopHotKey()
+    /// Control-Option-Command-Period stops the agent: while the agent moves the pointer, aiming at a
+    /// button is hard; a key works wherever the pointer is.
+    let stopHotKey = HotKey(id: 1, keyCode: kVK_ANSI_Period, modifiers: controlKey | optionKey | cmdKey)
+    /// Command-C over the explainer or the note, registered only while it would copy something there
+    /// (see {@link HUD.updateCopyHotKey}).
+    let copyHotKey = HotKey(id: 2, keyCode: kVK_ANSI_C, modifiers: cmdKey)
+    /// Sees clicks in other apps: a selection left behind in a page is no longer what Command-C means.
+    let copyClickWatcher = OutsideClickWatcher()
 
     /// When the owning agent process was first seen missing (nil while it is alive).
     var ownerGoneSince: Date?
@@ -275,10 +283,11 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             if let id = note.userInfo?["id"] as? String { self?.applySetting(id) }
         }
         // The shortcut only ever stops: pressing it again must not clear a stop by accident
-        StopHotKey.onPress = { [weak self] in
+        stopHotKey.onPress = { [weak self] in
             if !isStopOn() { self?.toggleStop() }
         }
         stopHotKey.setEnabled(settings.isOn("stop.hotkey"))
+        startCopyShortcut()
         settingsCard.attach(to: self)
         // Contrast, transparency and motion are the user's system-wide choices: follow them as they change
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
@@ -287,6 +296,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
             self?.updateClickThrough()
             self?.updatePending()
+            self?.updateCopyHotKey()
         }
         Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.reloadFeed(force: false) }
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTypingFlag() }

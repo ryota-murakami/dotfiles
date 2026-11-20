@@ -51,6 +51,10 @@ let noteAccent = NSColor.systemYellow
 let performingBorderColor = NSColor.systemGreen
 /// Corner radius of every floating surface (explainer, note, mirror, prompt card, settings card).
 let surfaceCornerRadius: CGFloat = 14
+/// Width of the outline of every surface (bar, explainer, note, mirror, prompt card, settings card):
+/// one point, two while "Increase contrast" is on. The colour says which surface it is; the line
+/// itself stays as thin as a window's edge.
+var surfaceBorderWidth: CGFloat { DisplayOptions.increaseContrast ? 2 : 1 }
 
 /// Opacity of a surface's background: the wanted value, or opaque while "Reduce transparency" is on.
 func surfaceAlpha(_ wanted: CGFloat) -> CGFloat { DisplayOptions.reduceTransparency ? 1 : wanted }

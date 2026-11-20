@@ -795,37 +795,63 @@ extension NSWindow {
     }
 }
 
-/// Global keyboard shortcut that stops the agent: Control-Option-Command-Period.
+/// What each registered hot key does, by its id: one Carbon handler serves them all.
+private var hotKeyActions: [UInt32: () -> Void] = [:]
+private var hotKeyHandler: EventHandlerRef?
+
+/// A keyboard shortcut that reaches the HUD while another app is frontmost.
 ///
-/// Why it exists: while the agent moves the pointer, aiming at a button is hard; a key works wherever
-/// the pointer is. Carbon hot keys reach an app that is not frontmost and need no Accessibility
-/// permission. Owned by {@link HUD}, switched by the "stop.hotkey" setting.
-final class StopHotKey {
+/// Why it exists: the HUD is never the active app, so its windows get no key events. Carbon hot keys
+/// reach an app that is not frontmost and need no Accessibility permission. A registered hot key is
+/// taken from every other app, so it is registered only while it means something here. Owned by
+/// {@link HUD}: the stop shortcut (the "stop.hotkey" setting) and Command-C over a reading surface
+/// ({@link HUD.updateCopyHotKey}).
+final class HotKey {
     /// Called on the main thread when the shortcut is pressed.
-    static var onPress: (() -> Void)?
-    private var hotKey: EventHotKeyRef?
-    private var handler: EventHandlerRef?
+    var onPress: (() -> Void)?
+    private let id: UInt32
+    private let keyCode: Int
+    private let modifiers: Int
+    private var ref: EventHotKeyRef?
+
+    /// - Parameters:
+    ///   - id: Tells the hot keys apart in the shared handler: unique per instance.
+    ///   - keyCode: Virtual key code (`kVK_…`).
+    ///   - modifiers: Carbon modifier flags (`cmdKey | optionKey …`).
+    init(id: UInt32, keyCode: Int, modifiers: Int) {
+        self.id = id
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        hotKeyActions[id] = { [weak self] in self?.onPress?() }
+    }
+
+    /// True while the shortcut is registered, that is, taken from the other apps.
+    var isEnabled: Bool { ref != nil }
 
     func setEnabled(_ enabled: Bool) {
         if enabled { register() } else { unregister() }
     }
 
     private func register() {
-        guard hotKey == nil else { return }
-        if handler == nil {
+        guard ref == nil else { return }
+        if hotKeyHandler == nil {
             var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-            // A C callback cannot capture context, hence the static closure
-            InstallEventHandler(GetApplicationEventTarget(), { _, _, _ in
-                StopHotKey.onPress?()
+            // A C callback cannot capture context, hence the table of actions outside the class
+            InstallEventHandler(GetApplicationEventTarget(), { _, event, _ in
+                var pressed = EventHotKeyID()
+                let status = GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID),
+                                               nil, MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+                guard status == noErr, let action = hotKeyActions[pressed.id] else { return OSStatus(eventNotHandledErr) }
+                action()
                 return noErr
-            }, 1, &spec, nil, &handler)
+            }, 1, &spec, nil, &hotKeyHandler)
         }
-        let id = EventHotKeyID(signature: OSType(0x4457_5354), id: 1)   // 'DWST'
-        RegisterEventHotKey(UInt32(kVK_ANSI_Period), UInt32(controlKey | optionKey | cmdKey), id, GetApplicationEventTarget(), 0, &hotKey)
+        let hotKeyID = EventHotKeyID(signature: OSType(0x4457_5354), id: id)   // 'DWST'
+        RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hotKeyID, GetApplicationEventTarget(), 0, &ref)
     }
 
     private func unregister() {
-        if let hotKey { UnregisterEventHotKey(hotKey) }
-        hotKey = nil
+        if let ref { UnregisterEventHotKey(ref) }
+        ref = nil
     }
 }

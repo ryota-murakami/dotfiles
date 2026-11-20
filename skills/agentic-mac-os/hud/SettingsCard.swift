@@ -61,7 +61,7 @@ final class SettingsCard: NSObject {
         let contrast = DisplayOptions.increaseContrast
         root.layer?.backgroundColor = NSColor(calibratedWhite: 0.09, alpha: surfaceAlpha(0.97)).cgColor
         root.layer?.borderColor = NSColor.white.withAlphaComponent(contrast ? 0.8 : 0.16).cgColor
-        root.layer?.borderWidth = 1
+        root.layer?.borderWidth = surfaceBorderWidth
         list?.syncRows()
     }
 

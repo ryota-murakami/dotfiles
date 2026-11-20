@@ -23,8 +23,8 @@ Each surface has one job. Put each thing on the surface that fits it.
 | --- | --- | --- | --- |
 | Status bar | what you are doing right now, in one line | `$DW step`, `$DW say`; un-narrated tool calls show their description | drag it, resize it |
 | End of the bar and screen border | whose turn the Mac is (see below) | nothing: it is derived from what you do | press stop |
-| Explainer panel | the reasoning: numbered pages of Markdown, code and diagrams | `$DW explain` | page back, zoom, bring it forward with the book button |
-| Note popup | a few sentences beside the thing they explain | `$DW note` | drag it, close it |
+| Explainer panel | the reasoning: numbered pages of Markdown, code and diagrams | `$DW explain` | page back, zoom, copy a selection (Command-C), bring it forward with the book button |
+| Note popup | a few sentences beside the thing they explain | `$DW note` | drag it, copy from it, close it |
 | Prompt card | a question, its two answers and feedback buttons | `$DW ask`, `$DW wait-user` | answer, give feedback, park it at a screen edge, send it behind the explainer with a click in the explainer, bring it back or call it to another desktop with the hand button |
 | Delivery line | that a press is on its way, then that it arrived | nothing: your first action after a press completes it | |
 | Mirror | the conversation, with a message box | nothing: the bridge fills it | write to you |

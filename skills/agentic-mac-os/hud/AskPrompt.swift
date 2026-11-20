@@ -69,7 +69,7 @@ extension HUD {
         guard let layer = askPanel.contentView?.layer else { return }
         layer.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: surfaceAlpha(0.96)).cgColor
         layer.borderColor = NSColor.systemOrange.hudCG
-        layer.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
+        layer.borderWidth = surfaceBorderWidth
     }
 
     /// The symbol for the icon `dw` gave a question (it writes an emoji): a question mark for a

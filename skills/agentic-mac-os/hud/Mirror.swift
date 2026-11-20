@@ -305,7 +305,7 @@ extension HUD {
     func applyMirrorOpacity() {
         mirrorTint.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: surfaceAlpha(CGFloat(settings.value("mirror.opacity")))).cgColor
         mirrorRoot.layer?.borderColor = accent.hudCG
-        mirrorRoot.layer?.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
+        mirrorRoot.layer?.borderWidth = surfaceBorderWidth
     }
 
     /// Show the mirror unless it is switched off; conceal it while it is suspended for a click or the

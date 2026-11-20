@@ -300,7 +300,7 @@ extension HUD {
     func applyBarColor() {
         let contrast = DisplayOptions.increaseContrast
         box.layer?.backgroundColor = barColor(stopped: isStopOn()).cgColor
-        box.layer?.borderWidth = contrast ? 2 : 1
+        box.layer?.borderWidth = surfaceBorderWidth
         box.layer?.borderColor = NSColor.white.withAlphaComponent(contrast ? 1 : 0.14).cgColor
         divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(contrast ? 1 : 0.35).cgColor
     }

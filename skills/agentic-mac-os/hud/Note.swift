@@ -38,6 +38,8 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     private var dismissed = false
     /// Origin the HUD last gave the popup: a different origin later means the user dragged it.
     private var placedOrigin: NSPoint?
+    /// The note's selection, for Command-C (see {@link PageSelection}).
+    private(set) lazy var selection = PageSelection(panel: panel, webView: webView)
 
     override init() {
         let config = WKWebViewConfiguration()
@@ -66,6 +68,8 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
 
         webView.navigationDelegate = self
         webView.configuration.userContentController.add(self, name: "dw")
+        // Before the first note loads: its script goes into the pages loaded after this
+        _ = selection
         if webView.responds(to: Selector(("_setDrawsBackground:"))) { webView.setValue(false, forKey: "drawsBackground") }
 
         titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
@@ -111,7 +115,7 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// when a display setting changes.
     func applyLook() {
         root.layer?.borderColor = noteAccent.hudCG
-        root.layer?.borderWidth = DisplayOptions.increaseContrast ? 2.5 : 1.5
+        root.layer?.borderWidth = surfaceBorderWidth
     }
 
     /// Show the note `dw note` wrote, or hide the popup when the note is gone. Called on every refresh tick.
@@ -150,6 +154,7 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         dismissed = false
         placedOrigin = nil
         contentHeight = 0
+        selection.reset()
         webView.pageZoom = CGFloat(settings.value("explain.zoom"))
         // The page is laid out at the popup's width before it is shown, so the height it reports is the real one
         panel.setFrame(NSRect(origin: panel.frame.origin, size: NSSize(width: width, height: 240)), display: false)
@@ -192,9 +197,11 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         decisionHandler(.cancel)
     }
 
-    /// The page reports the height of its text (CSS pixels) whenever it changes.
+    /// The page reports the height of its text (CSS pixels) whenever it changes, and what is selected in it.
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard let body = message.body as? [String: Any], body["type"] as? String == "size",
+        guard let body = message.body as? [String: Any] else { return }
+        if body["type"] as? String == "selection" { selection.update(text: body["text"] as? String ?? "") }
+        guard body["type"] as? String == "size",
               "\(body["id"] ?? "")" == noteID, let height = (body["height"] as? NSNumber)?.doubleValue else { return }
         let first = contentHeight == 0
         apply(cssHeight: CGFloat(height))
