@@ -27,11 +27,18 @@ let explainAccent = NSColor(calibratedRed: 0.36, green: 0.80, blue: 0.62, alpha:
 /// other apps' windows like an ordinary window (click it and it is in front, click the app and the
 /// app is in front).
 final class ReadingPanel: NSPanel {
+    /// Called on every click in the panel, after it came forward. The HUD sends the prompt card
+    /// behind the panel here ({@link HUD.tuckAsk}).
+    var onMouseDown: (() -> Void)?
+
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
 
     override func sendEvent(_ event: NSEvent) {
-        if event.type == .leftMouseDown { orderFrontRegardless() }
+        if event.type == .leftMouseDown {
+            orderFrontRegardless()
+            onMouseDown?()
+        }
         super.sendEvent(event)
     }
 }

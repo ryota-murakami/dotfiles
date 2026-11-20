@@ -1,8 +1,23 @@
 // Approval prompt of the HUD: a compact card for one-click answers (`dw ask`, `dw wait-user`),
 // with optional feedback buttons that tell the agent something without answering.
 // It appears by the bar, never on the explainer, and can be dragged anywhere; the place is remembered.
+// It stays above every window, except that a click in the explainer sends it behind the explainer.
 // Methods of the HUD class; its stored views are in HUD.swift.
 import AppKit
+
+/// Panel of the prompt card: reports a click anywhere on it.
+///
+/// Why it exists: a card that went behind the explainer ({@link HUD.tuckAsk}) comes back when the
+/// part of it that still shows is clicked, whichever control is under the pointer.
+final class AskPanel: NSPanel {
+    /// Called on every click in the card, before the control under the pointer gets it.
+    var onMouseDown: (() -> Void)?
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown { onMouseDown?() }
+        super.sendEvent(event)
+    }
+}
 
 extension HUD {
     // MARK: approval prompt
@@ -18,6 +33,9 @@ extension HUD {
         askPanel.backgroundColor = .clear
         askPanel.hasShadow = true
         askPanel.becomesKeyOnlyIfNeeded = true
+        askPanel.onMouseDown = { [weak self] in
+            if self?.askTucked == true { self?.raiseAsk() }
+        }
         let root = NSView()
         root.wantsLayer = true
         root.layer?.cornerRadius = 12
@@ -55,6 +73,8 @@ extension HUD {
         guard exists(askPath) else {
             if askPanel.isVisible { askPanel.orderOut(nil) }
             askID = ""; askStamp = nil
+            raiseAsk()
+            setAskButton(shown: false)
             return
         }
         let stamp = mtime(askPath)
@@ -63,6 +83,8 @@ extension HUD {
             guard let data = FileManager.default.contents(atPath: askPath),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
+            // A new question is on top again, whatever the last one was sent behind
+            if id != askID { raiseAsk() }
             askID = id
             // A new question appears where the user is looking; a card still open on another desktop comes along
             if askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
@@ -91,6 +113,45 @@ extension HUD {
         askPlacedOrigin = frame.origin
         if askPanel.frame != frame { askPanel.setFrame(frame, display: true) }
         if !askPanel.isVisible { askPanel.orderFrontRegardless() }
+        // Behind the explainer only while the explainer is what the user reads: it closed, moved off
+        // the card, or an app's window came in front of it, so the card is on top again
+        if askTucked, !explainer.panel.isVisible || explainer.isOnAnotherSpace || explainer.isCovered
+            || !askPanel.frame.intersects(explainer.panel.frame) { raiseAsk() }
+        setAskButton(shown: true)
+        // Lit while the card is out of sight: behind the explainer, or left on another desktop
+        askButton.isActive = askTucked || askPanel.isOnAnotherSpace
+    }
+
+    /// Send the card behind the explainer, the way a click on a window puts it over its neighbours.
+    ///
+    /// Why it exists: the card stays above every window so that a question is never lost, which also
+    /// kept it over the page the user was reading; the page had no room beside it for the card to
+    /// step aside to. Called by the explainer's panel on every click in it; {@link HUD.raiseAsk}
+    /// undoes it.
+    func tuckAsk() {
+        guard !askID.isEmpty, askPanel.isVisible, !askTucked, explainer.panel.isVisible,
+              askPanel.frame.intersects(explainer.panel.frame) else { return }
+        askTucked = true
+        // Same level as the explainer, then right under it: above the app the explainer lies over
+        askPanel.level = explainer.panel.level
+        askPanel.order(.below, relativeTo: explainer.panel.windowNumber)
+    }
+
+    /// Put the card back above every window. Called when the card or its button on the bar is
+    /// clicked, when a new question arrives, and when the explainer no longer covers the card.
+    func raiseAsk() {
+        guard askTucked else { return }
+        askTucked = false
+        askPanel.level = .statusBar
+        if askPanel.isVisible { askPanel.orderFrontRegardless() }
+    }
+
+    /// The hand button on the bar: bring the open question in front, on the desktop the user is
+    /// looking at (it may be behind the explainer, or left on another desktop).
+    @objc func showAsk() {
+        guard !askID.isEmpty else { return }
+        raiseAsk()
+        askPanel.orderFrontOnActiveSpace()
     }
 
     /// Lay the card out for the current question: one row when everything fits in
@@ -272,6 +333,8 @@ extension HUD {
         try? FileManager.default.removeItem(atPath: askPath)
         askPanel.orderOut(nil)
         askID = ""
+        raiseAsk()
+        setAskButton(shown: false)
     }
 
     /// True while a `dw ask` / `dw wait-user` process is polling for the answer (its pid is in ask-waiter).

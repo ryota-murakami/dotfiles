@@ -42,6 +42,8 @@ The skill is used on one machine by one person, so what was learned about that m
 - Full-window snapshots and `find` fail while the Project tree is open (`RefMap exceeds 1MB`); `--skeleton` works. Clicking the Project stripe button by ref timed out once: cause unknown, look before relying on it.
 - In the keymap file an action written as an empty element (`<action id="HideAllWindows" />`) has **no** shortcut; the `<keyboard-shortcut>` on the following lines belongs to the next action. Read the shortcut inside the action's own element. (`shift+cmd+u` was once taken for Hide All Tool Windows that way: with lines selected it opens the find bar instead. `escape` closes it.)
 - To point at code: `phpstorm --line FROM --column 0 <path>`, then `shift+down` once per line through TO, then `dw explain --back`. The selection stays highlighted (greyed) while another app has focus.
+- The IDE does not reopen the last project at startup (`reopenLastProject` is false in `options/ide.general.xml`): after a restart it shows `PhpStorm Home`, the project's window is gone and every window id is new. `phpstorm <project folder>` opens the project again in a window of its own, with its tabs, on the desktop that is active at that moment; the home window closes.
+- With lines selected the IDE shows a floating toolbar (Ask AI, Extract, Surround) under the last selected line for a while: a note placed right under the selection has its title covered. Make the anchor about 46 points taller than the selection.
 
 **Committing in the IDE** (worked on 2026-11-19)
 
@@ -58,4 +60,5 @@ The skill is used on one machine by one person, so what was learned about that m
 - Other apps are used in between (Slack, the chat). Keys are never sent while PhpStorm is not the focused window: wait for it to be in front again, or bring it forward as part of an announced step.
 - The status bar at the very top, beside the menu bar and the notch. The prompt card parked at the left edge.
 - Presses 読んでいます while reading and 質問・中断 to give feedback about the HUD itself, then types in the chat.
+- Asks a short question from the mirror's message box while reading a page (seen on 2026-11-20): answer it in a note beside the page, with the question on the prompt card left open.
 - While an answer or a fix to the skill is being prepared, moves between desktops (the chat, Slack) and quits the HUD from its settings; asks for the walkthrough to go on in the chat, which takes `dw resume <record>` (seen twice on 2026-11-20).

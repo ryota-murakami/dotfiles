@@ -12,7 +12,7 @@ How to change the HUD, the session bridge or `dw`, and try the change without di
 | `hud/Border.swift` | the green line around the screen while the walkthrough acts |
 | `hud/Explainer.swift`, `explainer/page.html` | the explainer panel and the template of a page |
 | `hud/Note.swift`, `explainer/note.html` | the note popup and the template of a note |
-| `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking |
+| `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking, stepping behind the explainer |
 | `hud/Pending.swift` | the delivery progress of a press |
 | `hud/Mirror.swift` | the conversation mirror and its message box; the shared edge resize handle |
 | `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting) and the card that shows them |
@@ -43,6 +43,7 @@ Everything the three parts say to each other goes through small files in the sta
 - Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`). The window server also ignores `NSCursor.set()` from an app that is not active, which the HUD almost never is: `allowCursorInBackground` lifts that at launch.
 - A cursor is checked with another app active, as in a walkthrough. The HUD's own `NSCursor.current` changes even when the screen keeps the arrow: read `NSCursor.currentSystem` from a throwaway tool that moves the pointer with posted mouse-moved events, and capture with `screencapture -C`. The pointer is the user's: move it only when `CGEventSource.secondsSinceLastEventType` says their hands are off, and put it back.
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
+- A click posted at a scratch panel lands on whatever window is in front at that point, and the user's app may have come over the panel since it was shown: run `dw explain --show` on the scratch HUD right before the click. Which surface is over which is read from `CGWindowListCopyWindowInfo` (on-screen windows come front to back, each with its layer: 0 ordinary, 25 status bar), before and after the click.
 - A window at the ordinary level (the explainer) that is ordered out and in again returns to the desktop (Space) it was on; a `.transient` one comes to the active desktop. Every surface but the bar and the border is `.transient` (`stageCollectionBehavior`), and is moved only by `orderFrontOnActiveSpace`.
 - Ordering a surface out and in to hide it for a moment moves it to whichever desktop is active when it returns: hide it with `setConcealed` (invisible and click-through, still on its desktop).
 - Which desktop a window is on can be checked without switching desktops, with two private window-server calls in a throwaway Swift tool: `CGSCopySpacesForWindows(CGSMainConnectionID(), 7, [windowNumber])` lists a window's desktops for any process (window numbers from `CGWindowListCopyWindowInfo`), and `CGSMoveWindowsToManagedSpace` moves a window to another desktop, but only the calling process's own windows: build the scratch HUD from a copy of `hud/` with a file that does it on request.

@@ -153,12 +153,20 @@ extension HUD {
         divider.wantsLayer = true
         divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.35).cgColor
 
-        for v in [grip, label, explainButton, mirrorButton, settingsButton, divider, stopButton, stateBadge, resizeHandle] as [NSView] {
+        // The prompt's button is orange like the card it brings back
+        askButton.activeColor = NSColor.systemOrange.withAlphaComponent(0.9)
+        askButton.isHidden = true
+        for v in [grip, label, askButton, explainButton, mirrorButton, settingsButton, divider, stopButton, stateBadge, resizeHandle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             box.addSubview(v)
         }
         let stopSlot = stopButton.widthAnchor.constraint(equalToConstant: 88)
         stopWidth = stopSlot
+        // No width and no gap while it is hidden: the status line keeps that room
+        let askSlot = askButton.widthAnchor.constraint(equalToConstant: 0)
+        let askGap = askButton.trailingAnchor.constraint(equalTo: explainButton.leadingAnchor, constant: 0)
+        askButtonWidth = askSlot
+        askButtonGap = askGap
         NSLayoutConstraint.activate([
             grip.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             grip.topAnchor.constraint(equalTo: box.topAnchor),
@@ -167,7 +175,11 @@ extension HUD {
             gripLabel.centerXAnchor.constraint(equalTo: grip.centerXAnchor),
             gripLabel.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
             label.leadingAnchor.constraint(equalTo: grip.trailingAnchor, constant: 4),
-            label.trailingAnchor.constraint(equalTo: explainButton.leadingAnchor, constant: -12),
+            label.trailingAnchor.constraint(equalTo: askButton.leadingAnchor, constant: -12),
+            askSlot,
+            askGap,
+            askButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            askButton.heightAnchor.constraint(equalToConstant: 36),
             label.topAnchor.constraint(equalTo: box.topAnchor),
             label.bottomAnchor.constraint(equalTo: box.bottomAnchor),
             explainButton.trailingAnchor.constraint(equalTo: mirrorButton.leadingAnchor, constant: -6),
@@ -201,7 +213,7 @@ extension HUD {
             resizeHandle.widthAnchor.constraint(equalToConstant: 12),
         ])
         // The controls shrink with a thin bar: their heights are set by layoutBarForHeight()
-        barControlHeights = [explainButton, mirrorButton, settingsButton, stopButton, stateBadge, divider].map { view in
+        barControlHeights = [askButton, explainButton, mirrorButton, settingsButton, stopButton, stateBadge, divider].map { view in
             box.constraints.first { $0.firstItem === view && $0.firstAttribute == .height }
                 ?? view.constraints.first { $0.firstAttribute == .height }!
         }
@@ -300,14 +312,26 @@ extension HUD {
 
     func screenRect(of view: NSView) -> NSRect { panel.convertToScreen(view.convert(view.bounds, to: nil)) }
 
+    /// Show the prompt's button on the bar while a question is open, and take it away afterwards.
+    /// Called by {@link HUD.updateAsk} on every refresh tick.
+    func setAskButton(shown: Bool) {
+        guard askButton.isHidden == shown else { return }
+        askButton.isHidden = !shown
+        askButtonWidth?.constant = shown ? 38 : 0
+        askButtonGap?.constant = shown ? -6 : 0
+        if !shown { askButton.isActive = false }
+    }
+
     /// Accept mouse events only over the controls and the handles; everything else clicks through.
     func updateClickThrough() {
         let mouse = NSEvent.mouseLocation
         // The stop button takes the pointer only while it shows; the state badge is a label and lets clicks through
-        let controls: [NSView] = [explainButton, mirrorButton, settingsButton, resizeHandle, grip] + (stopButton.isHidden ? [] : [stopButton])
+        let controls: [NSView] = [explainButton, mirrorButton, settingsButton, resizeHandle, grip]
+            + (stopButton.isHidden ? [] : [stopButton]) + (askButton.isHidden ? [] : [askButton])
         var hot = controls.map { screenRect(of: $0).insetBy(dx: -4, dy: -4) }
         // The height handles are thin on purpose: only a few points along each edge take the pointer
         hot += [barTopHandle, barBottomHandle].map { screenRect(of: $0).insetBy(dx: 0, dy: -2) }
+        askButton.isHovered = !askButton.isHidden && screenRect(of: askButton).contains(mouse)
         explainButton.isHovered = screenRect(of: explainButton).contains(mouse)
         mirrorButton.isHovered = screenRect(of: mirrorButton).contains(mouse)
         settingsButton.isHovered = screenRect(of: settingsButton).contains(mouse)

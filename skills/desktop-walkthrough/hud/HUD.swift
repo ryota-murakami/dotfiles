@@ -145,6 +145,11 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     lazy var explainButton = IconButton(symbol: "book", label: "解説パネルを表示／隠す", target: self, action: #selector(toggleExplainer))
     lazy var mirrorButton = IconButton(symbol: "bubble.left.and.text.bubble.right", label: "ミラーを表示／隠す", target: self, action: #selector(toggleMirror))
     lazy var settingsButton = IconButton(symbol: "slider.horizontal.3", label: "設定", target: self, action: #selector(toggleSettings))
+    /// Shown only while a question is open: brings the prompt card in front (see {@link HUD.showAsk}).
+    lazy var askButton = IconButton(symbol: "hand.raised", label: "確認の枠を前に出す", target: self, action: #selector(showAsk))
+    /// Width of {@link HUD.askButton} and its gap to the next button: both zero while no question is open.
+    var askButtonWidth: NSLayoutConstraint?
+    var askButtonGap: NSLayoutConstraint?
     lazy var stopButton = StopButton(target: self, action: #selector(toggleStop))
     /// Shown in the stop button's place while the walkthrough is not acting (see {@link Activity}).
     let stateBadge = StateBadge()
@@ -207,7 +212,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let notePopup = NotePopup()
 
     // Approval prompt (dw ask)
-    let askPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    let askPanel = AskPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let askLabel = NSTextField(wrappingLabelWithString: "")
     let askOK = NSButton(title: "OK", target: nil, action: nil)
     let askNo = NSButton(title: "キャンセル", target: nil, action: nil)
@@ -227,6 +232,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var askRevealed = false
     /// False from the moment the user drags the prompt until the pointer has left it once.
     var askRevealArmed = true
+    /// True while the card is behind the explainer because the user clicked the explainer (see {@link HUD.tuckAsk}).
+    var askTucked = false
 
     let stopHotKey = StopHotKey()
 
@@ -241,6 +248,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         buildMirror()
         buildAskPanel()
         explainer.attach()
+        // A click in the explainer puts it over the prompt card too
+        explainer.panel.onMouseDown = { [weak self] in self?.tuckAsk() }
         notePopup.attach()
         settings.actions["explain.reset"] = { [weak self] in self?.explainer.resetFrame() }
         settings.actions["ask.reset"] = { [weak self] in self?.resetAskPosition() }

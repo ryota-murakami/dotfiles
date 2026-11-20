@@ -25,11 +25,11 @@ Each surface has one job. Put each thing on the surface that fits it.
 | End of the bar and screen border | whose turn the Mac is (see below) | nothing: it is derived from what you do | press stop |
 | Explainer panel | the reasoning: numbered pages of Markdown, code and diagrams | `$DW explain` | page back, zoom, bring it forward with the book button |
 | Note popup | a few sentences beside the thing they explain | `$DW note` | drag it, close it |
-| Prompt card | a question, its two answers and feedback buttons | `$DW ask`, `$DW wait-user` | answer, give feedback, park it at a screen edge |
+| Prompt card | a question, its two answers and feedback buttons | `$DW ask`, `$DW wait-user` | answer, give feedback, park it at a screen edge, send it behind the explainer with a click in the explainer, bring it back with the hand button |
 | Delivery line | that a press is on its way, then that it arrived | nothing: your first action after a press completes it | |
 | Mirror | the conversation, with a message box | nothing: the bridge fills it | write to you |
 
-**Which desktop a surface is on.** Only the status bar and the screen border show on every desktop (Space). Every other surface stays on the desktop where it was shown, so the desktops the user moves to meanwhile stay clear of the walkthrough. A new page, note or question appears on the desktop the user is looking at when the command runs, and the book and chat buttons bring their panel to the current desktop. So show things after `$DW front <window>`: they land on the app's desktop, beside what they explain.
+**Which desktop a surface is on.** Only the status bar and the screen border show on every desktop (Space). Every other surface stays on the desktop where it was shown, so the desktops the user moves to meanwhile stay clear of the walkthrough. A new page, note or question appears on the desktop the user is looking at when the command runs, and the book, chat and hand buttons on the bar bring their surface (explainer, mirror, open question) to the current desktop. So show things after `$DW front <window>`: they land on the app's desktop, beside what they explain.
 
 **Whose turn the Mac is.** While a `dw` command narrates or acts, the end of the bar is the red stop button and a thin green line surrounds the screen: the Mac is yours and the user keeps their hands off. In every other state the end of the bar is a label and the Mac is the user's, who will read mail or answer messages meanwhile: 待機中 (the turn ended, or a foreground `$DW ask` / `$DW wait-user` blocks), スキル更新中 (a tool call works on this skill's files), その他作業中 (anything else). The state follows your tool calls and holds for six seconds past your last action. So:
 
