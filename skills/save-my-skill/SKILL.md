@@ -47,4 +47,4 @@ A personal skill is edited where Claude Code runs it: its installed copy, `~/.ag
 - Pass the message with `git commit -F <file>` or several `-m` arguments so the emoji code is not altered by the shell.
 - After committing, check: `git -C ~/dotfiles log -1 --format=%s | grep -q ' :green_apple:$'`. If it fails, fix it with `git commit --amend` before anything else.
 
-Example: `[skills] update desktop-walkthrough to relaunch the hud after an agent restart :green_apple:`
+Example: `[skills] update agentic-mac-os to relaunch the hud after an agent restart :green_apple:`
