@@ -12,19 +12,28 @@ let explainIndexPath = "\(explainDir)/index.json"
 let explainRenderedPath = "\(explainDir)/rendered.json"
 /// Explainer frame chosen by dragging ("x,y,width,height" in screen points).
 let explainFramePath = "\(stateDir)/explain-frame"
-/// `dw explain --hide` / `--show` leave "hide" or "show" here: the agent steps the panel aside while
-/// the app behind it is the thing to watch, and brings it back. Applied once, then removed.
+/// `dw explain --hide` / `--show` / `--back` leave "hide", "show" or "back" here: the agent steps the
+/// panel aside while the app is the thing to watch (hidden, or behind the app's window like any
+/// other window), and brings it back. Applied once, then removed.
 let explainVisibilityRequestPath = "\(explainDir)/visibility-request"
 /// Border and highlight colour of the explainer, so it is not mistaken for the mirror.
 let explainAccent = NSColor(calibratedRed: 0.36, green: 0.80, blue: 0.62, alpha: 1)
 
-/// Panel that never takes keyboard focus.
+/// Panel that never takes keyboard focus, and still comes forward when clicked.
 ///
 /// Why it exists: the reader scrolls and clicks in the explainer while the agent drives another
-/// app with shortcuts; a key window here would receive those keys instead of the app.
+/// app with shortcuts; a key window here would receive those keys instead of the app. A window
+/// that cannot become key is not raised by a click, so the panel raises itself: it stacks with the
+/// other apps' windows like an ordinary window (click it and it is in front, click the app and the
+/// app is in front).
 final class ReadingPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .leftMouseDown { orderFrontRegardless() }
+        super.sendEvent(event)
+    }
 }
 
 /// Web view whose first click acts even though its panel is never the key window.
@@ -42,7 +51,8 @@ struct ExplainPage {
     let file: String
 }
 
-/// The explainer: a floating page of Markdown, diagrams and code beside the app being demonstrated.
+/// The explainer: a page of Markdown, diagrams and code beside the app being demonstrated. It stacks
+/// with other windows like an ordinary one, unless the "explain.floating" setting keeps it on top.
 ///
 /// Why it exists: the status bar holds one line and the mirror shows the raw conversation; a design
 /// decision, a table or a sequence diagram needs a page the reader can scroll and return to.
@@ -91,7 +101,7 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         guard let screen = NSScreen.main else { return }
         panel.setFrame(savedFrame() ?? defaultFrame(on: screen), display: false)
         panel.delegate = self
-        panel.level = .floating
+        applyLevel()
         panel.collectionBehavior = hudCollectionBehavior
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -164,10 +174,11 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             listButton.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
             listButton.trailingAnchor.constraint(equalTo: prevButton.leadingAnchor, constant: -6),
 
+            // Clear of the 6-point edge handles: the web view sets its own cursor and would fight theirs
             webView.topAnchor.constraint(equalTo: grip.bottomAnchor, constant: 2),
-            webView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 2),
-            webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -2),
-            webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -2),
+            webView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
+            webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
+            webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -6),
         ])
         for button in [listButton, prevButton, nextButton, zoomOut, zoomIn, closeButton] {
             button.widthAnchor.constraint(equalToConstant: 24).isActive = true
@@ -183,19 +194,28 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// Pick up pages added by `dw explain` and keep the panel's visibility in step with the settings.
     /// Called by the HUD on every refresh tick.
     func refresh() {
+        // What `dw explain --hide / --show / --back` asked for
+        var raise = false, lower = false
         if let request = try? String(contentsOfFile: explainVisibilityRequestPath, encoding: .utf8) {
             try? FileManager.default.removeItem(atPath: explainVisibilityRequestPath)
-            settings.set("explain.visible", request.trimmingCharacters(in: .whitespacesAndNewlines) == "hide" ? 0 : 1)
+            switch request.trimmingCharacters(in: .whitespacesAndNewlines) {
+            case "hide": settings.set("explain.visible", 0)
+            case "back": lower = true
+            default:
+                settings.set("explain.visible", 1)
+                raise = true
+            }
         }
         let stamp = mtime(explainIndexPath)
         if stamp != indexStamp {
             indexStamp = stamp
             let current = readIndex()
             if current != announced {
-                // A new page: show it even if the reader had closed the panel or was on an older page
+                // A new page: show it in front, even if the reader had closed the panel or was on an older page
                 announced = current
                 if current > 0 { settings.set("explain.visible", 1) }
                 show(current)
+                raise = true
             } else if shown == current {
                 // The page on screen was rewritten in place (`dw explain --replace`)
                 show(current)
@@ -203,6 +223,8 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             updateHeader()
         }
         updateVisibility()
+        if raise { bringToFront() }
+        if lower { sendBehind() }
     }
 
     /// Load `index.json` into {@link pages}.
@@ -250,6 +272,49 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         let wanted = settings.isOn("explain.visible") && shown > 0 && !exists(mirrorSuspendPath)
         if wanted, !panel.isVisible { panel.orderFrontRegardless() }
         if !wanted, panel.isVisible { panel.orderOut(nil) }
+    }
+
+    // MARK: stacking
+
+    /// Ordinary window level, or above every app while "explain.floating" is on.
+    func applyLevel() { panel.level = settings.isOn("explain.floating") ? .floating : .normal }
+
+    /// In front of the other apps' windows, without taking focus from them.
+    func bringToFront() {
+        if panel.isVisible { panel.orderFrontRegardless() }
+    }
+
+    /// Ordinary windows of other apps that overlap the panel, front to back (no menus, no Dock, no HUD surface).
+    ///
+    /// @param aboveOnly - true: only the windows in front of the panel; false: every window on screen.
+    /// @returns Their window numbers.
+    private func overlappingWindows(aboveOnly: Bool) -> [Int] {
+        guard panel.isVisible, let primary = NSScreen.screens.first,
+              let list = CGWindowListCopyWindowInfo([aboveOnly ? .optionOnScreenAboveWindow : .optionOnScreenOnly, .excludeDesktopElements],
+                                                    aboveOnly ? CGWindowID(panel.windowNumber) : kCGNullWindowID) as? [[String: Any]]
+        else { return [] }
+        // Window bounds come with the origin at the top left of the primary screen
+        let frame = panel.frame
+        let mine = CGRect(x: frame.minX, y: primary.frame.height - frame.maxY, width: frame.width, height: frame.height)
+        let me = Int(ProcessInfo.processInfo.processIdentifier)
+        return list.compactMap { info -> Int? in
+            guard (info[kCGWindowLayer as String] as? NSNumber)?.intValue == 0,
+                  (info[kCGWindowOwnerPID as String] as? NSNumber)?.intValue != me,
+                  let number = (info[kCGWindowNumber as String] as? NSNumber)?.intValue,
+                  let dict = info[kCGWindowBounds as String] as? NSDictionary,
+                  let bounds = CGRect(dictionaryRepresentation: dict), bounds.intersects(mine) else { return nil }
+            return number
+        }
+    }
+
+    /// True when a window of another app lies over part of the panel.
+    var isCovered: Bool { !overlappingWindows(aboveOnly: true).isEmpty }
+
+    /// Step behind the app the reader should look at: just below the frontmost window of another app
+    /// that overlaps the panel. Where nothing overlaps there is nothing to step behind.
+    func sendBehind() {
+        guard panel.level == .normal, let front = overlappingWindows(aboveOnly: false).first else { return }
+        panel.order(.below, relativeTo: front)
     }
 
     func applyZoom() {

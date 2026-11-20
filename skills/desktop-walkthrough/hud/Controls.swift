@@ -395,6 +395,190 @@ func makeScrollable(_ content: NSView, inset: CGFloat) -> NSScrollView {
     return scroll
 }
 
+/// View that changes the pointer's shape while the pointer is over it.
+///
+/// Why it exists: cursor rects (`resetCursorRects`) only work in the key window of the active app,
+/// and the HUD's panels are never that, because they must not take focus from the app being
+/// demonstrated. So an edge could be dragged, but nothing showed it. A tracking area that is always
+/// active sets the cursor directly instead. Subclassed by every resize handle of the HUD.
+class HoverCursorView: NSView {
+    /// The shape to show over this view. Subclasses override it.
+    var hoverCursor: NSCursor { .arrow }
+    private var cursorArea: NSTrackingArea?
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let cursorArea { removeTrackingArea(cursorArea) }
+        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .mouseMoved, .activeAlways, .inVisibleRect], owner: self)
+        addTrackingArea(area)
+        cursorArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { hoverCursor.set() }
+    override func mouseMoved(with event: NSEvent) { hoverCursor.set() }
+    override func mouseExited(with event: NSEvent) {
+        // During a drag the pointer may run ahead of the edge: the shape stays until the button is released
+        if NSEvent.pressedMouseButtons & 1 == 0 { NSCursor.arrow.set() }
+    }
+    override func mouseUp(with event: NSEvent) {
+        // Released away from the handle (the frame hit its limit): back to the arrow
+        if !bounds.contains(convert(event.locationInWindow, from: nil)) { NSCursor.arrow.set() }
+    }
+}
+
+/// The resize cursor a window shows on one of its edges or corners (the system's own shapes).
+///
+/// @param edges - The sides the handle moves; two adjacent sides make a corner.
+/// @returns The frame-resize cursor for that edge or corner.
+func frameResizeCursor(for edges: EdgeResizeHandle.Edges) -> NSCursor {
+    var position: NSCursor.FrameResizePosition = .right
+    switch (edges.contains(.left), edges.contains(.right), edges.contains(.top), edges.contains(.bottom)) {
+    case (true, _, true, _): position = .topLeft
+    case (true, _, _, true): position = .bottomLeft
+    case (_, true, true, _): position = .topRight
+    case (_, true, _, true): position = .bottomRight
+    case (true, _, _, _): position = .left
+    case (_, true, _, _): position = .right
+    case (_, _, true, _): position = .top
+    default: position = .bottom
+    }
+    return NSCursor.frameResize(position: position, directions: .all)
+}
+
+/// A side of an anchor rectangle on which a popup can sit.
+enum PopupSide { case above, below, right, left }
+
+/// Frame for a popup beside `anchor`, placed the way a tooltip is: on the first of `sides` where it
+/// fits whole on the screen; when it fits on none, above or below (whichever has more room), shrunk
+/// to that room; and never off the screen.
+///
+/// Why it exists: the settings card always opened above the bar, so with the bar at the top of the
+/// screen it opened outside it. Used by the settings card and the note popup.
+///
+/// @param size - The size the popup wants.
+/// @param anchor - What it belongs to, in screen coordinates (bottom-left origin).
+/// @param visible - The screen area it must stay inside (`NSScreen.visibleFrame`).
+/// @param sides - Sides to try, in order of preference.
+/// @param gap - Distance between anchor and popup.
+/// @param alignEnd - false: the popup's left edge (above/below) or top edge (right/left) lines up with the anchor's; true: the right or bottom edges do.
+/// @param minHeight - The least height it is shrunk to when no side has room for all of it.
+/// @returns The popup's frame.
+///
+/// @example
+/// popupFrame(size: card, anchor: bar.frame, visible: screen.visibleFrame, sides: [.above, .below])
+func popupFrame(size: NSSize, anchor: NSRect, visible: NSRect, sides: [PopupSide], gap: CGFloat = 10,
+                alignEnd: Bool = false, minHeight: CGFloat = 120) -> NSRect {
+    let area = visible.insetBy(dx: 8, dy: 8)
+    func room(_ side: PopupSide) -> CGFloat {
+        switch side {
+        case .above: return area.maxY - anchor.maxY - gap
+        case .below: return anchor.minY - area.minY - gap
+        case .right: return area.maxX - anchor.maxX - gap
+        case .left: return anchor.minX - area.minX - gap
+        }
+    }
+    func frame(_ side: PopupSide, _ s: NSSize) -> NSRect {
+        var r = NSRect(origin: .zero, size: s)
+        switch side {
+        case .above, .below:
+            r.origin.x = alignEnd ? anchor.maxX - s.width : anchor.minX
+            r.origin.y = side == .above ? anchor.maxY + gap : anchor.minY - gap - s.height
+        case .right, .left:
+            r.origin.x = side == .right ? anchor.maxX + gap : anchor.minX - gap - s.width
+            r.origin.y = alignEnd ? anchor.minY : anchor.maxY - s.height
+        }
+        // Slide along the anchor until all of it is on screen
+        r.origin.x = min(max(r.origin.x, area.minX), max(area.minX, area.maxX - s.width))
+        r.origin.y = min(max(r.origin.y, area.minY), max(area.minY, area.maxY - s.height))
+        return r
+    }
+    for side in sides {
+        let vertical = side == .above || side == .below
+        let fits = vertical ? room(side) >= size.height && size.width <= area.width
+                            : room(side) >= size.width && size.height <= area.height
+        if fits { return frame(side, size) }
+    }
+    // It fits nowhere whole: the roomier of above and below, as tall as that room allows
+    let side: PopupSide = room(.above) >= room(.below) ? .above : .below
+    return frame(side, NSSize(width: min(size.width, area.width), height: min(size.height, max(minHeight, room(side)))))
+}
+
+/// What the session is doing, as the bar shows it at its trailing end.
+enum Activity: String {
+    /// The walkthrough itself is acting (narrating, clicking, typing, selecting): the stop button shows.
+    case performing
+    /// The user pressed stop.
+    case stopped
+    /// The turn has ended, or the agent waits for the user or for something it started.
+    case waiting
+    /// The agent is changing this skill (the HUD, `dw`, the hooks, the documents).
+    case skill
+    /// The agent is working on something else (reading, checking, preparing).
+    case other
+}
+
+/// A label, not a button: the state of the session, shown where the stop button sits while there is
+/// nothing on screen to stop.
+///
+/// Why it exists: a red stop button that is always there says "something is being done on your
+/// screen" even while the agent waits for an answer or edits its own skill. The button shows only
+/// while the walkthrough acts; the rest of the time this badge names the state. Owned by {@link HUD},
+/// switched by {@link HUD.applyActivity}.
+final class StateBadge: NSView {
+    private let icon = NSImageView()
+    private let text = NSTextField(labelWithString: "")
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        layer?.borderWidth = 1
+        translatesAutoresizingMaskIntoConstraints = false
+        text.font = .systemFont(ofSize: 13, weight: .bold)
+        text.lineBreakMode = .byClipping
+        let row = NSStackView(views: [icon, text])
+        row.orientation = .horizontal
+        row.spacing = 5
+        row.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(row)
+        NSLayoutConstraint.activate([
+            row.centerXAnchor.constraint(equalTo: centerXAnchor),
+            row.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        show(.waiting)
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Width the bar gives the badge: the longest label fits.
+    static let width: CGFloat = 132
+
+    /// Name a state. `.performing` and `.stopped` belong to the stop button; the badge is hidden then.
+    func show(_ activity: Activity) {
+        let look: (label: String, symbol: String, tint: NSColor, fill: NSColor)
+        switch activity {
+        case .skill:
+            look = ("スキル更新中", "hammer.fill", NSColor(calibratedRed: 0.80, green: 0.66, blue: 1.0, alpha: 1),
+                    NSColor(calibratedRed: 0.20, green: 0.12, blue: 0.42, alpha: 0.82))
+        case .other:
+            look = ("その他作業中", "gearshape.fill", NSColor(calibratedRed: 0.62, green: 0.82, blue: 1.0, alpha: 1),
+                    NSColor(calibratedRed: 0.08, green: 0.20, blue: 0.40, alpha: 0.82))
+        default:
+            look = ("待機中", "pause.circle.fill", NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.45, alpha: 1),
+                    NSColor(calibratedRed: 0.26, green: 0.21, blue: 0.06, alpha: 0.82))
+        }
+        icon.image = NSImage(systemSymbolName: look.symbol, accessibilityDescription: nil)?
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
+        icon.contentTintColor = look.tint
+        text.stringValue = look.label
+        text.textColor = look.tint
+        layer?.backgroundColor = look.fill.cgColor
+        layer?.borderColor = look.tint.withAlphaComponent(0.45).cgColor
+        toolTip = "セッションの状態：\(look.label)（⌃⌥⌘. でいつでも止められます）"
+        setAccessibilityLabel("状態：\(look.label)")
+    }
+}
+
 /// Collection behaviour shared by every floating HUD window: on all desktops, over full-screen apps.
 let hudCollectionBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
 

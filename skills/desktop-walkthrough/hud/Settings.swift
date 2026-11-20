@@ -57,6 +57,8 @@ final class SettingsStore {
     static let registry: [Setting] = [
         Setting(id: "explain.visible", section: "explain", title: "解説を表示", symbol: "book",
                 kind: .toggle, defaultValue: 1, short: "解説", hasDirectControl: true),
+        Setting(id: "explain.floating", section: "explain", title: "常にほかのウィンドウの手前に表示", symbol: "pin",
+                kind: .toggle, defaultValue: 0, short: "常に手前"),
         Setting(id: "explain.zoom", section: "explain", title: "文字サイズ", symbol: "textformat.size",
                 kind: .slider(min: 0.6, max: 2.5, step: 0.1), defaultValue: 1, hasDirectControl: true),
         Setting(id: "explain.reset", section: "explain", title: "位置とサイズ", symbol: "arrow.counterclockwise",

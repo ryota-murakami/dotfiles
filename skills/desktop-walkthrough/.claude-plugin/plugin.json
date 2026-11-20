@@ -1,6 +1,6 @@
 {
   "name": "desktop-walkthrough",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Narrated desktop walkthroughs: a skill that operates the Mac like a person with an on-screen HUD, an explainer panel for long-form pages, plus the session bridge (conversation mirror, HUD messages, stop switch)",
   "author": {
     "name": "Ryota Murakami"

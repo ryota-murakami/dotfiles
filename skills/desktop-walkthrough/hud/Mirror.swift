@@ -55,21 +55,27 @@ final class FeedTextView: NSTextView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 }
 
-/// One edge or corner of the mirror: dragging it moves only that side, like a normal window border.
-final class EdgeResizeHandle: NSView {
+/// One edge or corner of a HUD panel: dragging it moves only that side, like a normal window border,
+/// and the pointer shows the matching resize shape over it.
+final class EdgeResizeHandle: HoverCursorView {
     struct Edges: OptionSet { let rawValue: Int
         static let left = Edges(rawValue: 1), right = Edges(rawValue: 2), bottom = Edges(rawValue: 4), top = Edges(rawValue: 8) }
     let edges: Edges
     var onResize: ((NSRect) -> Void)?
     private var start = NSPoint.zero
     private var startFrame = NSRect.zero
+    private lazy var resizeCursor = frameResizeCursor(for: edges)
+    override var hoverCursor: NSCursor { resizeCursor }
     init(_ edges: Edges) { self.edges = edges; super.init(frame: .zero) }
     required init?(coder: NSCoder) { fatalError("not used") }
+    /// The first click must start the drag: the panel is never the key window.
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
     override func mouseDown(with event: NSEvent) {
         start = NSEvent.mouseLocation
         startFrame = window?.frame ?? .zero
     }
     override func mouseDragged(with event: NSEvent) {
+        resizeCursor.set()
         let p = NSEvent.mouseLocation
         let dx = p.x - start.x, dy = p.y - start.y
         var r = startFrame
@@ -78,11 +84,6 @@ final class EdgeResizeHandle: NSView {
         if edges.contains(.bottom) { r.origin.y += dy; r.size.height -= dy }
         if edges.contains(.top) { r.size.height += dy }
         onResize?(r)
-    }
-    override func resetCursorRects() {
-        let horizontal = edges.contains(.left) || edges.contains(.right)
-        let vertical = edges.contains(.top) || edges.contains(.bottom)
-        addCursorRect(bounds, cursor: horizontal && vertical ? .crosshair : (horizontal ? .resizeLeftRight : .resizeUpDown))
     }
     override func draw(_ dirtyRect: NSRect) {
         // Only the bottom-right corner shows grip lines; the other handles are invisible borders
@@ -135,9 +136,11 @@ extension HUD {
         guard let data = FileManager.default.contents(atPath: statePath),
               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             busyLabel.stringValue = "（Mod未接続）"
+            modBusy = nil
             return
         }
         let busy = obj["busy"] as? Bool ?? false
+        modBusy = busy
         busyLabel.stringValue = busy ? "● 作業中" : "○ 待機中（メッセージ待ち）"
         busyLabel.textColor = busy ? NSColor.systemGreen : NSColor.systemYellow
     }

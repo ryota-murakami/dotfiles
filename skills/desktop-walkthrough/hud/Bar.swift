@@ -4,8 +4,10 @@ import AppKit
 import QuartzCore
 
 /// Right edge of the bar: drag it to change the bar's width.
-/// It draws nothing; the pointer turns into a left-right resize cursor over it.
-final class ResizeHandle: NSView {
+/// It draws nothing; the pointer turns into the right-edge resize cursor over it.
+final class ResizeHandle: HoverCursorView {
+    private let resizeCursor = frameResizeCursor(for: [.right])
+    override var hoverCursor: NSCursor { resizeCursor }
     var onResize: ((CGFloat) -> Void)?
     private var startX: CGFloat = 0
     private var startWidth: CGFloat = 0
@@ -13,8 +15,10 @@ final class ResizeHandle: NSView {
         startX = NSEvent.mouseLocation.x
         startWidth = window?.frame.width ?? 0
     }
-    override func mouseDragged(with event: NSEvent) { onResize?(startWidth + NSEvent.mouseLocation.x - startX) }
-    override func resetCursorRects() { addCursorRect(bounds, cursor: .resizeLeftRight) }
+    override func mouseDragged(with event: NSEvent) {
+        resizeCursor.set()
+        onResize?(startWidth + NSEvent.mouseLocation.x - startX)
+    }
 }
 
 /// The status line of the bar: text that fills the bar's height line by line and leaves a hole empty.
@@ -149,10 +153,12 @@ extension HUD {
         divider.wantsLayer = true
         divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.35).cgColor
 
-        for v in [grip, label, explainButton, mirrorButton, settingsButton, divider, stopButton, resizeHandle] as [NSView] {
+        for v in [grip, label, explainButton, mirrorButton, settingsButton, divider, stopButton, stateBadge, resizeHandle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             box.addSubview(v)
         }
+        let stopSlot = stopButton.widthAnchor.constraint(equalToConstant: 88)
+        stopWidth = stopSlot
         NSLayoutConstraint.activate([
             grip.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             grip.topAnchor.constraint(equalTo: box.topAnchor),
@@ -182,15 +188,20 @@ extension HUD {
             divider.heightAnchor.constraint(equalToConstant: 26),
             stopButton.trailingAnchor.constraint(equalTo: resizeHandle.leadingAnchor, constant: -6),
             stopButton.centerYAnchor.constraint(equalTo: box.centerYAnchor),
-            stopButton.widthAnchor.constraint(equalToConstant: 88),
+            stopSlot,
             stopButton.heightAnchor.constraint(equalToConstant: 36),
+            // The badge takes the stop button's place (the slot widens for it, see applyActivity)
+            stateBadge.trailingAnchor.constraint(equalTo: stopButton.trailingAnchor),
+            stateBadge.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            stateBadge.widthAnchor.constraint(equalToConstant: StateBadge.width),
+            stateBadge.heightAnchor.constraint(equalToConstant: 36),
             resizeHandle.trailingAnchor.constraint(equalTo: box.trailingAnchor),
             resizeHandle.topAnchor.constraint(equalTo: box.topAnchor),
             resizeHandle.bottomAnchor.constraint(equalTo: box.bottomAnchor),
             resizeHandle.widthAnchor.constraint(equalToConstant: 12),
         ])
         // The controls shrink with a thin bar: their heights are set by layoutBarForHeight()
-        barControlHeights = [explainButton, mirrorButton, settingsButton, stopButton, divider].map { view in
+        barControlHeights = [explainButton, mirrorButton, settingsButton, stopButton, stateBadge, divider].map { view in
             box.constraints.first { $0.firstItem === view && $0.firstAttribute == .height }
                 ?? view.constraints.first { $0.firstAttribute == .height }!
         }
@@ -292,19 +303,79 @@ extension HUD {
     /// Accept mouse events only over the controls and the handles; everything else clicks through.
     func updateClickThrough() {
         let mouse = NSEvent.mouseLocation
-        var hot = ([explainButton, mirrorButton, settingsButton, stopButton, resizeHandle, grip] as [NSView]).map { screenRect(of: $0).insetBy(dx: -4, dy: -4) }
+        // The stop button takes the pointer only while it shows; the state badge is a label and lets clicks through
+        let controls: [NSView] = [explainButton, mirrorButton, settingsButton, resizeHandle, grip] + (stopButton.isHidden ? [] : [stopButton])
+        var hot = controls.map { screenRect(of: $0).insetBy(dx: -4, dy: -4) }
         // The height handles are thin on purpose: only a few points along each edge take the pointer
         hot += [barTopHandle, barBottomHandle].map { screenRect(of: $0).insetBy(dx: 0, dy: -2) }
         explainButton.isHovered = screenRect(of: explainButton).contains(mouse)
         mirrorButton.isHovered = screenRect(of: mirrorButton).contains(mouse)
         settingsButton.isHovered = screenRect(of: settingsButton).contains(mouse)
-        stopButton.isHovered = screenRect(of: stopButton).contains(mouse)
+        stopButton.isHovered = !stopButton.isHidden && screenRect(of: stopButton).contains(mouse)
         let dragging = NSEvent.pressedMouseButtons & 1 == 1 && !panel.ignoresMouseEvents
         panel.ignoresMouseEvents = !(hot.contains { $0.contains(mouse) } || dragging)
+        // The bar ignores the pointer until it rests on a control, so a tracking area misses a pointer
+        // that arrived meanwhile: this polling also shows the resize cursor over the three edges
+        let edge: HoverCursorView? = screenRect(of: resizeHandle).contains(mouse) ? resizeHandle
+            : [barTopHandle, barBottomHandle].first { screenRect(of: $0).insetBy(dx: 0, dy: -2).contains(mouse) }
+        if let edge, panel.isVisible {
+            edge.hoverCursor.set()
+            barEdgeHovered = true
+        } else if barEdgeHovered, !dragging {
+            barEdgeHovered = false
+            NSCursor.arrow.set()
+        }
+    }
+
+    /// What the session is doing right now, from the bridge's turn state, the class of its newest tool
+    /// call and the times `dw` last acted or narrated.
+    ///
+    /// @returns The state for the bar's trailing end (see {@link Activity}).
+    func currentActivity() -> Activity {
+        if isStopOn() { return .stopped }
+        let tool = mtime(toolClassPath)
+        let action = mtime(actionStampPath), narration = mtime(narrationStampPath)
+        /// True when `dw` did that since the newest tool call began (without a tool class from the
+        /// bridge: within the last seconds).
+        func since(_ stamp: Date?) -> Bool {
+            guard let stamp else { return false }
+            return tool.map { stamp >= $0 } ?? (Date().timeIntervalSince(stamp) < 15)
+        }
+        guard let busy = modBusy else {
+            // No bridge: only `dw` itself tells. Recent action or narration counts as the walkthrough acting
+            let recent = [action, narration].compactMap { $0 }.max().map { Date().timeIntervalSince($0) < 15 } ?? false
+            return recent ? .performing : (exists(askPath) ? .waiting : .other)
+        }
+        // The turn has ended: the agent waits for the user, or for something it started in the background
+        if !busy { return .waiting }
+        // Keys, clicks and window moves outrank everything: this is when a stop button is needed
+        if since(action) { return .performing }
+        let toolClass = ((try? String(contentsOfFile: toolClassPath, encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if toolClass == "skill" { return .skill }
+        if toolClass == "waiting" { return .waiting }
+        return since(narration) ? .performing : .other
+    }
+
+    /// Show the stop button while the walkthrough acts (or was stopped), the state badge otherwise.
+    func applyActivity(_ activity: Activity) {
+        guard activity != lastActivity else { return }
+        lastActivity = activity
+        let button = activity == .performing || activity == .stopped
+        stopButton.isHidden = !button
+        stateBadge.isHidden = button
+        if !button { stateBadge.show(activity) }
+        stopWidth?.constant = button ? 88 : StateBadge.width
     }
 
     @objc func toggleMirror() { settings.toggle("mirror.visible") }
-    @objc func toggleExplainer() { settings.toggle("explain.visible") }
+    /// The book button: bring the explainer forward when another window covers it, otherwise show or hide it.
+    @objc func toggleExplainer() {
+        if settings.isOn("explain.visible"), explainer.isCovered {
+            explainer.bringToFront()
+        } else {
+            settings.toggle("explain.visible")
+        }
+    }
 
     func playChangeEffect(flashColor: NSColor, base: NSColor) {
         guard let layer = box.layer else { return }

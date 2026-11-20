@@ -1,0 +1,80 @@
+<!doctype html>
+<!--
+  Template of the note popup. `dw note` copies it to <state>/explain/note.html with the note's data
+  (id, Markdown source) in place of the DW_DATA line; the HUD's note popup loads the result and sizes
+  itself to the height this page reports. Libraries come from <state>/explain/vendor, like the pages.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- Local files only: a note never loads anything from the network -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src file: 'unsafe-inline'; style-src file: 'unsafe-inline'; img-src file: data:; font-src file: data:">
+<link rel="stylesheet" href="vendor/highlight.css">
+<style>
+  :root { color-scheme: dark; --accent: #ffc74d; }
+  html { background: transparent; }
+  body {
+    margin: 0; padding: 4px 14px 12px; color: #ececec;
+    font: 14.5px/1.7 -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-wrap: anywhere;
+  }
+  #content > :first-child { margin-top: 0; }
+  #content > :last-child { margin-bottom: 0; }
+  p { margin: .5em 0; }
+  ul, ol { padding-left: 1.3em; margin: .4em 0; }
+  li { margin: .18em 0; }
+  strong { color: #fff; }
+  em { color: var(--accent); font-style: normal; }
+  h1, h2, h3, h4 { font-size: 1.02em; line-height: 1.4; margin: .9em 0 .3em; color: var(--accent); }
+  a { color: #6cb6ff; }
+  hr { border: 0; border-top: 1px solid rgba(255, 255, 255, .16); margin: .8em 0; }
+  code {
+    font: .88em/1.5 "SF Mono", Menlo, monospace; background: rgba(255, 255, 255, .11);
+    padding: .1em .35em; border-radius: 4px;
+  }
+  pre {
+    background: #0d1117; border: 1px solid rgba(255, 255, 255, .12); border-radius: 7px;
+    padding: 9px 11px; overflow-x: auto; margin: .6em 0;
+  }
+  pre code, pre code.hljs {
+    background: none; padding: 0; font-size: .85em; line-height: 1.5;
+    white-space: pre; overflow-wrap: normal; display: block;
+  }
+  table { border-collapse: collapse; font-size: .92em; margin: .5em 0; }
+  th, td { border: 1px solid rgba(255, 255, 255, .2); padding: .28em .55em; text-align: left; vertical-align: top; }
+  th { background: rgba(255, 199, 77, .14); white-space: nowrap; }
+  blockquote { margin: .6em 0; padding: .3em .8em; border-left: 3px solid var(--accent); background: rgba(255, 199, 77, .07); }
+</style>
+</head>
+<body>
+<div id="content"></div>
+<script id="dw-data" type="application/json">
+<!--DW_DATA-->
+</script>
+<script src="vendor/marked.js"></script>
+<script src="vendor/highlight.js"></script>
+<script>
+(() => {
+  const data = JSON.parse(document.getElementById('dw-data').textContent);
+  // The HUD listens on this channel; opened in a plain browser the note still renders
+  const post = message => { try { window.webkit.messageHandlers.dw.postMessage(message); } catch (_) { /* no HUD */ } };
+  const content = document.getElementById('content');
+  if (window.marked) {
+    content.innerHTML = marked.parse(data.markdown, { gfm: true });
+  } else {
+    content.style.whiteSpace = 'pre-wrap';
+    content.textContent = data.markdown;
+  }
+  if (window.hljs) {
+    for (const code of content.querySelectorAll('pre > code')) {
+      try { hljs.highlightElement(code); } catch (_) { /* unknown language: leave as is */ }
+    }
+  }
+  // The popup is as tall as its text: report the height now and whenever wrapping changes it
+  const report = () => post({ type: 'size', id: data.id, height: Math.ceil(document.body.getBoundingClientRect().height) });
+  report();
+  new ResizeObserver(report).observe(document.body);
+})();
+</script>
+</body>
+</html>

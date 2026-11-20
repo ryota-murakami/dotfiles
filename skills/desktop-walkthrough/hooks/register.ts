@@ -18,6 +18,7 @@ import type { EngineInterface, Register } from 'claude-code'
  * - `bridge/inbox.jsonl`   HUD → mod  `{"text": "..."}` lines typed in the HUD's message box
  * - `bridge/control.jsonl` HUD → mod  `{"cmd": "stop" | "resume"}` lines from the stop button or shortcut
  * - `bridge/stop`          both       "on" / "off": the one source of truth for stop
+ * - `bridge/tool-class`    mod → HUD  what the newest tool call of the running turn is: "skill", "waiting" or "other"
  * - `status.txt`           mod → HUD  the status line, for tools that do not narrate through `dw say`
  * - `typing`, `hud.alive`   HUD → mod  message being typed, heartbeat
  */
@@ -85,6 +86,7 @@ type Paths = {
   ask: string
   typing: string
   alive: string
+  toolClass: string
 }
 
 type FeedEntry = { role: 'you' | 'agent' | 'tool' | 'hud'; text: string; ts: number }
@@ -124,6 +126,7 @@ async function paths($: EngineInterface): Promise<Paths> {
     ask: `${home}/ask.json`,
     typing: `${home}/typing`,
     alive: `${home}/hud.alive`,
+    toolClass: `${bridge}/tool-class`,
   }
   return S.paths
 }
@@ -256,6 +259,55 @@ export function showsToolOnBar(tool: string, isGuiCommand: boolean, questionPend
   return !isGuiCommand && !questionPending && !QUIET_TOOLS.has(tool)
 }
 
+/** What a tool call is, for the state the bar shows at its trailing end. */
+export type ToolClass = 'skill' | 'waiting' | 'other'
+
+/** Files of this skill: its source, wherever it is installed or checked out, and its private notes. */
+const SKILL_FILE = /skills\/desktop-walkthrough\/|\.config\/desktop-walkthrough\/notes\.md/
+/**
+ * A Bash command that works on the skill rather than with it: it names a source folder of the
+ * skill, changes into the skill folder, builds or runs the HUD binary, or drives a scratch HUD.
+ * Merely calling `…/desktop-walkthrough/scripts/dw` is using the skill and does not match.
+ */
+const SKILL_COMMAND =
+  /desktop-walkthrough\/(hud|hooks|explainer|references|\.claude-plugin|SKILL\.md|README\.md|scripts\/check)|cd\s+\S*skills\/desktop-walkthrough(?![\w/.-])|\bStatusHUD\b|\bDW_HOME=/
+/** A Bash command that blocks until the user answers on the HUD. */
+const WAIT_COMMAND = /(^|[\s;&|(/])dw["']?\s+(wait-user|ask)\b|\$\{?DW\}?["']?\s+(wait-user|ask)\b/
+/** Tools that exist to wait: for the user, for a timer, for a background task. */
+const WAITING_TOOLS: ReadonlySet<string> = new Set(['AskUserQuestion', 'Monitor', 'ScheduleWakeup'])
+
+/**
+ * Class of a tool call, so the HUD can tell "updating the skill" and "waiting" from other work.
+ * Whether the walkthrough itself is acting is not decided here: `dw` reports that when it runs.
+ *
+ * Why it exists: the bar showed a stop button all the time, also while the agent edited its own
+ * skill or waited for an answer. Called by the `tool.call` hook, which writes the result for the HUD.
+ *
+ * @param tool - Name of the tool being called.
+ * @param input - Its input (`command`, `file_path`, `run_in_background`, …).
+ * @returns The class, or undefined for a tool that only looks at something outside the skill:
+ *   the class of the call before it stays.
+ *
+ * @example
+ * classifyTool('Edit', { file_path: '/x/skills/desktop-walkthrough/hud/Bar.swift' }) // 'skill'
+ * classifyTool('Bash', { command: '$DW wait-user "読んでください"' })                  // 'waiting'
+ * classifyTool('Bash', { command: 'git status' })                                    // 'other'
+ */
+export function classifyTool(tool: string, input: Record<string, unknown>): ToolClass | undefined {
+  const text = (key: string) => (typeof input[key] === 'string' ? (input[key] as string) : '')
+  if (WAITING_TOOLS.has(tool)) return 'waiting'
+  if (tool === 'Bash') {
+    const command = text('command')
+    // A wait in the background returns at once: the agent goes on working
+    if (input.run_in_background !== true && WAIT_COMMAND.test(command)) return 'waiting'
+    return SKILL_COMMAND.test(command) ? 'skill' : 'other'
+  }
+  const target = text('file_path') || text('path') || text('notebook_path')
+  if (SKILL_FILE.test(target)) return 'skill'
+  // Looking at a file outside the skill says nothing about what the agent is busy with
+  return QUIET_TOOLS.has(tool) ? undefined : 'other'
+}
+
 /** One line describing a tool call: the Bash description when the model gave one. */
 function describeTool(tool: string, input: Record<string, unknown>): string {
   const pick = (k: string) => (typeof input[k] === 'string' ? (input[k] as string) : undefined)
@@ -378,7 +430,11 @@ export const register: Register = on => {
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
       S.runningTurn = e.turnId
-      if (await isActive($)) await writeState($)
+      if (await isActive($)) {
+        // A new turn starts as "other work" until a tool call or `dw` says more
+        await $.fs.write((await paths($)).toolClass, 'other').catch(() => undefined)
+        await writeState($)
+      }
     }
     return next(e)
   })
@@ -424,6 +480,9 @@ export const register: Register = on => {
       // `dw say` narrates in the person's language; only un-narrated tools get this generic line,
       // never over an open question and never for a tool that only looks
       const p = await paths($)
+      // The class of this call, for the state badge of the bar
+      const toolClass = classifyTool(e.tool, input)
+      if (toolClass !== undefined && (await isHudAlive($))) await $.fs.write(p.toolClass, toolClass).catch(() => undefined)
       if ((await isHudAlive($)) && showsToolOnBar(e.tool, isGuiCommand, await $.fs.exists(p.ask))) {
         await $.fs.write(p.status, maskSecrets(describeTool(e.tool, input))).catch(() => undefined)
       }

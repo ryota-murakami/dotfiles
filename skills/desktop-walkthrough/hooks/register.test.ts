@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { maskSecrets, showsToolOnBar } from './register'
+import { classifyTool, maskSecrets, showsToolOnBar } from './register'
 
 // Fake credentials are assembled at run time so secret scanners (gitleaks, gstack-redact) do not
 // flag this public file; each one has the shape of the real thing.
@@ -116,4 +116,70 @@ test('the bar shows a command the agent runs without narrating', () => {
 
   // Assert
   expect(shown).toBe(true)
+})
+
+test('the bar says the skill is being updated while a HUD source file is edited', () => {
+  // Arrange
+  const input = { file_path: '/Users/someone/dotfiles/skills/desktop-walkthrough/hud/Bar.swift' }
+
+  // Act
+  const toolClass = classifyTool('Edit', input)
+
+  // Assert
+  expect(toolClass).toBe('skill')
+})
+
+test('the bar says the skill is being updated while the HUD is built', () => {
+  // Arrange
+  const input = { command: 'cd ~/dotfiles/skills/desktop-walkthrough && swiftc hud/*.swift -o /tmp/x/StatusHUD' }
+
+  // Act
+  const toolClass = classifyTool('Bash', input)
+
+  // Assert
+  expect(toolClass).toBe('skill')
+})
+
+test('running the dw helper is not taken for updating the skill', () => {
+  // Arrange
+  const input = { command: '~/.claude/skills/desktop-walkthrough/scripts/dw say "次の場所を開きます"' }
+
+  // Act
+  const toolClass = classifyTool('Bash', input)
+
+  // Assert
+  expect(toolClass).toBe('other')
+})
+
+test('the bar says waiting while a question blocks the turn', () => {
+  // Arrange
+  const input = { command: 'DW_ASK_WAIT=600 $DW wait-user "解説を読んでください" --ok "次へ"' }
+
+  // Act
+  const toolClass = classifyTool('Bash', input)
+
+  // Assert
+  expect(toolClass).toBe('waiting')
+})
+
+test('a question left waiting in the background does not count as waiting', () => {
+  // Arrange
+  const input = { command: '$DW wait-user "解説を読んでください"', run_in_background: true }
+
+  // Act
+  const toolClass = classifyTool('Bash', input)
+
+  // Assert
+  expect(toolClass).toBe('other')
+})
+
+test('looking at a file outside the skill keeps the state already shown', () => {
+  // Arrange
+  const input = { file_path: '/tmp/screenshot.png' }
+
+  // Act
+  const toolClass = classifyTool('Read', input)
+
+  // Assert
+  expect(toolClass).toBeUndefined()
 })

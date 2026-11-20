@@ -51,6 +51,13 @@ let inboxPath = "\(bridgeDir)/inbox.jsonl"
 let controlPath = "\(bridgeDir)/control.jsonl"
 /// Stop switch shared with the hud-bridge mod and the agent's shell helpers: "on" / "off"
 let stopSwitchPath = "\(bridgeDir)/stop"
+/// What the newest tool call of the running turn is, by the bridge mod: "skill", "waiting" or "other".
+let toolClassPath = "\(bridgeDir)/tool-class"
+/// Touched by `dw` whenever it acts on the screen (keys, clicks, windows, terminal commands)…
+let actionStampPath = "\(stateDir)/activity-action"
+/// …and whenever it narrates (say, step, explain, note). Their times against the tool call's tell
+/// whether the walkthrough itself is what is running.
+let narrationStampPath = "\(stateDir)/activity-narration"
 /// Present while the person is typing in the HUD's message box: the agent's GUI steps wait
 let typingPath = "\(stateDir)/typing"
 
@@ -138,10 +145,19 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     lazy var mirrorButton = IconButton(symbol: "bubble.left.and.text.bubble.right", label: "ミラーを表示／隠す", target: self, action: #selector(toggleMirror))
     lazy var settingsButton = IconButton(symbol: "slider.horizontal.3", label: "設定", target: self, action: #selector(toggleSettings))
     lazy var stopButton = StopButton(target: self, action: #selector(toggleStop))
+    /// Shown in the stop button's place while the walkthrough is not acting (see {@link Activity}).
+    let stateBadge = StateBadge()
+    /// Width of the stop button's slot: the badge is wider than the button.
+    var stopWidth: NSLayoutConstraint?
+    var lastActivity: Activity?
+    /// `busy` of the bridge's state file: true while a turn runs, nil without a bridge.
+    var modBusy: Bool?
     let divider = NSView()
     let resizeHandle = ResizeHandle()
     let barTopHandle = EdgeResizeHandle([.top])
     let barBottomHandle = EdgeResizeHandle([.bottom])
+    /// True while the pointer shows a resize cursor set by the bar's polling (see updateClickThrough).
+    var barEdgeHovered = false
     /// Height constraints of the bar's controls (buttons, then the divider), adjusted to the bar's height.
     var barControlHeights: [NSLayoutConstraint] = []
     let grip = DragHandle()
@@ -178,6 +194,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
 
     // Explainer (dw explain): long-form pages, see Explainer.swift
     let explainer = Explainer()
+    // Note popup (dw note): a short explanation beside what it explains, see Note.swift
+    let notePopup = NotePopup()
 
     // Approval prompt (dw ask)
     let askPanel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -214,6 +232,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         buildMirror()
         buildAskPanel()
         explainer.attach()
+        notePopup.attach()
         settings.actions["explain.reset"] = { [weak self] in self?.explainer.resetFrame() }
         settings.actions["ask.reset"] = { [weak self] in self?.resetAskPosition() }
         settings.actions["mirror.reset"] = { [weak self] in self?.resetMirrorFrame() }
@@ -248,6 +267,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     func applySetting(_ id: String) {
         switch id {
         case "explain.visible": explainer.updateVisibility()
+        case "explain.floating": explainer.applyLevel()
         case "explain.zoom": explainer.applyZoom()
         case "mirror.visible": updateMirrorVisibility()
         case "mirror.fold": reloadFeed(force: true, keepScroll: true)
@@ -375,6 +395,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         mirrorButton.isActive = settings.isOn("mirror.visible")
         settingsButton.isActive = settingsCard.isOpen
         explainer.refresh()
+        notePopup.refresh()
+        applyActivity(currentActivity())
         updateMirrorVisibility()
         updateAsk()
         settingsCard.follow()

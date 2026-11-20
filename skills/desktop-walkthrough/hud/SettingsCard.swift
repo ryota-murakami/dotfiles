@@ -1,7 +1,7 @@
 // The settings card: the bar's settings button opens a floating card of switches and sliders.
 import AppKit
 
-/// Settings as a floating card anchored above the settings button.
+/// Settings as a floating card anchored to the settings button, on the side of the bar that has room.
 ///
 /// Why it exists: switches and sliders apply at once and show their state without reopening
 /// anything, which a menu cannot do. It scrolls when the list outgrows the screen.
@@ -81,17 +81,18 @@ final class SettingsCard: NSObject {
 
     @objc private func closePressed() { close() }
 
-    /// Above the settings button, right-aligned to it, as tall as its content or the space allows.
+    /// Beside the bar at the settings button, right-aligned to it, like a tooltip: above the bar when
+    /// there is room, below it otherwise (a bar at the top of the screen), as tall as its content or
+    /// that room allows.
     private func place() {
         guard let hud, let screen = hud.panel.screen ?? NSScreen.main else { return }
         let button = hud.screenRect(of: hud.settingsButton)
         let bar = hud.panel.frame
         let wanted = list.fittingSize.height + 12 + 22 + 6 + 14
-        let room = screen.visibleFrame.maxY - bar.maxY - 20
-        let height = min(wanted, max(160, room))
-        var x = button.maxX - Self.width
-        x = max(screen.visibleFrame.minX + 8, min(x, screen.visibleFrame.maxX - Self.width - 8))
-        let frame = NSRect(x: x, y: bar.maxY + 10, width: Self.width, height: height)
+        // The bar's height over the button's span: the card clears the whole bar and lines up with the button
+        let anchor = NSRect(x: button.minX, y: bar.minY, width: button.width, height: bar.height)
+        let frame = popupFrame(size: NSSize(width: Self.width, height: wanted), anchor: anchor, visible: screen.visibleFrame,
+                               sides: [.above, .below], gap: 10, alignEnd: true, minHeight: 160)
         if panel.frame != frame { panel.setFrame(frame, display: true) }
     }
 }
