@@ -82,6 +82,8 @@ let ownerGraceSeconds: TimeInterval = 600
 let closedByUserPath = "\(stateDir)/hud-closed-by-user"
 /// `dw end` creates this file to ask the HUD to quit through the same path as the settings item.
 let quitRequestPath = "\(stateDir)/quit"
+/// `dw start` writes the id of the walkthrough's agent-desktop session here; that session draws the cursor overlay.
+let adSessionPath = "\(stateDir)/ad_session"
 /// Rewritten every second: the mod and `dw` ignore the typing flag once this heartbeat is stale.
 let alivePath = "\(stateDir)/hud.alive"
 let pidPath = "\(stateDir)/hud.pid"
@@ -244,6 +246,9 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var askRevealArmed = true
     /// True while the card is behind the explainer because the user clicked the explainer (see {@link HUD.tuckAsk}).
     var askTucked = false
+    /// True while the card is on a desktop the user called it to with the hand button, away from the
+    /// page it asks about (see {@link HUD.showAsk}).
+    var askSummoned = false
 
     let stopHotKey = StopHotKey()
 
@@ -383,7 +388,29 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// Settings → quit: the user's own decision to close the HUD, remembered so `dw` does not reopen it.
     @objc func quitByUser() {
         FileManager.default.createFile(atPath: closedByUserPath, contents: Data())
+        hideCursorOverlay()
         quitHUD()
+    }
+
+    /// Take the agent's cursor overlay off the screen along with the HUD.
+    ///
+    /// Why it exists: the overlay (an arrow with a label) is drawn by a process of the agent-desktop
+    /// session, which outlives the HUD: after the user quit the HUD it stayed on screen until the
+    /// next `dw end`. The session itself stays open, so a `dw ad` that follows still works. Called by
+    /// {@link HUD.quitByUser}; `dw start` and `dw end` end the session.
+    func hideCursorOverlay() {
+        let session = ((try? String(contentsOfFile: adSessionPath, encoding: .utf8)) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !session.isEmpty else { return }
+        let task = Process()
+        // Found through PATH, as `dw` finds it: the HUD inherits the environment of the shell that ran `dw`
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        task.arguments = ["agent-desktop", "cursor-overlay", "disable"]
+        var environment = ProcessInfo.processInfo.environment
+        environment["AGENT_DESKTOP_SESSION"] = session
+        task.environment = environment
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        try? task.run()
     }
 
     /// Quit the HUD. Removes every flag that could keep the agent waiting (typing, mirror suspend)

@@ -2,6 +2,7 @@
 // with optional feedback buttons that tell the agent something without answering.
 // It appears by the bar, never on the explainer, and can be dragged anywhere; the place is remembered.
 // It stays above every window, except that a click in the explainer sends it behind the explainer.
+// It shows on the desktop of the note or page it asks about; the hand button on the bar calls it elsewhere.
 // Methods of the HUD class; its stored views are in HUD.swift.
 import AppKit
 
@@ -82,11 +83,24 @@ extension HUD {
         }
     }
 
+    /// The surface an open question is about: the note beside what it explains, else the explainer's
+    /// page. Nil while neither is open: the question then stands alone.
+    ///
+    /// Why it exists: the card belongs with what the user is asked to read. Shown on whichever
+    /// desktop was active when `dw` asked, it ended up over another app (the user's chat) while its
+    /// page was on a different desktop. Read by {@link HUD.updateAsk} and {@link HUD.showAsk}.
+    var askStage: NSWindow? {
+        if notePopup.panel.isVisible { return notePopup.panel }
+        if explainer.panel.isVisible { return explainer.panel }
+        return nil
+    }
+
     /// Show the pending question (if any); hide it once answered or withdrawn.
     func updateAsk() {
         guard exists(askPath) else {
             if askPanel.isVisible { askPanel.orderOut(nil) }
             askID = ""; askStamp = nil
+            askSummoned = false
             raiseAsk()
             setAskButton(shown: false)
             return
@@ -97,11 +111,19 @@ extension HUD {
             guard let data = FileManager.default.contents(atPath: askPath),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
-            // A new question is on top again, whatever the last one was sent behind
-            if id != askID { raiseAsk() }
+            // A new question is on top again, whatever the last one was sent behind, and no longer
+            // on the desktop the last one was called to
+            if id != askID {
+                raiseAsk()
+                if askSummoned {
+                    askSummoned = false
+                    if askPanel.isVisible { askPanel.orderOut(nil) }
+                }
+            }
             askID = id
-            // A new question appears where the user is looking; a card still open on another desktop comes along
-            if askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
+            // A question that stands alone appears where the user is looking; a card still open on
+            // another desktop comes along. One with a page goes where the page is (see below)
+            if askStage == nil, askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
             // dw ask uses OK / キャンセル; dw wait-user asks for a hand-off with its own labels
             askOK.label = (obj["ok"] as? String) ?? "OK"
             askNo.label = (obj["no"] as? String) ?? "キャンセル"
@@ -136,14 +158,29 @@ extension HUD {
         let frame = askFrame()
         askPlacedOrigin = frame.origin
         if askPanel.frame != frame { askPanel.setFrame(frame, display: true) }
-        if !askPanel.isVisible { askPanel.orderFrontRegardless() }
+        // The card stays with what it asks about (see askStage)
+        let stage = askStage
+        if let stage, stage.isOnActiveSpace {
+            // The user is at the page: a card called to another desktop, or left on one, comes along
+            askSummoned = false
+            if askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
+        }
+        // The page is open on another desktop: the card waits there with it and this desktop stays
+        // clear of the walkthrough, unless the user called the card here
+        let waitsWithStage = !askSummoned && (stage?.isOnAnotherSpace ?? false)
+        if waitsWithStage {
+            if askPanel.isVisible, askPanel.isOnActiveSpace { askPanel.orderOut(nil) }
+        } else if !askPanel.isVisible {
+            askPanel.orderFrontRegardless()
+        }
         // Behind the explainer only while the explainer is what the user reads: it closed, moved off
         // the card, or an app's window came in front of it, so the card is on top again
         if askTucked, !explainer.panel.isVisible || explainer.isOnAnotherSpace || explainer.isCovered
             || !askPanel.frame.intersects(explainer.panel.frame) { raiseAsk() }
         setAskButton(shown: true)
-        // Lit while the card is out of sight: behind the explainer, or left on another desktop
-        askButton.isActive = askTucked || askPanel.isOnAnotherSpace
+        // Lit while the card is out of sight: behind the explainer, or on another desktop (with its
+        // page, or left there)
+        askButton.isActive = askTucked || !askPanel.isVisible || askPanel.isOnAnotherSpace
     }
 
     /// Send the card behind the explainer, the way a click on a window puts it over its neighbours.
@@ -171,9 +208,18 @@ extension HUD {
     }
 
     /// The hand button on the bar: bring the open question in front, on the desktop the user is
-    /// looking at (it may be behind the explainer, or left on another desktop).
+    /// looking at (it may be behind the explainer, or with its page on another desktop). Pressed
+    /// again on a desktop the card was called to, it sends the card back to its page.
     @objc func showAsk() {
         guard !askID.isEmpty else { return }
+        let stageElsewhere = askStage?.isOnAnotherSpace ?? false
+        if askSummoned, stageElsewhere, askPanel.isVisible, askPanel.isOnActiveSpace {
+            askSummoned = false
+            updateAsk()
+            return
+        }
+        // Away from its page it stays here until the user reaches the page's desktop or presses again
+        askSummoned = stageElsewhere
         raiseAsk()
         askPanel.orderFrontOnActiveSpace()
     }

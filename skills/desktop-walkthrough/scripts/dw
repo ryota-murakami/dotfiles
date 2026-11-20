@@ -74,6 +74,19 @@ ad() {
   if [ -n "$session" ]; then AGENT_DESKTOP_SESSION="$session" agent-desktop "$@"; else agent-desktop "$@"; fi
 }
 
+# End the walkthrough's agent-desktop session and take its cursor overlay off the screen.
+# Why: the overlay is drawn by a process of the session and outlives both the HUD and `dw`. A session
+# replaced without being ended kept its arrow and label on screen (seen: seven of them after one day
+# of resumes). Called before a new session starts and when the walkthrough ends.
+end_ad_session() {
+  local session
+  session=$(cat "$DW_HOME/ad_session" 2>/dev/null)
+  [ -n "$session" ] || return 0
+  AGENT_DESKTOP_SESSION="$session" agent-desktop cursor-overlay disable >/dev/null 2>&1
+  AGENT_DESKTOP_SESSION="$session" agent-desktop session end >/dev/null 2>&1
+  rm -f "$DW_HOME/ad_session"
+}
+
 hud_alive() { local pid; pid=$(cat "$DW_HOME/hud.pid" 2>/dev/null); [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; }
 stop_on() { [ "$(cat "$BRIDGE/stop" 2>/dev/null)" = on ]; }
 
@@ -465,11 +478,26 @@ term_id() { cat "$(term_dir)/window" 2>/dev/null; }
 term_shell_pid() { cat "$(term_dir)/shell_pid" 2>/dev/null; }
 # A foreground command is running while the shell has a child process
 term_busy() { local pid; pid=$(term_shell_pid); [ -n "$pid" ] && pgrep -P "$pid" >/dev/null 2>&1; }
+# True while the terminal's window is still open. Asked only of a running Terminal: the question
+# itself would start the app.
+term_exists() {
+  pgrep -xq Terminal && osascript -e "tell application \"Terminal\" to return id of window id $(term_id)" >/dev/null 2>&1
+}
 # The window may have been closed by the user: say so instead of reporting a confusing empty result
 term_require() {
   [ -n "$(term_id)" ] || die "no walkthrough terminal '$term_name': run dw term open first"
-  osascript -e "tell application \"Terminal\" to return id of window id $(term_id)" >/dev/null 2>&1 \
-    || die "walkthrough terminal '$term_name' (w-$(term_id)) no longer exists (closed?): run dw term open again"
+  term_exists || die "walkthrough terminal '$term_name' (w-$(term_id)) no longer exists (closed?): run dw term open again"
+}
+# Close the walkthrough terminal and forget it. A window the user already closed is only forgotten:
+# its record would otherwise answer every later `dw clear` with "no longer exists".
+cmd_term_close() {
+  [ -n "$(term_id)" ] || die "no walkthrough terminal '$term_name': run dw term open first"
+  if ! term_exists; then
+    rm -rf "$(term_dir)"; echo "terminal '$term_name' was already closed: its record is removed"; return 0
+  fi
+  term_busy && die "terminal '$term_name' is still running a command"
+  osascript -e "tell application \"Terminal\" to close window id $(term_id)" >/dev/null 2>&1
+  rm -rf "$(term_dir)"; echo "closed terminal '$term_name'"
 }
 term_text() { osascript -e "tell application \"Terminal\" to return history of (first tab of window id $(term_id))" 2>/dev/null; }
 
@@ -555,8 +583,7 @@ cmd_term() {
     open)  cmd_term_open "$@" ;;
     run)   cmd_term_run "$@" ;;
     check) cmd_term_check "$@" ;;
-    close) term_require; term_busy && die "terminal '$term_name' is still running a command"
-           osascript -e "tell application \"Terminal\" to close window id $(term_id)" >/dev/null 2>&1; rm -rf "$(term_dir)"; echo "closed terminal '$term_name'" ;;
+    close) cmd_term_close ;;
     text)  term_require; term_text | grep -v '^[[:space:]]*$' | tail -n "${1:-20}" ;;
     *)     die "usage: dw term open|run|check|text|close [-n NAME] ..." ;;
   esac
@@ -820,6 +847,8 @@ cmd_start() {
   # at launch as already read, so the panel stays open or closed as the user left it
   [ -z "$restore" ] || explain_restore "$restore"
   rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration"
+  # A walkthrough closed from the HUD's settings left its session open: end it before the new one
+  end_ad_session
   session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
   echo "$session" > "$DW_HOME/ad_session"
   # Claude Code exports its pid and session id to Bash; other agent CLIs fall back to the process tree
@@ -897,7 +926,7 @@ cmd_resume() {
 }
 
 cmd_end() {
-  local session i
+  local i
   journal "■ ウォークスルーを終了"
   rm -f "$DW_HOME/record_dir"
   if hud_alive; then
@@ -911,12 +940,7 @@ cmd_end() {
     "$DW_HOME/owner.pid" "$DW_HOME/chat_window" "$DW_HOME/hud-closed-by-user"
   # Without an owner the bridge mod goes dormant in every session
   rm -f "$BRIDGE/owner"
-  session=$(cat "$DW_HOME/ad_session" 2>/dev/null)
-  if [ -n "$session" ]; then
-    AGENT_DESKTOP_SESSION="$session" agent-desktop cursor-overlay disable >/dev/null 2>&1
-    AGENT_DESKTOP_SESSION="$session" agent-desktop session end >/dev/null 2>&1
-    rm -f "$DW_HOME/ad_session"
-  fi
+  end_ad_session
   echo "ended: HUD closed, agent-desktop session ended (terminals from 'dw term open' stay open: dw term close -n NAME)"
 }
 
