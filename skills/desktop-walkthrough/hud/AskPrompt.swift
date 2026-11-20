@@ -13,7 +13,7 @@ extension HUD {
     /// Build the card. Frames are set by {@link HUD.layoutAsk} because the card has two shapes.
     func buildAskPanel() {
         askPanel.level = .statusBar
-        askPanel.collectionBehavior = hudCollectionBehavior
+        askPanel.collectionBehavior = stageCollectionBehavior
         askPanel.isOpaque = false
         askPanel.backgroundColor = .clear
         askPanel.hasShadow = true
@@ -64,6 +64,8 @@ extension HUD {
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
             askID = id
+            // A new question appears where the user is looking; a card still open on another desktop comes along
+            if askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
             // dw ask uses OK / キャンセル; dw wait-user asks for a hand-off with its own labels
             askOK.attributedTitle = NSAttributedString(string: (obj["ok"] as? String) ?? "OK", attributes: [
                 .font: NSFont.systemFont(ofSize: 13, weight: .bold), .foregroundColor: NSColor.white,

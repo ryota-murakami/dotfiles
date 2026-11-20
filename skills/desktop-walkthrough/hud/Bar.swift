@@ -112,7 +112,7 @@ extension HUD {
     func buildStatusBar() {
         // Not .screenSaver: windows at screen-saver level make macOS refuse Space switching (3-finger swipe)
         panel.level = .statusBar
-        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        panel.collectionBehavior = hudCollectionBehavior
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
@@ -382,10 +382,19 @@ extension HUD {
         stopWidth?.constant = button ? 88 : StateBadge.width
     }
 
-    @objc func toggleMirror() { settings.toggle("mirror.visible") }
-    /// The book button: bring the explainer forward when another window covers it, otherwise show or hide it.
+    /// The chat button: bring the mirror here when it is open on another desktop, otherwise show or hide it.
+    @objc func toggleMirror() {
+        if settings.isOn("mirror.visible"), mirror.isOnAnotherSpace {
+            mirror.orderFrontOnActiveSpace()
+        } else {
+            settings.toggle("mirror.visible")
+        }
+    }
+
+    /// The book button: bring the explainer forward when it is open on another desktop or another
+    /// window covers it, otherwise show or hide it.
     @objc func toggleExplainer() {
-        if settings.isOn("explain.visible"), explainer.isCovered {
+        if settings.isOn("explain.visible"), explainer.isOnAnotherSpace || explainer.isCovered {
             explainer.bringToFront()
         } else {
             settings.toggle("explain.visible")

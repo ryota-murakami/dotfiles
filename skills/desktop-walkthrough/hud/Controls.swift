@@ -579,8 +579,45 @@ final class StateBadge: NSView {
     }
 }
 
-/// Collection behaviour shared by every floating HUD window: on all desktops, over full-screen apps.
+/// Collection behaviour of the status bar and the screen border: on every desktop (Space), over
+/// full-screen apps. They say whose turn the Mac is, which the user needs wherever they are.
 let hudCollectionBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+
+/// Collection behaviour of every other surface (explainer, note, prompt, mirror, settings card): on
+/// the one desktop where it was shown. While the agent works on something else the user moves to
+/// another desktop to read mail, and the walkthrough's pages must not follow them there.
+/// `.transient` is spelled out for the explainer, the one surface at the ordinary window level: a
+/// managed window ordered out and in again returns to the desktop it was on, a transient one comes
+/// to the active desktop, which {@link NSWindow.orderFrontOnActiveSpace} relies on.
+let stageCollectionBehavior: NSWindow.CollectionBehavior = [.transient, .fullScreenAuxiliary, .ignoresCycle]
+
+extension NSWindow {
+    /// True while the window is open on a desktop other than the one the user is looking at.
+    var isOnAnotherSpace: Bool { isVisible && !isOnActiveSpace }
+
+    /// Put the window in front on the desktop the user is looking at, without taking focus.
+    ///
+    /// Why it exists: a window with {@link stageCollectionBehavior} stays on the desktop where it was
+    /// ordered in, and ordering it front again leaves it there. Called when `dw` shows something new
+    /// and when the user presses the surface's own button on the bar: both mean "here, now".
+    func orderFrontOnActiveSpace() {
+        // Taken off its old desktop first: an ordered-out window comes back on the active one
+        if isOnAnotherSpace { orderOut(nil) }
+        orderFrontRegardless()
+    }
+
+    /// Make the window invisible and click-through, or bring it back, without closing it.
+    ///
+    /// Why it exists: a surface steps aside for a moment (`dw click-xy` clicks under it, the real chat
+    /// window is in front of the mirror). Ordering it out and in again would move it to whichever
+    /// desktop is active when it returns; a concealed window keeps its desktop. Called on every
+    /// refresh tick by the surfaces that step aside.
+    func setConcealed(_ concealed: Bool) {
+        guard (alphaValue == 0) != concealed else { return }
+        alphaValue = concealed ? 0 : 1
+        ignoresMouseEvents = concealed
+    }
+}
 
 /// Global keyboard shortcut that stops the agent: Control-Option-Command-Period.
 ///

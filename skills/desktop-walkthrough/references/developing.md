@@ -32,7 +32,7 @@ Everything the three parts say to each other goes through small files in the sta
    - stand in for the session by writing the files it would write (`bridge/state.json`, `bridge/tool-class`, `status.txt`, …)
    - quit it: `touch <tmp state folder>/quit`
 4. Compare what is on screen with what was meant: `screencapture -x -R x,y,w,h file.png` for a still, and for anything that moves or changes over time `screencapture -V <seconds> out.mov`, then frames with `ffmpeg -i out.mov -vf fps=5 frame_%03d.png`.
-5. Put the new build in front of the user: `touch <state>/quit`, wait for the HUD to exit, then any `dw say`: it rebuilds and relaunches. A HUD the user quit from its settings is not relaunched (`hud-closed-by-user`): leave it closed and say so.
+5. Put the new build in front of the user: `dw note --clear` (a note still on file is shown again at launch, on whichever desktop is active), `touch <state>/quit`, wait for the HUD to exit, then any `dw say`: it rebuilds and relaunches, with the explainer and the mirror open or closed as the user left them. A HUD the user quit from its settings is not relaunched (`hud-closed-by-user`): leave it closed and say so.
 6. A change under `hooks/` or `.claude-plugin/` reaches the running session only after the user runs `/reload-plugins`. Make the HUD work with the bridge that is loaded until then (a missing file means "not known", never "no").
 
 ## Things that bit
@@ -42,3 +42,6 @@ Everything the three parts say to each other goes through small files in the sta
 - A web view in a panel that is not on screen can report a size it will not keep: measure again once the panel shows.
 - Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`).
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
+- A window at the ordinary level (the explainer) that is ordered out and in again returns to the desktop (Space) it was on; a `.transient` one comes to the active desktop. Every surface but the bar and the border is `.transient` (`stageCollectionBehavior`), and is moved only by `orderFrontOnActiveSpace`.
+- Ordering a surface out and in to hide it for a moment moves it to whichever desktop is active when it returns: hide it with `setConcealed` (invisible and click-through, still on its desktop).
+- Which desktop a window is on can be checked without switching desktops, with two private window-server calls in a throwaway Swift tool: `CGSCopySpacesForWindows(CGSMainConnectionID(), 7, [windowNumber])` lists a window's desktops for any process (window numbers from `CGWindowListCopyWindowInfo`), and `CGSMoveWindowsToManagedSpace` moves a window to another desktop, but only the calling process's own windows: build the scratch HUD from a copy of `hud/` with a file that does it on request.

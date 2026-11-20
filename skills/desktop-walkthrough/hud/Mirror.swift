@@ -150,7 +150,7 @@ extension HUD {
         mirror.setFrame(savedMirrorFrame(on: screen) ?? defaultMirrorFrame(on: screen), display: false)
         mirror.delegate = self
         mirror.level = .floating
-        mirror.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+        mirror.collectionBehavior = stageCollectionBehavior
         mirror.isOpaque = false
         mirror.backgroundColor = .clear
         mirror.hasShadow = true
@@ -294,20 +294,23 @@ extension HUD {
         mirrorRoot.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: CGFloat(settings.value("mirror.opacity"))).cgColor
     }
 
-    /// Show the mirror unless it is switched off, suspended for a click, or the real chat window is in front.
+    /// Show the mirror unless it is switched off; conceal it while it is suspended for a click or the
+    /// real chat window is in front (it comes back on the desktop it was on, not on the one the user
+    /// went to next).
     func updateMirrorVisibility() {
-        let off = !settings.isOn("mirror.visible") || exists(mirrorSuspendPath)
+        let off = !settings.isOn("mirror.visible")
         var claudeInFront = false
         if claudeWindowID != 0,
            let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
             let normal = list.first { ($0[kCGWindowLayer as String] as? Int) == 0 }
             claudeInFront = (normal?[kCGWindowNumber as String] as? Int).map { CGWindowID($0) == claudeWindowID } ?? false
         }
-        if off || claudeInFront {
+        if off {
             if mirror.isVisible { mirror.orderOut(nil) }
         } else if !mirror.isVisible {
             mirror.orderFrontRegardless()
         }
+        mirror.setConcealed(claudeInFront || exists(mirrorSuspendPath))
     }
 
     /// Re-render the conversation when the mod rewrote the feed (or an option changed).

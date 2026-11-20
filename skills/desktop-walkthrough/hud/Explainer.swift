@@ -102,7 +102,7 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         panel.setFrame(savedFrame() ?? defaultFrame(on: screen), display: false)
         panel.delegate = self
         applyLevel()
-        panel.collectionBehavior = hudCollectionBehavior
+        panel.collectionBehavior = stageCollectionBehavior
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -186,6 +186,11 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         }
         pinEdgeHandles(handles, to: root)
         panel.contentView = root
+        // Pages that were there before this launch (a new build, the agent restarted) are not news:
+        // the newest one is loaded again, and the panel stays open or closed as the user left it
+        indexStamp = mtime(explainIndexPath)
+        announced = readIndex()
+        if announced > 0 { show(announced) }
         updateHeader()
     }
 
@@ -267,11 +272,12 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         listButton.isEnabled = !pages.isEmpty
     }
 
-    /// Show the panel when it is switched on and has a page, except while `dw click-xy` needs it out of the way.
+    /// Show the panel when it is switched on and has a page; conceal it while `dw click-xy` needs it out of the way.
     func updateVisibility() {
-        let wanted = settings.isOn("explain.visible") && shown > 0 && !exists(mirrorSuspendPath)
+        let wanted = settings.isOn("explain.visible") && shown > 0
         if wanted, !panel.isVisible { panel.orderFrontRegardless() }
         if !wanted, panel.isVisible { panel.orderOut(nil) }
+        panel.setConcealed(exists(mirrorSuspendPath))
     }
 
     // MARK: stacking
@@ -279,10 +285,15 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// Ordinary window level, or above every app while "explain.floating" is on.
     func applyLevel() { panel.level = settings.isOn("explain.floating") ? .floating : .normal }
 
-    /// In front of the other apps' windows, without taking focus from them.
+    /// In front of the other apps' windows on the desktop the user is looking at, without taking focus
+    /// from them. A new page, `dw explain --show` and the book button call it: a panel left open on
+    /// another desktop comes here. Nothing else moves the panel between desktops.
     func bringToFront() {
-        if panel.isVisible { panel.orderFrontRegardless() }
+        if panel.isVisible { panel.orderFrontOnActiveSpace() }
     }
+
+    /// True while the panel is open on a desktop other than the one the user is looking at.
+    var isOnAnotherSpace: Bool { panel.isOnAnotherSpace }
 
     /// Ordinary windows of other apps that overlap the panel, front to back (no menus, no Dock, no HUD surface).
     ///
@@ -311,9 +322,10 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     var isCovered: Bool { !overlappingWindows(aboveOnly: true).isEmpty }
 
     /// Step behind the app the reader should look at: just below the frontmost window of another app
-    /// that overlaps the panel. Where nothing overlaps there is nothing to step behind.
+    /// that overlaps the panel. Where nothing overlaps there is nothing to step behind, and a panel
+    /// on another desktop is out of the way already.
     func sendBehind() {
-        guard panel.level == .normal, let front = overlappingWindows(aboveOnly: false).first else { return }
+        guard panel.level == .normal, panel.isOnActiveSpace, let front = overlappingWindows(aboveOnly: false).first else { return }
         panel.order(.below, relativeTo: front)
     }
 

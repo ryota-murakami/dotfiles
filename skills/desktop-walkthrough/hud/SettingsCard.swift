@@ -18,7 +18,7 @@ final class SettingsCard: NSObject {
     func attach(to hud: HUD) {
         self.hud = hud
         panel.level = .statusBar
-        panel.collectionBehavior = hudCollectionBehavior
+        panel.collectionBehavior = stageCollectionBehavior
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -58,9 +58,11 @@ final class SettingsCard: NSObject {
 
     func toggle() { isOpen ? close() : open() }
 
-    /// Keep the card attached to the bar while it is open (the bar can be dragged). Called on every HUD refresh.
+    /// Keep the card attached to the bar while it is open (the bar can be dragged), and close it when
+    /// the user moves to another desktop: the bar goes along, its card does not. Called on every HUD refresh.
     func follow() {
-        if isOpen { place() }
+        guard isOpen else { return }
+        if panel.isOnAnotherSpace { close() } else { place() }
     }
 
     private func open() {
