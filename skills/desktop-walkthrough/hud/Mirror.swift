@@ -101,11 +101,14 @@ final class EdgeResizeHandle: HoverCursorView {
 
 /// Pin resize handles to the borders of a floating panel's root view (6pt sides, 14pt corners).
 /// Call it after the content was added, so the handles sit above it. Used by the mirror and the explainer.
-func pinEdgeHandles(_ handles: [EdgeResizeHandle], to root: NSView) {
+///
+/// @param sibling - A subview the handles go under (the first button of the header): a corner
+///   handle that lay over the close button turned a click near the corner into a resize.
+func pinEdgeHandles(_ handles: [EdgeResizeHandle], to root: NSView, below sibling: NSView? = nil) {
     let edge: CGFloat = 6, corner: CGFloat = 14
     for h in handles {
         h.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(h)
+        if let sibling { root.addSubview(h, positioned: .below, relativeTo: sibling) } else { root.addSubview(h) }
         let e = h.edges
         var c: [NSLayoutConstraint] = []
         let isCorner = (e.contains(.left) || e.contains(.right)) && (e.contains(.top) || e.contains(.bottom))
@@ -159,15 +162,21 @@ extension HUD {
 
         let root = mirrorRoot
         root.wantsLayer = true
-        root.layer?.cornerRadius = 10
+        root.layer?.cornerRadius = surfaceCornerRadius
         root.layer?.masksToBounds = true
+        // Under everything: a material that blurs what the mirror covers, then the mirror's own
+        // colour as a tint, as see-through as the user chose
+        mirrorTint.wantsLayer = true
+        for layer in [mirrorMaterial, mirrorTint] as [NSView] {
+            layer.frame = root.bounds
+            layer.autoresizingMask = [.width, .height]
+            root.addSubview(layer)
+        }
         applyMirrorOpacity()
-        root.layer?.borderColor = accent.cgColor
-        root.layer?.borderWidth = 2
 
-        mirrorTitle.font = NSFont.systemFont(ofSize: 12, weight: .bold)
-        mirrorTitle.textColor = NSColor.white.withAlphaComponent(0.85)
-        busyLabel.font = NSFont.systemFont(ofSize: 12, weight: .bold)
+        mirrorTitle.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        mirrorTitle.textColor = .labelColor
+        busyLabel.font = NSFont.systemFont(ofSize: 12, weight: .medium)
 
         textView.delegate = self
         textView.isEditable = false
@@ -191,8 +200,8 @@ extension HUD {
         sendButton.target = self
         sendButton.action = #selector(sendMessage)
 
-        zoomLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .bold)
-        zoomLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+        zoomLabel.font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        zoomLabel.textColor = .secondaryLabelColor
         zoomLabel.alignment = .center
         updateZoomLabel()
 
@@ -212,7 +221,7 @@ extension HUD {
             mirrorGrip.topAnchor.constraint(equalTo: root.topAnchor),
             mirrorGrip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             mirrorGrip.trailingAnchor.constraint(equalTo: zoomOut.leadingAnchor, constant: -6),
-            mirrorGrip.heightAnchor.constraint(equalToConstant: 32),
+            mirrorGrip.heightAnchor.constraint(equalToConstant: 36),
             mirrorTitle.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
             mirrorTitle.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 10),
             busyLabel.centerYAnchor.constraint(equalTo: mirrorTitle.centerYAnchor),
@@ -220,19 +229,19 @@ extension HUD {
 
             closeButton.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
             closeButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
-            closeButton.widthAnchor.constraint(equalToConstant: 24),
-            closeButton.heightAnchor.constraint(equalToConstant: 22),
+            closeButton.widthAnchor.constraint(equalToConstant: 28),
+            closeButton.heightAnchor.constraint(equalToConstant: 28),
             zoomIn.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
             zoomIn.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -12),
-            zoomIn.widthAnchor.constraint(equalToConstant: 24),
-            zoomIn.heightAnchor.constraint(equalToConstant: 22),
+            zoomIn.widthAnchor.constraint(equalToConstant: 28),
+            zoomIn.heightAnchor.constraint(equalToConstant: 28),
             zoomLabel.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
             zoomLabel.trailingAnchor.constraint(equalTo: zoomIn.leadingAnchor, constant: -2),
             zoomLabel.widthAnchor.constraint(equalToConstant: 42),
             zoomOut.centerYAnchor.constraint(equalTo: mirrorGrip.centerYAnchor),
             zoomOut.trailingAnchor.constraint(equalTo: zoomLabel.leadingAnchor, constant: -2),
-            zoomOut.widthAnchor.constraint(equalToConstant: 24),
-            zoomOut.heightAnchor.constraint(equalToConstant: 22),
+            zoomOut.widthAnchor.constraint(equalToConstant: 28),
+            zoomOut.heightAnchor.constraint(equalToConstant: 28),
 
             scroll.topAnchor.constraint(equalTo: mirrorGrip.bottomAnchor, constant: 2),
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 4),
@@ -246,7 +255,8 @@ extension HUD {
             sendButton.centerYAnchor.constraint(equalTo: input.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 70),
         ])
-        pinEdgeHandles(mirrorHandles, to: root)
+        // Under the header's buttons, over everything else (see pinEdgeHandles)
+        pinEdgeHandles(mirrorHandles, to: root, below: zoomIn)
         mirror.contentView = root
     }
 
@@ -290,8 +300,12 @@ extension HUD {
         mirror.setFrame(defaultMirrorFrame(on: screen), display: true)
     }
 
+    /// Tint and outline of the mirror: as see-through as the user chose (opaque while "Reduce
+    /// transparency" is on), its outline stronger with "Increase contrast".
     func applyMirrorOpacity() {
-        mirrorRoot.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: CGFloat(settings.value("mirror.opacity"))).cgColor
+        mirrorTint.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: surfaceAlpha(CGFloat(settings.value("mirror.opacity")))).cgColor
+        mirrorRoot.layer?.borderColor = accent.hudCG
+        mirrorRoot.layer?.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
     }
 
     /// Show the mirror unless it is switched off; conceal it while it is suspended for a click or the
@@ -332,8 +346,8 @@ extension HUD {
                   let role = obj["role"] as? String, let body = obj["text"] as? String else { continue }
             let (tag, tagColor, bodyColor, bodyFont): (String, NSColor, NSColor, NSFont) = {
                 switch role {
-                case "you": return ("あなた ", NSColor.systemGreen, NSColor.white, NSFont.systemFont(ofSize: size, weight: .semibold))
-                case "agent": return ("Claude ", accent, NSColor(calibratedWhite: 0.93, alpha: 1), NSFont.systemFont(ofSize: size))
+                case "you": return ("あなた ", NSColor.systemGreen, NSColor.labelColor, NSFont.systemFont(ofSize: size, weight: .semibold))
+                case "agent": return ("Claude ", accent, NSColor.labelColor, NSFont.systemFont(ofSize: size))
                 case "tool": return ("  ▸ ", NSColor.systemGray, NSColor.systemGray, NSFont.monospacedSystemFont(ofSize: size * 0.85, weight: .regular))
                 default: return ("HUD ", NSColor.systemOrange, NSColor.systemOrange, NSFont.systemFont(ofSize: size, weight: .semibold))
                 }

@@ -29,7 +29,14 @@ final class ResizeHandle: HoverCursorView {
 /// last span ends in an ellipsis when text is left over.
 /// Built by {@link HUD.buildStatusBar}; {@link HUD.refresh} keeps `hole` in step with where the bar is.
 final class StatusLabel: NSView {
-    var stringValue = "" { didSet { if oldValue != stringValue { needsDisplay = true } } }
+    var stringValue = "" {
+        didSet {
+            guard oldValue != stringValue else { return }
+            needsDisplay = true
+            // The text is drawn by hand, so assistive tools are told when it changes
+            NSAccessibility.post(element: self, notification: .valueChanged)
+        }
+    }
     var font = NSFont.systemFont(ofSize: 17, weight: .bold) { didSet { needsDisplay = true } }
     /// Part of the view that must stay empty, in this view's coordinates (nil = none).
     var hole: NSRect? { didSet { if oldValue != hole { needsDisplay = true } } }
@@ -40,13 +47,14 @@ final class StatusLabel: NSView {
         // One paragraph: a status that carries a command on further lines flows on like prose
         let flat = stringValue.replacingOccurrences(of: "\n", with: "  ")
         guard !flat.isEmpty else { return }
+        // The material under the bar carries the contrast; the shadow only lifts the glyph edges
         let shadow = NSShadow()
-        shadow.shadowColor = NSColor.black.withAlphaComponent(0.9)
-        shadow.shadowBlurRadius = 3
+        shadow.shadowColor = NSColor.black.withAlphaComponent(0.5)
+        shadow.shadowBlurRadius = 2
         let style = NSMutableParagraphStyle()
         style.lineBreakMode = .byTruncatingTail
         let text = NSAttributedString(string: flat, attributes: [
-            .font: font, .foregroundColor: NSColor.white, .shadow: shadow, .paragraphStyle: style,
+            .font: font, .foregroundColor: NSColor.labelColor, .shadow: shadow, .paragraphStyle: style,
         ])
         let lineHeight = ceil(font.ascender - font.descender + font.leading) + 2
         let maxRows = max(1, Int((bounds.height - 4) / lineHeight))
@@ -91,6 +99,12 @@ final class StatusLabel: NSView {
                 .draw(with: piece.rect, options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine])
         }
     }
+
+    // A custom view is invisible to VoiceOver unless it says what it is: the bar's main content
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .staticText }
+    override func accessibilityLabel() -> String? { "ステータス" }
+    override func accessibilityValue() -> Any? { stringValue }
 }
 
 extension HUD {
@@ -120,18 +134,10 @@ extension HUD {
         panel.ignoresMouseEvents = true
         panel.delegate = self
 
+        // The box is the bar's tint over the material: its colour darkens what the material blurred
         box.wantsLayer = true
-        box.layer?.cornerRadius = 14
         box.layer?.masksToBounds = true
-        box.layer?.borderColor = accent.withAlphaComponent(0.55).cgColor
-        box.layer?.borderWidth = 1
         applyBarColor()
-
-        sweep.colors = [NSColor.clear.cgColor, NSColor.white.withAlphaComponent(0.16).cgColor, NSColor.clear.cgColor]
-        sweep.startPoint = CGPoint(x: 0, y: 0.5)
-        sweep.endPoint = CGPoint(x: 1, y: 0.5)
-        sweep.opacity = 0
-        box.layer?.addSublayer(sweep)
 
         label.font = NSFont.systemFont(ofSize: 17, weight: .bold)
         label.wantsLayer = true
@@ -154,9 +160,18 @@ extension HUD {
         divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.35).cgColor
 
         // The prompt's button is orange like the card it brings back
-        askButton.activeColor = NSColor.systemOrange.withAlphaComponent(0.9)
+        // Each toggle wears the colour of the surface it stands for; the hand keeps an orange plate,
+        // because lit it means "an unanswered question is out of sight"
+        explainButton.activeSymbol = "book.fill"
+        explainButton.activeTint = explainAccent
+        mirrorButton.activeSymbol = "bubble.left.and.text.bubble.right.fill"
+        mirrorButton.activeTint = accent
+        askButton.activeSymbol = "hand.raised.fill"
+        askButton.activeTint = .systemOrange
+        askButton.activeFill = NSColor.systemOrange.withAlphaComponent(0.35)
         askButton.isHidden = true
-        for v in [grip, label, askButton, explainButton, mirrorButton, settingsButton, divider, stopButton, stateBadge, resizeHandle] as [NSView] {
+        statusIcon.imageScaling = .scaleNone
+        for v in [grip, statusIcon, label, askButton, explainButton, mirrorButton, settingsButton, divider, stopButton, stateBadge, resizeHandle] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             box.addSubview(v)
         }
@@ -167,6 +182,11 @@ extension HUD {
         let askGap = askButton.trailingAnchor.constraint(equalTo: explainButton.leadingAnchor, constant: 0)
         askButtonWidth = askSlot
         askButtonGap = askGap
+        // The leading symbol takes room only while a line has one
+        let iconSlot = statusIcon.widthAnchor.constraint(equalToConstant: 0)
+        let iconGap = label.leadingAnchor.constraint(equalTo: statusIcon.trailingAnchor, constant: 0)
+        statusIconWidth = iconSlot
+        statusIconGap = iconGap
         NSLayoutConstraint.activate([
             grip.leadingAnchor.constraint(equalTo: box.leadingAnchor),
             grip.topAnchor.constraint(equalTo: box.topAnchor),
@@ -174,7 +194,10 @@ extension HUD {
             grip.widthAnchor.constraint(equalToConstant: 34),
             gripLabel.centerXAnchor.constraint(equalTo: grip.centerXAnchor),
             gripLabel.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
-            label.leadingAnchor.constraint(equalTo: grip.trailingAnchor, constant: 4),
+            statusIcon.leadingAnchor.constraint(equalTo: grip.trailingAnchor, constant: 4),
+            statusIcon.centerYAnchor.constraint(equalTo: box.centerYAnchor),
+            iconSlot,
+            iconGap,
             label.trailingAnchor.constraint(equalTo: askButton.leadingAnchor, constant: -12),
             askSlot,
             askGap,
@@ -228,34 +251,67 @@ extension HUD {
                 handle === barTopHandle ? handle.topAnchor.constraint(equalTo: edge) : handle.bottomAnchor.constraint(equalTo: edge),
             ])
         }
-        panel.contentView = box
+        // The material lies under the box and blurs whatever the bar covers (often the menu bar)
+        let content = NSView()
+        for layer in [barMaterial, box] as [NSView] {
+            layer.frame = content.bounds
+            layer.autoresizingMask = [.width, .height]
+            content.addSubview(layer)
+        }
+        panel.contentView = content
         placeStatusBar()
         panel.orderFrontRegardless()
     }
 
-    /// Fit the bar's contents to its height: control heights, corner radius, text sizes, the sweep.
+    /// Fit the bar's contents to its height: control heights, corner radii, text sizes.
     /// Called whenever the bar's frame is set.
     func layoutBarForHeight() {
-        let h = panel.frame.height, w = panel.frame.width
+        let h = panel.frame.height
+        let controlHeight = min(36, max(14, h - 8))
         for (index, constraint) in barControlHeights.enumerated() {
             // The divider (last) is a hairline 10 points shorter than the buttons
-            constraint.constant = index == barControlHeights.count - 1 ? min(26, max(8, h - 18)) : min(36, max(14, h - 8))
+            constraint.constant = index == barControlHeights.count - 1 ? min(26, max(8, h - 18)) : controlHeight
         }
-        box.layer?.cornerRadius = min(14, h / 2)
-        label.font = NSFont.systemFont(ofSize: min(17, max(11, (h - 8) * 0.42 + 2)), weight: .bold)
+        // A capsule while the bar is one line high, like the system's own bars; the controls in it
+        // are capsules too, so their corners follow the bar's
+        let radius = min(h / 2, 22)
+        box.layer?.cornerRadius = radius
+        barMaterial.maskImage = roundedMask(radius: radius)
+        for control in [askButton, explainButton, mirrorButton, settingsButton, stopButton, stateBadge] as [NSView] {
+            control.layer?.cornerRadius = controlHeight / 2
+        }
+        // Never under 13 points, the system's size for a line of text on the Mac
+        label.font = NSFont.systemFont(ofSize: min(17, max(13, (h - 8) * 0.42 + 2)), weight: .bold)
         gripLabel.font = NSFont.systemFont(ofSize: min(22, max(12, h * 0.42)), weight: .bold)
-        sweep.frame = CGRect(x: -w * 0.35, y: 0, width: w * 0.35, height: h)
+        statusIcon.symbolConfiguration = .init(pointSize: label.font.pointSize, weight: .semibold)
     }
 
-    /// Bar background: the chosen opacity, or red while stopped.
+    /// The bar's tint over its material: as dark as the user chose (opaque while "Reduce
+    /// transparency" is on), or red while stopped.
     func barColor(stopped: Bool) -> NSColor {
-        let alpha = CGFloat(settings.value("bar.opacity"))
+        let alpha = surfaceAlpha(CGFloat(settings.value("bar.opacity")))
         return stopped
             ? NSColor(calibratedRed: 0.70, green: 0.08, blue: 0.10, alpha: max(0.66, alpha))
             : NSColor(calibratedRed: 0.03, green: 0.04, blue: 0.08, alpha: alpha)
     }
 
-    func applyBarColor() { box.layer?.backgroundColor = barColor(stopped: isStopOn()).cgColor }
+    /// Tint and outline of the bar. The outline carries no colour: on the bar colour is kept for
+    /// the stop button. With "Increase contrast" it is a full line.
+    func applyBarColor() {
+        let contrast = DisplayOptions.increaseContrast
+        box.layer?.backgroundColor = barColor(stopped: isStopOn()).cgColor
+        box.layer?.borderWidth = contrast ? 2 : 1
+        box.layer?.borderColor = NSColor.white.withAlphaComponent(contrast ? 1 : 0.14).cgColor
+        divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(contrast ? 1 : 0.35).cgColor
+    }
+
+    /// Show a symbol before the status line, or none (the agent's own narration has none).
+    func setStatusIcon(_ symbol: String?, tint: NSColor) {
+        statusIcon.image = symbol.flatMap { NSImage(systemSymbolName: $0, accessibilityDescription: nil) }
+        statusIcon.contentTintColor = tint
+        statusIconWidth?.constant = symbol == nil ? 0 : ceil(label.font.pointSize * 1.45)
+        statusIconGap?.constant = symbol == nil ? 0 : 5
+    }
 
     func placeStatusBar() {
         guard !positioned, let screen = NSScreen.main else { return }
@@ -426,45 +482,37 @@ extension HUD {
         }
     }
 
-    func playChangeEffect(flashColor: NSColor, base: NSColor) {
+    /// Show that the status line changed.
+    ///
+    /// The line changes many times a minute at the edge of the user's vision, all day, so a new line
+    /// only fades in. The bar flashes once when the mode itself changes (stopped, the user typing),
+    /// and not at all while "Reduce motion" is on.
+    ///
+    /// @param modeChanged - True when the mode changed, not only the text.
+    /// @param flashColor - Colour of the flash for the new mode.
+    /// @param base - The bar's tint after the change.
+    func playChangeEffect(modeChanged: Bool, flashColor: NSColor, base: NSColor) {
         guard let layer = box.layer else { return }
-        // The text slide-in is independent of the flash option
-        let slide = CATransition()
-        slide.type = .push
-        slide.subtype = .fromBottom
-        slide.duration = 0.35
-        slide.timingFunction = CAMediaTimingFunction(name: .easeOut)
-        label.layer?.add(slide, forKey: "slide")
-
-        guard settings.isOn("bar.flash") else {
-            layer.backgroundColor = base.cgColor
-            return
-        }
+        let fade = CATransition()
+        fade.type = .fade
+        fade.duration = DisplayOptions.reduceMotion ? 0.15 : 0.2
+        fade.timingFunction = CAMediaTimingFunction(name: .easeOut)
+        label.layer?.add(fade, forKey: "change")
+        statusIcon.layer?.add(fade, forKey: "change")
+        layer.backgroundColor = base.cgColor
+        guard modeChanged, settings.isOn("bar.flash"), !DisplayOptions.reduceMotion else { return }
         let flash = CABasicAnimation(keyPath: "backgroundColor")
-        flash.fromValue = flashColor.withAlphaComponent(0.38).cgColor
+        flash.fromValue = flashColor.withAlphaComponent(0.45).hudCG
         flash.toValue = base.cgColor
-        flash.duration = 0.6
+        flash.duration = 0.3
         flash.timingFunction = CAMediaTimingFunction(name: .easeOut)
         layer.add(flash, forKey: "flash")
-        layer.backgroundColor = base.cgColor
+    }
 
-        let border = CABasicAnimation(keyPath: "borderWidth")
-        border.fromValue = 2
-        border.toValue = 1
-        border.duration = 0.6
-        layer.add(border, forKey: "border")
-
-        let w = box.bounds.width
-        let move = CABasicAnimation(keyPath: "position.x")
-        move.fromValue = -w * 0.2
-        move.toValue = w * 1.2
-        move.duration = 0.8
-        move.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-        let fade = CAKeyframeAnimation(keyPath: "opacity")
-        fade.values = [0, 0.8, 0.8, 0]
-        fade.keyTimes = [0, 0.15, 0.8, 1]
-        fade.duration = 0.8
-        sweep.add(move, forKey: "move")
-        sweep.add(fade, forKey: "fade")
+    /// Say a change of the bar's state to VoiceOver. Used for the changes that matter (stopped, the
+    /// agent waits for the user, a question arrived), not for every line.
+    func announce(_ text: String) {
+        NSAccessibility.post(element: panel, notification: .announcementRequested,
+                             userInfo: [.announcement: text, .priority: NSAccessibilityPriorityLevel.high.rawValue])
     }
 }

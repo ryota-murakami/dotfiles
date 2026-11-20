@@ -8,6 +8,8 @@ import AppKit
 
 let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
+// Dark whatever the system theme is: native controls, menus and system colours follow
+app.appearance = hudAppearance
 allowCursorInBackground()
 installEditMenu()
 startActivationObserver()

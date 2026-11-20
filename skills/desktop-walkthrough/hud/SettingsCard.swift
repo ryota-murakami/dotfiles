@@ -12,6 +12,7 @@ final class SettingsCard: NSObject {
     private let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     private let watcher = OutsideClickWatcher()
     private var list: SettingsList!
+    private let root = NSView()
     var isOpen: Bool { panel.isVisible }
 
     /// Build the card. Called once, after the HUD built its bar.
@@ -24,17 +25,14 @@ final class SettingsCard: NSObject {
         panel.hasShadow = true
         panel.becomesKeyOnlyIfNeeded = true
 
-        let root = NSView()
         root.wantsLayer = true
-        root.layer?.cornerRadius = 14
-        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.09, alpha: 0.97).cgColor
-        root.layer?.borderColor = NSColor.white.withAlphaComponent(0.16).cgColor
-        root.layer?.borderWidth = 1
+        root.layer?.cornerRadius = surfaceCornerRadius
+        applyLook()
 
         let title = NSTextField(labelWithString: "設定")
-        title.font = NSFont.systemFont(ofSize: 14, weight: .bold)
-        title.textColor = .white
-        let close = IconButton(symbol: "xmark", label: "設定を閉じる", pointSize: 10, target: self, action: #selector(closePressed))
+        title.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+        title.textColor = .labelColor
+        let close = IconButton(symbol: "xmark", label: "設定を閉じる", pointSize: 12, target: self, action: #selector(closePressed))
         list = SettingsList(store: settings)
         let scroll = makeScrollable(list, inset: 0)
         for v in [title, close, scroll] as [NSView] {
@@ -45,15 +43,26 @@ final class SettingsCard: NSObject {
             title.topAnchor.constraint(equalTo: root.topAnchor, constant: 12),
             title.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             close.centerYAnchor.constraint(equalTo: title.centerYAnchor),
-            close.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -10),
-            close.widthAnchor.constraint(equalToConstant: 22),
-            close.heightAnchor.constraint(equalToConstant: 22),
+            close.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -8),
+            close.widthAnchor.constraint(equalToConstant: 28),
+            close.heightAnchor.constraint(equalToConstant: 28),
             scroll.topAnchor.constraint(equalTo: title.bottomAnchor, constant: 6),
             scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 16),
             scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -16),
             scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
         ])
         panel.contentView = root
+    }
+
+    /// Background and outline of the card, and which sliders can be used: opaque while "Reduce
+    /// transparency" is on (the see-through sliders then do nothing), a full outline with
+    /// "Increase contrast". Called at launch and when a display setting changes.
+    func applyLook() {
+        let contrast = DisplayOptions.increaseContrast
+        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.09, alpha: surfaceAlpha(0.97)).cgColor
+        root.layer?.borderColor = NSColor.white.withAlphaComponent(contrast ? 0.8 : 0.16).cgColor
+        root.layer?.borderWidth = 1
+        list?.syncRows()
     }
 
     func toggle() { isOpen ? close() : open() }

@@ -73,7 +73,7 @@ final class SettingsStore {
                 kind: .slider(min: 0.3, max: 1, step: 0.05), defaultValue: 0.95, short: "ミラーの不透明度"),
         Setting(id: "mirror.reset", section: "mirror", title: "位置とサイズ", symbol: "arrow.counterclockwise",
                 kind: .action(button: "リセット", destructive: false), short: "ミラーを初期位置へ"),
-        Setting(id: "bar.flash", section: "bar", title: "更新時のフラッシュ", symbol: "sparkles",
+        Setting(id: "bar.flash", section: "bar", title: "状態が変わったときのフラッシュ", symbol: "sparkles",
                 kind: .toggle, defaultValue: 1, short: "フラッシュ"),
         Setting(id: "bar.opacity", section: "bar", title: "背景の不透明度", symbol: "circle.lefthalf.filled",
                 kind: .slider(min: 0.2, max: 1, step: 0.05), defaultValue: 0.42, short: "バーの不透明度"),

@@ -10,8 +10,6 @@ import WebKit
 let notePath = "\(explainDir)/note.json"
 /// The note rendered as a page (from `explainer/note.html`), beside the explainer's `vendor/` libraries.
 let notePagePath = "\(explainDir)/note.html"
-/// Border and heading colour of the note, so it is not mistaken for the explainer or the mirror.
-let noteAccent = NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.30, alpha: 1)
 
 /// The note popup: Markdown in a small card that floats beside its anchor, placed like a tooltip.
 ///
@@ -19,13 +17,14 @@ let noteAccent = NSColor(calibratedRed: 1.0, green: 0.78, blue: 0.30, alpha: 1)
 /// the explainer page hides behind the app while the code is read. Created and owned by {@link HUD};
 /// {@link HUD.refresh} calls {@link NotePopup.refresh} on every tick to pick up what `dw note` wrote.
 final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, NSWindowDelegate {
-    private static let headerHeight: CGFloat = 28
+    private static let headerHeight: CGFloat = 32
 
     let panel = ReadingPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     private let root = NSView()
     private let grip = DragHandle()
+    private let titleIcon = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
-    private lazy var closeButton = IconButton(symbol: "xmark", label: "メモを閉じる", pointSize: 10, target: self, action: #selector(closeTapped))
+    private lazy var closeButton = IconButton(symbol: "xmark", label: "メモを閉じる", pointSize: 12, target: self, action: #selector(closeTapped))
     private let webView: ReadingWebView
     /// Modification time of the note file last loaded (nil = no note).
     private var stamp: Date?
@@ -59,18 +58,21 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         panel.hidesOnDeactivate = false
 
         root.wantsLayer = true
-        root.layer?.cornerRadius = 10
+        root.layer?.cornerRadius = surfaceCornerRadius
         root.layer?.masksToBounds = true
-        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.09, alpha: 0.98).cgColor
-        root.layer?.borderColor = noteAccent.cgColor
-        root.layer?.borderWidth = 1.5
+        // Opaque: the note lies over code, and code under text makes both hard to read
+        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.09, alpha: 1).cgColor
+        applyLook()
 
         webView.navigationDelegate = self
         webView.configuration.userContentController.add(self, name: "dw")
         if webView.responds(to: Selector(("_setDrawsBackground:"))) { webView.setValue(false, forKey: "drawsBackground") }
 
-        titleLabel.font = .systemFont(ofSize: 12, weight: .bold)
+        titleLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         titleLabel.textColor = noteAccent
+        titleIcon.image = NSImage(systemSymbolName: "lightbulb.fill", accessibilityDescription: nil)
+        titleIcon.symbolConfiguration = .init(pointSize: 12, weight: .semibold)
+        titleIcon.contentTintColor = noteAccent
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         grip.toolTip = "ドラッグでメモを移動"
@@ -79,26 +81,37 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        grip.addSubview(titleLabel)
+        for v in [titleIcon, titleLabel] as [NSView] {
+            v.translatesAutoresizingMaskIntoConstraints = false
+            grip.addSubview(v)
+        }
         NSLayoutConstraint.activate([
             grip.topAnchor.constraint(equalTo: root.topAnchor),
             grip.leadingAnchor.constraint(equalTo: root.leadingAnchor),
             grip.trailingAnchor.constraint(equalTo: closeButton.leadingAnchor, constant: -4),
             grip.heightAnchor.constraint(equalToConstant: Self.headerHeight),
+            titleIcon.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
+            titleIcon.leadingAnchor.constraint(equalTo: grip.leadingAnchor, constant: 12),
             titleLabel.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
-            titleLabel.leadingAnchor.constraint(equalTo: grip.leadingAnchor, constant: 12),
+            titleLabel.leadingAnchor.constraint(equalTo: titleIcon.trailingAnchor, constant: 6),
             titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: grip.trailingAnchor, constant: -4),
             closeButton.centerYAnchor.constraint(equalTo: grip.centerYAnchor),
-            closeButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
-            closeButton.widthAnchor.constraint(equalToConstant: 22),
-            closeButton.heightAnchor.constraint(equalToConstant: 20),
+            closeButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -4),
+            closeButton.widthAnchor.constraint(equalToConstant: 28),
+            closeButton.heightAnchor.constraint(equalToConstant: 28),
             webView.topAnchor.constraint(equalTo: grip.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 2),
             webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -2),
             webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -2),
         ])
         panel.contentView = root
+    }
+
+    /// Outline of the popup: its own yellow, stronger with "Increase contrast". Called at launch and
+    /// when a display setting changes.
+    func applyLook() {
+        root.layer?.borderColor = noteAccent.hudCG
+        root.layer?.borderWidth = DisplayOptions.increaseContrast ? 2.5 : 1.5
     }
 
     /// Show the note `dw note` wrote, or hide the popup when the note is gone. Called on every refresh tick.
@@ -127,7 +140,7 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
               let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
         noteID = "\(object["id"] ?? "")"
         let title = object["title"] as? String ?? ""
-        titleLabel.stringValue = title.isEmpty ? "💡 メモ" : "💡 \(title)"
+        titleLabel.stringValue = title.isEmpty ? "メモ" : title
         width = min(max(CGFloat((object["width"] as? NSNumber)?.doubleValue ?? 460), 280), 900)
         anchor = nil
         if let v = (object["anchor"] as? [NSNumber])?.map({ CGFloat($0.doubleValue) }), v.count == 4, let primary = NSScreen.screens.first {

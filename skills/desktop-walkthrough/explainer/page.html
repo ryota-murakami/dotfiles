@@ -45,10 +45,11 @@
     white-space: pre; overflow-wrap: normal; display: block;
   }
   /* The panel never becomes the key window, so hover is unreliable: the button is always visible */
+  /* At least 24px high: a control smaller than 20 points is hard to hit */
   .copy {
-    position: absolute; top: 6px; right: 6px; font: 11px -apple-system, sans-serif; color: #c9d1d9;
-    background: rgba(255, 255, 255, .10); border: 1px solid rgba(255, 255, 255, .18);
-    border-radius: 6px; padding: 2px 8px; cursor: pointer; opacity: .6;
+    position: absolute; top: 6px; right: 6px; font: 12px/1 -apple-system, sans-serif; color: #d7dde3;
+    background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 12px; padding: 5px 10px; min-height: 24px; box-sizing: border-box; cursor: pointer; opacity: .85;
   }
   .copy:active { opacity: 1; background: rgba(92, 204, 158, .35); }
   .table-wrap { overflow-x: auto; margin: .8em 0; }
@@ -76,6 +77,16 @@
   .diagram svg { max-width: 100%; height: auto; }
   .diagram.wide { cursor: zoom-out; text-align: left; }
   .diagram-error { color: #ff9b9b; text-align: left; white-space: pre-wrap; cursor: default; }
+  /* System setting "Increase contrast": full-strength text, visible lines, links told apart by more than colour */
+  @media (prefers-contrast: more) {
+    :root { --line: rgba(255, 255, 255, .5); }
+    body { color: #fff; }
+    th, td { border-color: rgba(255, 255, 255, .55); }
+    code { background: rgba(255, 255, 255, .18); }
+    pre, .diagram, kbd { border-color: rgba(255, 255, 255, .5); }
+    .copy { opacity: 1; border-color: rgba(255, 255, 255, .6); }
+    a { text-decoration: underline; }
+  }
 </style>
 </head>
 <body>

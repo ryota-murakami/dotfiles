@@ -86,8 +86,6 @@ let quitRequestPath = "\(stateDir)/quit"
 let alivePath = "\(stateDir)/hud.alive"
 let pidPath = "\(stateDir)/hud.pid"
 
-let accent = NSColor(calibratedRed: 0.26, green: 0.60, blue: 1.0, alpha: 1)
-
 /// Option values, shared by the HUD and the settings card.
 let settings = SettingsStore(stateDir: stateDir)
 
@@ -176,7 +174,12 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     var barControlHeights: [NSLayoutConstraint] = []
     let grip = DragHandle()
     let gripLabel = NSTextField(labelWithString: "⠿")
-    let sweep = CAGradientLayer()
+    /// Material under the bar's tint: it blurs what the bar covers (see {@link makeHUDMaterial}).
+    let barMaterial = makeHUDMaterial(cornerRadius: 14)
+    /// Symbol before the status line (stopped, typing, a press on its way); empty for the agent's narration.
+    let statusIcon = NSImageView()
+    var statusIconWidth: NSLayoutConstraint?
+    var statusIconGap: NSLayoutConstraint?
     var lastText = ""
     var lastMode = ""
     var positioned = false
@@ -187,8 +190,11 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let mirror = KeyablePanel(contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
     let mirrorTitle = NSTextField(labelWithString: "⠿ Claude Code")
     let mirrorRoot = NSView()
+    /// Material under the conversation and the mirror's colour over it (see {@link HUD.applyMirrorOpacity}).
+    let mirrorMaterial = makeHUDMaterial(cornerRadius: surfaceCornerRadius)
+    let mirrorTint = NSView()
     let mirrorGrip = DragHandle()
-    lazy var closeButton = IconButton(symbol: "xmark", label: "ミラーを閉じる", pointSize: 11, target: self, action: #selector(closeMirror))
+    lazy var closeButton = IconButton(symbol: "xmark", label: "ミラーを閉じる", pointSize: 12, target: self, action: #selector(closeMirror))
     let mirrorHandles: [EdgeResizeHandle] = [
         EdgeResizeHandle([.left]), EdgeResizeHandle([.right]), EdgeResizeHandle([.top]), EdgeResizeHandle([.bottom]),
         EdgeResizeHandle([.left, .top]), EdgeResizeHandle([.right, .top]), EdgeResizeHandle([.left, .bottom]), EdgeResizeHandle([.right, .bottom]),
@@ -198,8 +204,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let textView = FeedTextView()
     let input = MessageField()
     let sendButton = NSButton(title: "送信", target: nil, action: nil)
-    lazy var zoomIn = IconButton(symbol: "plus", label: "文字を大きく", pointSize: 11, target: self, action: #selector(zoomInTapped))
-    lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 11, target: self, action: #selector(zoomOutTapped))
+    lazy var zoomIn = IconButton(symbol: "plus", label: "文字を大きく", pointSize: 12, target: self, action: #selector(zoomInTapped))
+    lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 12, target: self, action: #selector(zoomOutTapped))
     let zoomLabel = NSTextField(labelWithString: "")
     var feedStamp: Date?
     /// Keys of long tool entries the user expanded (like an open <details>), kept while the HUD runs.
@@ -214,8 +220,12 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     // Approval prompt (dw ask)
     let askPanel = AskPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     let askLabel = NSTextField(wrappingLabelWithString: "")
-    let askOK = NSButton(title: "OK", target: nil, action: nil)
-    let askNo = NSButton(title: "キャンセル", target: nil, action: nil)
+    /// Symbol before the question (a question mark, a raised hand); hidden when `dw` gave another icon.
+    let askIcon = NSImageView()
+    /// The question as the session is told about it: its icon as text, then the words.
+    var askQuestion = ""
+    let askOK = CapsuleButton(style: .primary)
+    let askNo = CapsuleButton(style: .secondary)
     /// Feedback buttons of the current question (`--button`): a press sends its label to the agent and leaves the question open.
     let askExtras = NSStackView()
     var askExtraLabels: [String] = []
@@ -264,9 +274,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             if !isStopOn() { self?.toggleStop() }
         }
         stopHotKey.setEnabled(settings.isOn("stop.hotkey"))
-        // "Open" is a passing state, so the settings button lights up more quietly than the mirror toggle
-        settingsButton.activeColor = NSColor.white.withAlphaComponent(0.34)
         settingsCard.attach(to: self)
+        // Contrast, transparency and motion are the user's system-wide choices: follow them as they change
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
+                                                          object: nil, queue: .main) { [weak self] _ in self?.applyDisplayOptions() }
         Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in self?.refresh() }
         Timer.scheduledTimer(withTimeInterval: 0.03, repeats: true) { [weak self] _ in
             self?.updateClickThrough()
@@ -301,6 +312,20 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         case "stop.hotkey": stopHotKey.setEnabled(settings.isOn(id))
         default: break
         }
+    }
+
+    /// Redraw every surface for the accessibility display settings ({@link DisplayOptions}).
+    /// Called whenever the user changes one of them.
+    func applyDisplayOptions() {
+        // The high-contrast variant of the dark appearance: system colours and native controls follow
+        NSApp.appearance = hudAppearance
+        applyBarColor()
+        applyMirrorOpacity()
+        applyAskLook()
+        explainer.applyLook()
+        notePopup.applyLook()
+        settingsCard.applyLook()
+        updatePerformingBorder(visible: lastActivity == .performing)
     }
 
     @objc func toggleSettings() {
@@ -398,21 +423,26 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         syncModState()
         let raw = (try? String(contentsOfFile: statusPath, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         let m = mode
-        let text: String
+        // The symbol before the line says what kind of line it is; the agent's own narration has none
+        let status: (symbol: String?, tint: NSColor, text: String)
         switch m {
-        case "stopped": text = "⏹ 停止しました。ミラーの入力欄からメッセージを送ると再開します"
-        case "typing": text = "✍️ 入力中のため、エージェントの画面操作は待機しています"
+        case "stopped": status = ("stop.circle.fill", .labelColor, "停止しました。ミラーの入力欄からメッセージを送ると再開します")
+        case "typing": status = ("keyboard", .labelColor, "入力中のため、エージェントの画面操作は待機しています")
         // An input on its way to the session is said first; the agent's next line takes over when it reacts
-        default: text = pendingText() ?? ("🤖 " + raw)
+        default: status = pendingStatus() ?? (nil, .labelColor, raw)
         }
-        if text != lastText || m != lastMode {
-            let modeChanged = m != lastMode
-            lastText = text
+        let line = (status.symbol ?? "") + "\u{1F}" + status.text
+        if line != lastText || m != lastMode {
+            // The first line after launch is not a change of mode
+            let modeChanged = !lastMode.isEmpty && m != lastMode
+            lastText = line
             lastMode = m
             stopButton.setStopped(m == "stopped")
-            label.stringValue = text
-            playChangeEffect(flashColor: modeChanged ? (m == "stopped" ? NSColor.systemRed : NSColor.systemOrange) : accent,
+            setStatusIcon(status.symbol, tint: status.tint)
+            label.stringValue = status.text
+            playChangeEffect(modeChanged: modeChanged, flashColor: m == "stopped" ? .systemRed : .systemOrange,
                              base: barColor(stopped: m == "stopped"))
+            if modeChanged { announce(status.text) }
         }
         label.hole = notchHole()
         explainButton.isActive = settings.isOn("explain.visible")

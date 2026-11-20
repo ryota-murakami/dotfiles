@@ -56,16 +56,19 @@ extension HUD {
         refresh()
     }
 
-    /// Status text while an input is on its way or waits for the agent's reaction (nil = nothing pending,
-    /// or a stop: the stopped bar says it all).
-    func pendingText() -> String? {
+    /// Status line while an input is on its way or waits for the agent's reaction, with the symbol
+    /// that goes before it (nil = nothing pending, or a stop: the stopped bar says it all).
+    func pendingStatus() -> (symbol: String?, tint: NSColor, text: String)? {
         guard let pending = pendingInput, pending.done == nil, pending.route != .stop else { return nil }
-        if pending.delivered != nil { return "📬 「\(pending.label)」が Claude Code に届きました。応答を待っています…" }
+        if pending.delivered != nil {
+            return ("tray.and.arrow.down.fill", .labelColor, "「\(pending.label)」が Claude Code に届きました。応答を待っています…")
+        }
         // Long on its way: the session is probably busy with something that cannot be interrupted
         if Date().timeIntervalSince(pending.at) > 20 {
-            return "⚠️ 「\(pending.label)」がまだ届いていません（セッションが別の処理中かもしれません。チャットも確認してください）"
+            return ("exclamationmark.triangle.fill", .systemOrange,
+                    "「\(pending.label)」がまだ届いていません（セッションが別の処理中かもしれません。チャットも確認してください）")
         }
-        return "📨 「\(pending.label)」を送信中…"
+        return ("paperplane.fill", .labelColor, "「\(pending.label)」を送信中…")
     }
 
     /// Advance the delivery progress: has the session taken the input, has the agent reacted, how far
@@ -119,7 +122,9 @@ extension HUD {
         CATransaction.setDisableActions(true)
         pendingBar.frame = CGRect(x: 0, y: 0, width: width * progress, height: 4)
         let late = pending.delivered == nil && now.timeIntervalSince(pending.at) > 20
-        pendingBar.backgroundColor = (late ? NSColor.systemOrange : (pending.delivered == nil ? accent : explainAccent)).cgColor
+        // One colour for the way there and for the wait (the line's symbol and words tell the stage);
+        // the explainer's green means the explainer
+        pendingBar.backgroundColor = (late ? NSColor.systemOrange : primaryFill).hudCG
         CATransaction.commit()
 
         if let done = pending.done {

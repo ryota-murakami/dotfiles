@@ -16,8 +16,6 @@ let explainFramePath = "\(stateDir)/explain-frame"
 /// panel aside while the app is the thing to watch (hidden, or behind the app's window like any
 /// other window), and brings it back. Applied once, then removed.
 let explainVisibilityRequestPath = "\(explainDir)/visibility-request"
-/// Border and highlight colour of the explainer, so it is not mistaken for the mirror.
-let explainAccent = NSColor(calibratedRed: 0.36, green: 0.80, blue: 0.62, alpha: 1)
 
 /// Panel that never takes keyboard focus, and still comes forward when clicked.
 ///
@@ -68,7 +66,7 @@ struct ExplainPage {
 final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, NSWindowDelegate {
     /// Schemes a link in a page may open in another app (a browser, an IDE).
     private static let externalSchemes: Set<String> = ["http", "https", "phpstorm", "jetbrains", "vscode", "cursor"]
-    private static let headerHeight: CGFloat = 34
+    private static let headerHeight: CGFloat = 36
 
     let panel = ReadingPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
     private let root = NSView()
@@ -78,12 +76,12 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     private let titleLabel = NSTextField(labelWithString: "")
     private let zoomLabel = NSTextField(labelWithString: "")
     private let webView: ReadingWebView
-    private lazy var listButton = IconButton(symbol: "list.bullet", label: "解説の一覧", pointSize: 11, target: self, action: #selector(listTapped))
-    private lazy var prevButton = IconButton(symbol: "chevron.left", label: "前の解説", pointSize: 11, target: self, action: #selector(prevTapped))
-    private lazy var nextButton = IconButton(symbol: "chevron.right", label: "次の解説", pointSize: 11, target: self, action: #selector(nextTapped))
-    private lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 11, target: self, action: #selector(zoomOutTapped))
-    private lazy var zoomIn = IconButton(symbol: "plus", label: "文字を大きく", pointSize: 11, target: self, action: #selector(zoomInTapped))
-    private lazy var closeButton = IconButton(symbol: "xmark", label: "解説を閉じる", pointSize: 11, target: self, action: #selector(closeTapped))
+    private lazy var listButton = IconButton(symbol: "list.bullet", label: "解説の一覧", pointSize: 12, target: self, action: #selector(listTapped))
+    private lazy var prevButton = IconButton(symbol: "chevron.left", label: "前の解説", pointSize: 12, target: self, action: #selector(prevTapped))
+    private lazy var nextButton = IconButton(symbol: "chevron.right", label: "次の解説", pointSize: 12, target: self, action: #selector(nextTapped))
+    private lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 12, target: self, action: #selector(zoomOutTapped))
+    private lazy var zoomIn = IconButton(symbol: "plus", label: "文字を大きく", pointSize: 12, target: self, action: #selector(zoomInTapped))
+    private lazy var closeButton = IconButton(symbol: "xmark", label: "解説を閉じる", pointSize: 12, target: self, action: #selector(closeTapped))
     private let handles: [EdgeResizeHandle] = [
         EdgeResizeHandle([.left]), EdgeResizeHandle([.right]), EdgeResizeHandle([.top]), EdgeResizeHandle([.bottom]),
         EdgeResizeHandle([.left, .top]), EdgeResizeHandle([.right, .top]), EdgeResizeHandle([.left, .bottom]), EdgeResizeHandle([.right, .bottom]),
@@ -116,11 +114,11 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         panel.hidesOnDeactivate = false
 
         root.wantsLayer = true
-        root.layer?.cornerRadius = 10
+        root.layer?.cornerRadius = surfaceCornerRadius
         root.layer?.masksToBounds = true
-        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: 0.98).cgColor
-        root.layer?.borderColor = explainAccent.cgColor
-        root.layer?.borderWidth = 2
+        // A page is read for minutes: nothing of the app behind it shows through
+        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.07, alpha: 1).cgColor
+        applyLook()
 
         webView.navigationDelegate = self
         webView.configuration.userContentController.add(self, name: "dw")
@@ -128,16 +126,17 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         if webView.responds(to: Selector(("_setDrawsBackground:"))) { webView.setValue(false, forKey: "drawsBackground") }
         applyZoom()
 
-        heading.font = .systemFont(ofSize: 12, weight: .bold)
-        heading.textColor = NSColor.white.withAlphaComponent(0.85)
-        pageLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .bold)
-        pageLabel.textColor = explainAccent
-        titleLabel.font = .systemFont(ofSize: 12, weight: .semibold)
-        titleLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+        // The surface's name carries the weight; page number and zoom are quiet facts beside it
+        heading.font = .systemFont(ofSize: 13, weight: .semibold)
+        heading.textColor = .labelColor
+        pageLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        pageLabel.textColor = .secondaryLabelColor
+        titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
+        titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        zoomLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .bold)
-        zoomLabel.textColor = NSColor.white.withAlphaComponent(0.85)
+        zoomLabel.font = .monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+        zoomLabel.textColor = .secondaryLabelColor
         zoomLabel.alignment = .center
         grip.toolTip = "ドラッグで解説パネルを移動"
         // Invisible borders on every side and corner: drag any of them to resize
@@ -187,11 +186,13 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
             webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
             webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -6),
         ])
+        // 28 points square: the system's size for a control on the Mac
         for button in [listButton, prevButton, nextButton, zoomOut, zoomIn, closeButton] {
-            button.widthAnchor.constraint(equalToConstant: 24).isActive = true
-            button.heightAnchor.constraint(equalToConstant: 22).isActive = true
+            button.widthAnchor.constraint(equalToConstant: 28).isActive = true
+            button.heightAnchor.constraint(equalToConstant: 28).isActive = true
         }
-        pinEdgeHandles(handles, to: root)
+        // Under the header's buttons: a corner handle over the close button would resize on a click meant to close
+        pinEdgeHandles(handles, to: root, below: listButton)
         panel.contentView = root
         // Pages that were there before this launch (a new build, the agent restarted) are not news:
         // the newest one is loaded again, and the panel stays open or closed as the user left it
@@ -285,6 +286,13 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         if wanted, !panel.isVisible { panel.orderFrontRegardless() }
         if !wanted, panel.isVisible { panel.orderOut(nil) }
         panel.setConcealed(exists(mirrorSuspendPath))
+    }
+
+    /// Outline of the panel: its own green, stronger with "Increase contrast". Called at launch and
+    /// when a display setting changes.
+    func applyLook() {
+        root.layer?.borderColor = explainAccent.hudCG
+        root.layer?.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
     }
 
     // MARK: stacking

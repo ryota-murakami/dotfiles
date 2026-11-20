@@ -3,9 +3,6 @@
 // driving this Mac now: using it yourself would collide". Methods of the HUD class.
 import AppKit
 
-/// Colour of the border: the green of a recording indicator.
-let performingBorderColor = NSColor(calibratedRed: 0.19, green: 0.82, blue: 0.35, alpha: 1)
-
 extension HUD {
     // MARK: screen border
 
@@ -34,8 +31,9 @@ extension HUD {
             }
             let screen = screens[index]
             if window.frame != screen.frame { window.setFrame(screen.frame, display: true) }
-            // One physical pixel, whatever the display's scale
-            window.contentView?.layer?.borderWidth = 1 / max(1, screen.backingScaleFactor)
+            // One physical pixel, whatever the display's scale; a line of two points with "Increase contrast"
+            window.contentView?.layer?.borderWidth = DisplayOptions.increaseContrast ? 2 : 1 / max(1, screen.backingScaleFactor)
+            window.contentView?.layer?.borderColor = performingBorderColor.hudCG
             if !window.isVisible { window.orderFrontRegardless() }
         }
     }
@@ -53,7 +51,7 @@ extension HUD {
         window.hidesOnDeactivate = false
         let outline = NSView()
         outline.wantsLayer = true
-        outline.layer?.borderColor = performingBorderColor.cgColor
+        outline.layer?.borderColor = performingBorderColor.hudCG
         outline.layer?.backgroundColor = NSColor.clear.cgColor
         window.contentView = outline
         return window

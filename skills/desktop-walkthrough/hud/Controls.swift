@@ -2,18 +2,27 @@
 import AppKit
 import Carbon.HIToolbox
 
-/// Borderless SF Symbol button used on the bar and in the mirror header.
+/// Borderless SF Symbol button used on the bar and in the headers of the panels.
 ///
 /// Why it exists: the old controls were emoji-titled push buttons of mixed sizes; this gives every
-/// icon the same hit area, hover feedback and an accessibility label.
+/// icon the same hit area, hover and press feedback and an accessibility label.
 final class IconButton: NSButton {
-    /// Tinted "on" look, e.g. the mirror button while the mirror is shown.
+    /// "On" look, e.g. the mirror button while the mirror is shown.
     var isActive = false { didSet { if oldValue != isActive { updateLook() } } }
     /// Set by the tracking area, or by the bar's pointer polling: the bar ignores mouse events until
     /// the pointer rests on a control, so a tracking area alone would miss the first hover.
     var isHovered = false { didSet { if oldValue != isHovered { updateLook() } } }
-    /// Background while `isActive`: the accent colour for a lasting state, something quieter for "open".
-    var activeColor = accent.withAlphaComponent(0.9) { didSet { updateLook() } }
+    /// Symbol shown while `isActive` (the filled variant) and its colour: the colour of the surface
+    /// the button stands for, so the fill behind it can stay quiet.
+    var activeSymbol: String? { didSet { updateLook() } }
+    var activeTint: NSColor? { didSet { updateLook() } }
+    /// Background while `isActive`.
+    var activeFill = NSColor.white.withAlphaComponent(0.18) { didSet { updateLook() } }
+    private let symbol: String
+    private let help: String
+    private let pointSize: CGFloat
+    /// True while the mouse button is held on it.
+    private var isPressed = false { didSet { if oldValue != isPressed { updateLook() } } }
     private var trackingArea: NSTrackingArea?
 
     /// One click must act even when the window is not the key window (the HUD rarely is).
@@ -23,14 +32,14 @@ final class IconButton: NSButton {
     ///   - symbol: SF Symbol name.
     ///   - label: Tooltip and accessibility label (the button shows no text).
     init(symbol: String, label: String, pointSize: CGFloat = 15, target: AnyObject?, action: Selector) {
+        self.symbol = symbol
+        self.help = label
+        self.pointSize = pointSize
         super.init(frame: .zero)
         isBordered = false
         title = ""
         imagePosition = .imageOnly
         imageScaling = .scaleNone
-        image = NSImage(systemSymbolName: symbol, accessibilityDescription: label)?
-            .withSymbolConfiguration(.init(pointSize: pointSize, weight: .semibold))
-        contentTintColor = .white
         toolTip = label
         setAccessibilityLabel(label)
         wantsLayer = true
@@ -43,6 +52,8 @@ final class IconButton: NSButton {
 
     required init?(coder: NSCoder) { fatalError("not used") }
 
+    override var isEnabled: Bool { didSet { updateLook() } }
+
     override func updateTrackingAreas() {
         super.updateTrackingAreas()
         if let trackingArea { removeTrackingArea(trackingArea) }
@@ -54,10 +65,130 @@ final class IconButton: NSButton {
     override func mouseEntered(with event: NSEvent) { isHovered = true }
     override func mouseExited(with event: NSEvent) { isHovered = false }
 
+    /// The press shows for as long as the button is held: a custom button owes the user that.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        super.mouseDown(with: event)
+        isPressed = false
+    }
+
+    // The contrast setting changes the app's appearance: outlines and fills follow
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLook()
+    }
+
     private func updateLook() {
-        let color: NSColor = isActive ? activeColor
-            : NSColor.white.withAlphaComponent(isHovered ? 0.22 : 0.10)
-        layer?.backgroundColor = color.cgColor
+        let contrast = DisplayOptions.increaseContrast
+        let white = NSColor.white
+        let fill: NSColor = isPressed ? white.withAlphaComponent(0.30)
+            : isActive ? activeFill
+            : white.withAlphaComponent(isHovered ? 0.14 : (contrast ? 0.20 : 0.06))
+        layer?.backgroundColor = fill.hudCG
+        // "Increase contrast": the button's outline shows, not only its faint fill
+        layer?.borderWidth = contrast ? 1 : 0
+        layer?.borderColor = white.withAlphaComponent(0.6).cgColor
+        image = NSImage(systemSymbolName: isActive ? (activeSymbol ?? symbol) : symbol, accessibilityDescription: help)?
+            .withSymbolConfiguration(.init(pointSize: pointSize, weight: .semibold))
+        contentTintColor = !isEnabled ? .tertiaryLabelColor : (isActive ? (activeTint ?? .labelColor) : .labelColor)
+    }
+}
+
+/// A capsule push button drawn by its layer: the main answer of a question (filled with the
+/// system's colour for the primary control) or one of the other buttons (a quiet plate).
+///
+/// Why it exists: a system push button's bezel turns grey in a panel that is never the key window,
+/// and it is not as tall as a button drawn by hand. Every button of the prompt card is this one
+/// control instead: the same size, told apart by style, with the hover and press states a custom
+/// button owes the user. Created by {@link HUD} for the two answers and the feedback buttons.
+final class CapsuleButton: NSButton {
+    enum Style {
+        /// The main answer.
+        case primary
+        /// The other answer, and buttons that do not answer.
+        case secondary
+    }
+
+    /// Height of every capsule button: the system's size for a control on the Mac.
+    static let height: CGFloat = 28
+
+    private let style: Style
+    private var isHovered = false { didSet { if oldValue != isHovered { updateLook() } } }
+    private var isPressed = false { didSet { if oldValue != isPressed { updateLook() } } }
+    private var trackingArea: NSTrackingArea?
+
+    /// The words on the button. Set this, not `title`: it carries the style's font and colour.
+    var label: String {
+        get { title }
+        set {
+            attributedTitle = NSAttributedString(string: newValue, attributes: [
+                .font: NSFont.systemFont(ofSize: 13, weight: style == .primary ? .semibold : .medium),
+                .foregroundColor: style == .primary ? NSColor.white : NSColor.labelColor,
+            ])
+            invalidateIntrinsicContentSize()
+        }
+    }
+
+    init(style: Style) {
+        self.style = style
+        super.init(frame: .zero)
+        isBordered = false
+        wantsLayer = true
+        updateLook()
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+    override var isEnabled: Bool { didSet { updateLook() } }
+
+    /// As wide as its words plus the capsule's rounded ends.
+    override var intrinsicContentSize: NSSize {
+        NSSize(width: ceil(attributedTitle.size().width) + 28, height: Self.height)
+    }
+
+    override func layout() {
+        super.layout()
+        layer?.cornerRadius = bounds.height / 2
+    }
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let trackingArea { removeTrackingArea(trackingArea) }
+        let area = NSTrackingArea(rect: bounds, options: [.mouseEnteredAndExited, .activeAlways], owner: self)
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseEntered(with event: NSEvent) { isHovered = true }
+    override func mouseExited(with event: NSEvent) { isHovered = false }
+
+    /// The press shows for as long as the button is held.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        super.mouseDown(with: event)
+        isPressed = false
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLook()
+    }
+
+    private func updateLook() {
+        let contrast = DisplayOptions.increaseContrast
+        switch style {
+        case .primary:
+            let fill = isPressed ? primaryFill.withSystemEffect(.pressed) : (isHovered ? primaryFill.withSystemEffect(.rollover) : primaryFill)
+            layer?.backgroundColor = fill.hudCG
+            layer?.borderWidth = 0
+        case .secondary:
+            layer?.backgroundColor = NSColor.white.withAlphaComponent(isPressed ? 0.30 : (isHovered ? 0.22 : 0.14)).cgColor
+            layer?.borderWidth = contrast ? 1 : 0
+            layer?.borderColor = NSColor.white.withAlphaComponent(0.6).cgColor
+        }
+        // A card parked at the screen edge cannot be answered, and a feedback button rests after a press
+        alphaValue = isEnabled ? 1 : 0.45
     }
 }
 
@@ -67,6 +198,8 @@ final class IconButton: NSButton {
 /// other buttons so it is easy to hit and hard to hit by accident. Built and owned by {@link HUD}.
 final class StopButton: NSButton {
     var isHovered = false { didSet { if oldValue != isHovered { updateLook() } } }
+    /// True while the mouse button is held on it.
+    private var isPressed = false { didSet { if oldValue != isPressed { updateLook() } } }
     private var stopped = false
 
     init(target: AnyObject?, action: Selector) {
@@ -105,14 +238,27 @@ final class StopButton: NSButton {
         updateLook()
     }
 
+    /// The press shows for as long as the button is held.
+    override func mouseDown(with event: NSEvent) {
+        isPressed = true
+        super.mouseDown(with: event)
+        isPressed = false
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateLook()
+    }
+
     private func updateLook() {
         if stopped {
-            layer?.backgroundColor = NSColor.white.withAlphaComponent(isHovered ? 0.30 : 0.16).cgColor
+            layer?.backgroundColor = NSColor.white.withAlphaComponent(isPressed ? 0.38 : (isHovered ? 0.30 : 0.16)).cgColor
             layer?.borderColor = NSColor.white.withAlphaComponent(0.8).cgColor
             layer?.borderWidth = 1
         } else {
-            layer?.backgroundColor = (isHovered ? NSColor(calibratedRed: 1.0, green: 0.30, blue: 0.27, alpha: 1)
-                                                : NSColor(calibratedRed: 0.90, green: 0.20, blue: 0.18, alpha: 1)).cgColor
+            // The system's red for a destructive control, with its own hover and press variants
+            let red = NSColor.systemRed
+            layer?.backgroundColor = (isPressed ? red.withSystemEffect(.pressed) : (isHovered ? red.withSystemEffect(.rollover) : red)).hudCG
             layer?.borderWidth = 0
         }
     }
@@ -130,7 +276,7 @@ final class HUDSwitch: NSControl {
 
     override func draw(_ dirtyRect: NSRect) {
         let radius = bounds.height / 2
-        (isOn ? accent : NSColor.white.withAlphaComponent(0.24)).setFill()
+        (isOn ? primaryFill : NSColor.white.withAlphaComponent(0.24)).setFill()
         NSBezierPath(roundedRect: bounds, xRadius: radius, yRadius: radius).fill()
         let knob = bounds.height - 4
         NSColor.white.setFill()
@@ -163,7 +309,7 @@ func percentText(_ value: Double) -> String { "\(Int((value * 100).rounded()))%"
 func sectionHeading(_ title: String) -> NSTextField {
     let label = NSTextField(labelWithString: title)
     label.font = NSFont.systemFont(ofSize: 11, weight: .semibold)
-    label.textColor = NSColor.white.withAlphaComponent(0.55)
+    label.textColor = .secondaryLabelColor
     return label
 }
 
@@ -190,13 +336,13 @@ final class SettingRow: NSView {
         let icon = NSImageView()
         icon.image = NSImage(systemSymbolName: setting.symbol, accessibilityDescription: nil)?
             .withSymbolConfiguration(.init(pointSize: 12, weight: .medium))
-        icon.contentTintColor = NSColor.white.withAlphaComponent(0.7)
+        icon.contentTintColor = .secondaryLabelColor
         icon.setContentHuggingPriority(.required, for: .horizontal)
         icon.widthAnchor.constraint(equalToConstant: 18).isActive = true
 
         let title = NSTextField(labelWithString: useShortTitle ? (setting.short ?? setting.title) : setting.title)
         title.font = NSFont.systemFont(ofSize: 13)
-        title.textColor = .white
+        title.textColor = .labelColor
         title.lineBreakMode = .byTruncatingTail
         title.setContentHuggingPriority(.defaultLow, for: .horizontal)
         title.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -225,7 +371,7 @@ final class SettingRow: NSView {
             control.setAccessibilityLabel(setting.title)
             let value = NSTextField(labelWithString: "")
             value.font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-            value.textColor = NSColor.white.withAlphaComponent(0.75)
+            value.textColor = .secondaryLabelColor
             value.alignment = .right
             value.widthAnchor.constraint(equalToConstant: 40).isActive = true
             slider = control
@@ -274,6 +420,8 @@ final class SettingRow: NSView {
     func sync() {
         toggle?.isOn = store.isOn(setting.id)
         if let slider, abs(slider.doubleValue - store.value(setting.id)) > 0.0001 { slider.doubleValue = store.value(setting.id) }
+        // "Reduce transparency" makes every surface opaque: the see-through sliders then do nothing
+        slider?.isEnabled = !(DisplayOptions.reduceTransparency && setting.id.hasSuffix(".opacity"))
         valueLabel?.stringValue = percentText(store.value(setting.id))
     }
 
@@ -302,8 +450,6 @@ final class SettingsList: NSStackView {
         alignment = .leading
         spacing = 2
         translatesAutoresizingMaskIntoConstraints = false
-        // The HUD is dark whatever the system theme is, so its native controls must be too
-        appearance = NSAppearance(named: .darkAqua)
         for section in sections {
             let items = SettingsStore.registry.filter { $0.section == section.id && include($0) }
             guard !items.isEmpty else { continue }
@@ -326,6 +472,9 @@ final class SettingsList: NSStackView {
     }
 
     required init?(coder: NSCoder) { fatalError("not used") }
+
+    /// Show every row's stored value and whether it can be changed right now.
+    func syncRows() { rows.forEach { $0.sync() } }
 
     deinit {
         if let observer { NotificationCenter.default.removeObserver(observer) }
@@ -550,9 +699,9 @@ final class StateBadge: NSView {
         super.init(frame: .zero)
         wantsLayer = true
         layer?.cornerRadius = 10
-        layer?.borderWidth = 1
         translatesAutoresizingMaskIntoConstraints = false
-        text.font = .systemFont(ofSize: 13, weight: .bold)
+        text.font = .systemFont(ofSize: 13, weight: .semibold)
+        text.textColor = .labelColor
         text.lineBreakMode = .byClipping
         let row = NSStackView(views: [icon, text])
         row.orientation = .horizontal
@@ -563,6 +712,8 @@ final class StateBadge: NSView {
             row.centerXAnchor.constraint(equalTo: centerXAnchor),
             row.centerYAnchor.constraint(equalTo: centerYAnchor),
         ])
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
         show(.waiting)
     }
 
@@ -571,29 +722,36 @@ final class StateBadge: NSView {
     /// Width the bar gives the badge: the longest label fits.
     static let width: CGFloat = 132
 
+    private var shown: Activity = .waiting
+
     /// Name a state. `.performing` and `.stopped` belong to the stop button; the badge is hidden then.
+    ///
+    /// The plate has no colour of its own: on the bar, colour is kept for the stop button and the
+    /// screen border ("the agent is operating the Mac"), and the surfaces' own colours mean those
+    /// surfaces. The symbol and the words tell the states apart.
     func show(_ activity: Activity) {
-        let look: (label: String, symbol: String, tint: NSColor, fill: NSColor)
+        shown = activity
+        let look: (label: String, symbol: String, tint: NSColor)
         switch activity {
-        case .skill:
-            look = ("スキル更新中", "hammer.fill", NSColor(calibratedRed: 0.80, green: 0.66, blue: 1.0, alpha: 1),
-                    NSColor(calibratedRed: 0.20, green: 0.12, blue: 0.42, alpha: 0.82))
-        case .other:
-            look = ("その他作業中", "gearshape.fill", NSColor(calibratedRed: 0.62, green: 0.82, blue: 1.0, alpha: 1),
-                    NSColor(calibratedRed: 0.08, green: 0.20, blue: 0.40, alpha: 0.82))
-        default:
-            look = ("待機中", "pause.circle.fill", NSColor(calibratedRed: 1.0, green: 0.86, blue: 0.45, alpha: 1),
-                    NSColor(calibratedRed: 0.26, green: 0.21, blue: 0.06, alpha: 0.82))
+        case .skill: look = ("スキル更新中", "hammer.fill", .systemPurple)
+        case .other: look = ("その他作業中", "gearshape.fill", .secondaryLabelColor)
+        default: look = ("待機中", "pause.circle.fill", .secondaryLabelColor)
         }
         icon.image = NSImage(systemSymbolName: look.symbol, accessibilityDescription: nil)?
-            .withSymbolConfiguration(.init(pointSize: 12, weight: .bold))
+            .withSymbolConfiguration(.init(pointSize: 12, weight: .semibold))
         icon.contentTintColor = look.tint
         text.stringValue = look.label
-        text.textColor = look.tint
-        layer?.backgroundColor = look.fill.cgColor
-        layer?.borderColor = look.tint.withAlphaComponent(0.45).cgColor
+        let contrast = DisplayOptions.increaseContrast
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(contrast ? 0.20 : 0.10).cgColor
+        layer?.borderWidth = contrast ? 1 : 0
+        layer?.borderColor = NSColor.white.withAlphaComponent(0.6).cgColor
         toolTip = "セッションの状態：\(look.label)（⌃⌥⌘. でいつでも止められます）"
         setAccessibilityLabel("状態：\(look.label)")
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        show(shown)
     }
 }
 

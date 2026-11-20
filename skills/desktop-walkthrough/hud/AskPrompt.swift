@@ -38,34 +38,48 @@ extension HUD {
         }
         let root = NSView()
         root.wantsLayer = true
-        root.layer?.cornerRadius = 12
-        root.layer?.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: 0.96).cgColor
-        root.layer?.borderColor = NSColor.systemOrange.cgColor
-        root.layer?.borderWidth = 2
-        askLabel.font = NSFont.systemFont(ofSize: 15, weight: .bold)
-        askLabel.textColor = .white
+        root.layer?.cornerRadius = surfaceCornerRadius
+        askPanel.contentView = root
+        applyAskLook()
+        askLabel.font = NSFont.systemFont(ofSize: 15, weight: .semibold)
+        askLabel.textColor = .labelColor
         askLabel.maximumNumberOfLines = 4
-        askNo.bezelStyle = .rounded
-        askNo.controlSize = .large
-        askNo.font = NSFont.systemFont(ofSize: 13, weight: .bold)
+        askIcon.imageScaling = .scaleNone
+        askIcon.symbolConfiguration = .init(pointSize: 15, weight: .semibold)
+        askIcon.contentTintColor = .systemOrange
+        // Both answers and the feedback buttons are the same control (see CapsuleButton)
         askNo.target = self
         askNo.action = #selector(askNoTapped)
-        // The main answer is drawn by its layer: a bezel turns grey in a panel that is never the key window
-        askOK.isBordered = false
-        askOK.wantsLayer = true
-        askOK.layer?.cornerRadius = 7
-        askOK.layer?.backgroundColor = accent.cgColor
         askOK.target = self
         askOK.action = #selector(askOKTapped)
         // The whole card is a drag handle under the buttons: it can be moved off whatever it covers
         askGrip.toolTip = "ドラッグで移動"
         askGripMark.font = NSFont.systemFont(ofSize: 17, weight: .bold)
-        askGripMark.textColor = NSColor.white.withAlphaComponent(0.7)
+        askGripMark.textColor = .secondaryLabelColor
         askExtras.orientation = .horizontal
         askExtras.spacing = 6
         for v in [askGrip, askExtras, askNo, askOK] as [NSView] { root.addSubview(v) }
-        for v in [askGripMark, askLabel] as [NSView] { askGrip.addSubview(v) }
-        askPanel.contentView = root
+        for v in [askGripMark, askIcon, askLabel] as [NSView] { askGrip.addSubview(v) }
+    }
+
+    /// Background and outline of the card: opaque while "Reduce transparency" is on, a stronger
+    /// outline with "Increase contrast". Called at launch and when a display setting changes.
+    func applyAskLook() {
+        guard let layer = askPanel.contentView?.layer else { return }
+        layer.backgroundColor = NSColor(calibratedWhite: 0.08, alpha: surfaceAlpha(0.96)).cgColor
+        layer.borderColor = NSColor.systemOrange.hudCG
+        layer.borderWidth = DisplayOptions.increaseContrast ? 3 : 2
+    }
+
+    /// The symbol for the icon `dw` gave a question (it writes an emoji): a question mark for a
+    /// plain question, a raised hand when the agent hands the Mac over. Nil for any other icon,
+    /// which is then shown as the text it is.
+    private func askSymbol(for icon: String) -> String? {
+        switch icon {
+        case "❓", "": return "questionmark.circle.fill"
+        case "🙋": return "hand.raised.fill"
+        default: return nil
+        }
     }
 
     /// Show the pending question (if any); hide it once answered or withdrawn.
@@ -89,14 +103,24 @@ extension HUD {
             // A new question appears where the user is looking; a card still open on another desktop comes along
             if askPanel.isOnAnotherSpace { askPanel.orderOut(nil) }
             // dw ask uses OK / キャンセル; dw wait-user asks for a hand-off with its own labels
-            askOK.attributedTitle = NSAttributedString(string: (obj["ok"] as? String) ?? "OK", attributes: [
-                .font: NSFont.systemFont(ofSize: 13, weight: .bold), .foregroundColor: NSColor.white,
-            ])
-            askNo.title = (obj["no"] as? String) ?? "キャンセル"
-            askLabel.stringValue = ((obj["icon"] as? String) ?? "❓") + " " + text
+            askOK.label = (obj["ok"] as? String) ?? "OK"
+            askNo.label = (obj["no"] as? String) ?? "キャンセル"
+            let icon = (obj["icon"] as? String) ?? "❓"
+            // What the session is told about this question keeps the icon as text
+            askQuestion = icon + " " + text
+            if let symbol = askSymbol(for: icon) {
+                askIcon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+                askIcon.isHidden = false
+                askLabel.stringValue = text
+            } else {
+                askIcon.isHidden = true
+                askLabel.stringValue = askQuestion
+            }
             rebuildAskExtras((obj["buttons"] as? [String]) ?? [])
             askSize = layoutAsk()
             if settings.isOn("ask.sound") { NSSound(named: "Glass")?.play() }
+            // A question is one of the few changes worth saying aloud
+            announce("確認：" + text)
         }
         guard !askID.isEmpty else { return }
         // Never move the prompt while a mouse button is down: that would fight the user's drag
@@ -159,15 +183,17 @@ extension HUD {
     ///
     /// @returns The size the card needs.
     func layoutAsk() -> NSSize {
-        let pad: CGFloat = 14, gap: CGFloat = 8, textX: CGFloat = 34
+        // The question starts after the grip mark, and after its symbol when it has one
+        let pad: CGFloat = 14, gap: CGFloat = 8, iconX: CGFloat = 34
+        let textX: CGFloat = askIcon.isHidden ? iconX : iconX + 24
         let font = askLabel.font ?? NSFont.systemFont(ofSize: 15, weight: .bold)
         let text = askLabel.stringValue as NSString
         let lineHeight = ceil(font.ascender - font.descender + font.leading) + 2
         let lineWidth = ceil(text.size(withAttributes: [.font: font]).width) + 8
-        askNo.sizeToFit()
-        let buttonHeight = max(askNo.frame.height, 30)
-        let noWidth = max(askNo.frame.width, 96)
-        let okWidth = max(ceil(askOK.attributedTitle.size().width) + 30, 84)
+        // The answers differ by style, not by size: one height for every button of the card
+        let buttonHeight = CapsuleButton.height
+        let noWidth = max(askNo.intrinsicContentSize.width, 96)
+        let okWidth = max(askOK.intrinsicContentSize.width, 84)
         let extras = askExtras.arrangedSubviews.isEmpty ? NSSize.zero : askExtras.fittingSize
         let buttonsWidth = (extras.width > 0 ? extras.width + gap + 4 : 0) + noWidth + gap + okWidth
 
@@ -194,9 +220,10 @@ extension HUD {
         askLabel.frame = textFrame
         askGripMark.sizeToFit()
         askGripMark.frame.origin = NSPoint(x: 10, y: textFrame.maxY - lineHeight + (lineHeight - askGripMark.frame.height) / 2)
+        askIcon.frame = NSRect(x: iconX, y: textFrame.maxY - lineHeight, width: 20, height: lineHeight)
         // Buttons from the right: the main answer, the other answer, then the feedback buttons
         var x = size.width - pad - okWidth
-        askOK.frame = NSRect(x: x, y: buttonsY + (buttonHeight - 28) / 2, width: okWidth, height: 28)
+        askOK.frame = NSRect(x: x, y: buttonsY, width: okWidth, height: buttonHeight)
         x -= gap + noWidth
         askNo.frame = NSRect(x: x, y: buttonsY, width: noWidth, height: buttonHeight)
         if extras.width > 0 {
@@ -281,15 +308,16 @@ extension HUD {
         }
         askExtraLabels = labels
         for (index, label) in labels.enumerated() {
-            let button = NSButton(title: "✓ " + label, target: self, action: #selector(askExtraTapped(_:)))
-            button.bezelStyle = .rounded
-            button.controlSize = .large
-            button.font = NSFont.systemFont(ofSize: 13, weight: .semibold)
+            let button = CapsuleButton(style: .secondary)
+            button.target = self
+            button.action = #selector(askExtraTapped(_:))
+            button.label = "✓ " + label
             button.tag = index
             button.toolTip = "押すとエージェントに伝わります（確認は開いたままです）"
             // Sized for the pressed title ("✓ …"), so pressing it does not shift its neighbours
-            button.widthAnchor.constraint(equalToConstant: button.fittingSize.width).isActive = true
-            button.title = label
+            button.widthAnchor.constraint(equalToConstant: button.intrinsicContentSize.width).isActive = true
+            button.heightAnchor.constraint(equalToConstant: CapsuleButton.height).isActive = true
+            button.label = label
             askExtras.addArrangedSubview(button)
         }
     }
@@ -302,16 +330,16 @@ extension HUD {
     @objc func askExtraTapped(_ sender: NSButton) {
         guard !askID.isEmpty, askExtraLabels.indices.contains(sender.tag) else { return }
         let label = askExtraLabels[sender.tag]
-        appendLine(inboxPath, ["text": "[HUD] フィードバック「\(label)」（確認「\(askLabel.stringValue)」は開いたままです）"])
+        appendLine(inboxPath, ["text": "[HUD] フィードバック「\(label)」（確認「\(askQuestion)」は開いたままです）"])
         appendJournal("💬 フィードバック「\(label)」")
         notePending(label, route: .message)
         // Show that it was sent, then let it be pressed again later ("still reading")
-        sender.title = "✓ " + label
+        (sender as? CapsuleButton)?.label = "✓ " + label
         sender.isEnabled = false
         DispatchQueue.main.asyncAfter(deadline: .now() + 4) { [weak self, weak sender] in
             guard let self, let sender, self.askExtraLabels.indices.contains(sender.tag),
                   self.askExtraLabels[sender.tag] == label else { return }
-            sender.title = label
+            (sender as? CapsuleButton)?.label = label
             sender.isEnabled = true
         }
     }
@@ -325,7 +353,7 @@ extension HUD {
         // as a message, the same way the mirror's message box does, so the click is never lost
         if !askWaiterAlive() {
             let label = answer == "ok" ? askOK.attributedTitle.string : askNo.title
-            let question = askLabel.stringValue
+            let question = askQuestion
             appendLine(inboxPath, ["text": "[HUD] \(question) → 「\(label)」を押しました"])
             appendJournal("  → 「\(label)」（待ち受けが無かったので、メッセージで届けた）")
             if isStopOn() { setStop(false) }

@@ -2,6 +2,12 @@
 
 How to change the HUD, the session bridge or `dw`, and try the change without disturbing the walkthrough on screen. `README.md` says where the source lives and how the install is linked.
 
+## What the HUD is for
+
+The owner's goal (said on 2026-11-20): an agent that feels native to macOS. A harness today is used inside its own app (the chat, a built-in browser, built-in tools), and work outside it (computer use) means leaving the chat session. If the OS itself wrapped the harness there would be nothing to leave. The HUD is that wrapper: the agent's status, the conversation and its message box, its questions and its explanations are over whatever app is in front.
+
+Judge a change by that. The HUD is with the user all day, over any app, like a part of the system: it follows the platform's conventions, and each thing that still sends the user back to the chat is a gap to close.
+
 ## Where things are
 
 | Path | Holds |
@@ -17,6 +23,7 @@ How to change the HUD, the session bridge or `dw`, and try the change without di
 | `hud/Mirror.swift` | the conversation mirror and its message box; the shared edge resize handle |
 | `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting) and the card that shows them |
 | `hud/Controls.swift` | shared controls: buttons, the state badge, tooltip-style placement (`popupFrame`), cursors, the stop shortcut |
+| `hud/Appearance.swift` | the look every surface shares: the dark appearance, each surface's colour, the material behind translucent surfaces, the accessibility display settings |
 | `hooks/register.ts`, `hooks/register.test.ts` | the session bridge (the plugin's hooks module) and its tests |
 
 Everything the three parts say to each other goes through small files in the state folder. A new signal is a new file: name its path in `hud/HUD.swift` (or the surface's own file) with who writes it and what it means, and list it in the header of `hooks/register.ts` when the bridge reads or writes it.
@@ -43,6 +50,8 @@ Everything the three parts say to each other goes through small files in the sta
 - Cursor rects do nothing in a panel that is never key: set cursors from an always-active tracking area (`HoverCursorView`). The window server also ignores `NSCursor.set()` from an app that is not active, which the HUD almost never is: `allowCursorInBackground` lifts that at launch.
 - A cursor is checked with another app active, as in a walkthrough. The HUD's own `NSCursor.current` changes even when the screen keeps the arrow: read `NSCursor.currentSystem` from a throwaway tool that moves the pointer with posted mouse-moved events, and capture with `screencapture -C`. The pointer is the user's: move it only when `CGEventSource.secondsSinceLastEventType` says their hands are off, and put it back.
 - The stop button and Control-Option-Command-Period abort the agent's own turn: press them only on a scratch HUD.
+- A system colour (`systemBlue`, `labelColor`) read outside of drawing can resolve for the light theme, and a layer keeps the value it was given: give layers `color.hudCG`. Text fields and symbols take the colour itself and follow the app's appearance (`hudAppearance`).
+- A new translucent surface gets `makeHUDMaterial` under its tint and `surfaceAlpha` for its opacity, and an `applyLook()` that `HUD.applyDisplayOptions` calls. The three accessibility display settings (contrast, transparency, motion) are the user's system settings: their code paths have not been watched on screen yet, and switching them for a test needs the user's word.
 - A click posted at a scratch panel lands on whatever window is in front at that point, and the user's app may have come over the panel since it was shown: run `dw explain --show` on the scratch HUD right before the click. Which surface is over which is read from `CGWindowListCopyWindowInfo` (on-screen windows come front to back, each with its layer: 0 ordinary, 25 status bar), before and after the click.
 - A window at the ordinary level (the explainer) that is ordered out and in again returns to the desktop (Space) it was on; a `.transient` one comes to the active desktop. Every surface but the bar and the border is `.transient` (`stageCollectionBehavior`), and is moved only by `orderFrontOnActiveSpace`.
 - Ordering a surface out and in to hide it for a moment moves it to whichever desktop is active when it returns: hide it with `setConcealed` (invisible and click-through, still on its desktop).
