@@ -9,7 +9,7 @@ argument-hint: "[skill name ... | status]"
 
 # Save My Skill
 
-Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public GitHub repo) and are installed with `npx skills add ~/dotfiles/skills --skill <name> -g -y`, which copies them to `~/.agents/skills/<name>` and links `~/.claude/skills/<name>`. A skill under active development may instead be a link: `~/.agents/skills/<name>` pointing at the dotfiles folder, so edits are live. Edits happen in either place; this skill brings them back into dotfiles, commits and pushes.
+A personal skill is edited where Claude Code runs it: its installed copy, `~/.agents/skills/<name>` (`~/.claude/skills/<name>` links to it). `~/dotfiles/skills/<name>/` is the backup, in a public GitHub repo: an edit made only there changes nothing Claude Code runs. This skill copies the installed copy into the backup, commits and pushes. `npx skills add ~/dotfiles/skills --skill <name> -g -y` installs a skill from the backup (a new machine, a refresh). A skill under active development may be installed as a link to its dotfiles folder: the two are then one folder, and an edit there is live.
 
 `SAVE=~/.claude/skills/save-my-skill/scripts/save.sh`
 
@@ -18,12 +18,12 @@ Personal skills live in `~/dotfiles/skills/<name>/` (source of truth, a public G
 1. **Pick the skills.** Use the names given. With no name or `status`, run `$SAVE status` and save the skills it lists that the user (or this session) edited; ask if it is unclear which ones.
 2. **Save each one**: `$SAVE <name> [SOURCE_DIR]` (pass `SOURCE_DIR` when the edited copy is somewhere other than the agent homes). Act on its last line:
    - `SAVED`: the installed copy overwrote the dotfiles copy.
-   - `DOTFILES`: the edit was made in dotfiles; commit it, then refresh the install (step 6).
+   - `DOTFILES`: the backup was edited instead of the installed copy, so the edit is not running yet. Commit it, then refresh the install (step 6).
    - `LINKED`: the install is a link to the dotfiles folder; commit it, with no copy and no refresh.
    - `UNCHANGED`: both copies match; commit only if git still shows changes for the skill.
    - `CONFLICT` (exit 3): both copies changed differently since the last commit. Nothing was copied. Show the diff and ask which side to keep; never merge by guessing.
    - `CHECK FAILED` (exit 4): the skill's own `scripts/check` failed (its output is above). Fix the skill and save again; commit only after a passing run.
-3. **Review before committing.** Read `git -C ~/dotfiles diff -- skills/<name>` (and `git status` for new files). Stop and ask if `save.sh` printed a possible secret or address, or if the diff holds credentials, personal data or generated artifacts (built binaries, logs, caches). The repo is public and the commit is pushed without another prompt, so this review is the last gate.
+3. **Review before committing.** Read `git -C ~/dotfiles diff -- skills/<name>` (and `git status` for new files). Stop and ask if `save.sh` printed a possible secret or address, or if the diff holds credentials, personal data or generated artifacts (built binaries, logs, caches). The repo is public and the commit is pushed without another prompt, so this review is the last gate. A diff that takes back a change the log already has (`git -C ~/dotfiles log -3 -- skills/<name>`) means the backup was edited directly and the installed copy is the older one: restore the backup with `git -C ~/dotfiles checkout -- skills/<name>` and refresh the install (step 6) instead of committing.
 4. **New skill**: add `- [<name>](skills/<name>/SKILL.md)` to the "Available skills" list in `~/dotfiles/README.md`, in alphabetical order.
 5. **Commit only what belongs to the skill.** `git add -- skills/<name>` (plus `README.md` only when every change in it is this skill's list line; otherwise ask). Never stage the user's other changes. One commit per skill, with the message rules below.
 6. **Refresh the install** when the dotfiles copy is newer than the installed one (`DOTFILES`, or a conflict resolved toward dotfiles), or when the skill is new: `DISABLE_TELEMETRY=1 DO_NOT_TRACK=1 npx --yes skills add ~/dotfiles/skills --skill <name> -g -y`. Skip it for `LINKED`: that command would replace the link with a copy. If the skill folder has `.claude-plugin/`, tell the user to run `/reload-plugins`.
