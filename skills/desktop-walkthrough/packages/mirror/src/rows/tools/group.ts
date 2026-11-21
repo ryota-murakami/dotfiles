@@ -10,6 +10,7 @@ import type { ToolCall } from '@dw/protocol'
 
 import { field, isRecord, numberField, readText, textField } from './data'
 import { countChanges } from './Diff'
+import { formatDuration } from '../duration'
 import { displayPath, nounFor } from './format'
 import { isRowlessTool, parseMcpTool } from './title'
 
@@ -144,9 +145,14 @@ function editLines(call: ToolCall): { added: number; removed: number } {
  *
  * @param calls - The calls in the order the model made them.
  * @param isActive - True while the group runs: verbs are in the progressive form.
+ * @param thoughtMs - How long the model thought inside the run, when it did: the first clause.
  * @returns The clauses in the terminal's order, and the number of failed calls.
  */
-export function summarizeGroup(calls: readonly ToolCall[], isActive: boolean): GroupSummary {
+export function summarizeGroup(
+  calls: readonly ToolCall[],
+  isActive: boolean,
+  thoughtMs?: number,
+): GroupSummary {
   // Calls that draw no row of their own do not count
   const visible = calls.filter((call) => !isRowlessTool(call.tool))
   const notRun = visible.filter(
@@ -157,6 +163,14 @@ export function summarizeGroup(calls: readonly ToolCall[], isActive: boolean): G
   const failed = live.filter((call) => call.isErrored).length
   const ofKind = (kind: CallKind) => live.filter((call) => kindOf(call) === kind)
   const clauses: GroupClause[] = []
+
+  // Thinking comes first; the terminal shows a second at least
+  if (thoughtMs !== undefined && thoughtMs > 0) {
+    clauses.push([
+      { text: isActive ? 'thinking for ' : 'thought for ' },
+      { text: formatDuration(Math.max(1000, thoughtMs)), isBold: true },
+    ])
+  }
 
   const edits = ofKind('edit')
   if (edits.length > 0) {

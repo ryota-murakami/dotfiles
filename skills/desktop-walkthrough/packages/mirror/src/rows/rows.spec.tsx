@@ -136,3 +136,14 @@ test('adds the slash command after a notice that has one', () => {
   // Assert
   expect(container.textContent).toBe('Using Opus · /model')
 })
+
+test("shows a line a plugin logged under the plugin's name", () => {
+  // Arrange
+  const row: Row = { kind: 'log', id: 'log-1', plugin: 'thinking-log', text: '✻ Comparing the two screens.' }
+
+  // Act
+  const container = draw(row)
+
+  // Assert
+  expect(container.textContent).toBe('⏺thinking-log: ✻ Comparing the two screens.')
+})

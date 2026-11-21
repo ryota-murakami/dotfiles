@@ -35,6 +35,12 @@ const PASS_GAP_MS = 80
 const REDRAW_ROWS = 3
 /** How far back a prompt looks for an earlier drawing of itself. */
 const SAME_PROMPT_REACH = 60
+/** The terminal draws this much of a line a plugin logged. */
+const LOG_CHARS = 2000
+/** Thinking that ended this long ago and that no run took belongs to no run that appears now. */
+const THOUGHT_FRESH_MS = 5000
+/** A run drawn this little before its thinking was known to have ended still takes that thinking. */
+const THOUGHT_SLACK_MS = 300
 
 /**
  * Cut a long text down to its head and say how long the whole was; hide secrets in what is kept.
@@ -155,7 +161,8 @@ type Captured =
   | { component: 'UserMessage'; props: RenderPropsOf['UserMessage'] }
   | { component: 'AssistantMessage'; props: RenderPropsOf['AssistantMessage'] }
   | { component: 'ToolUse'; props: RenderPropsOf['ToolUse']; result?: RenderPropsOf['ToolResult'] }
-  | { component: 'ToolGroup'; props: RenderPropsOf['ToolGroup'] }
+  | { component: 'ToolGroup'; props: RenderPropsOf['ToolGroup']; thoughtMs?: number }
+  | { component: 'Log'; plugin: string; text: string }
   | { component: 'CommandOutput'; props: RenderPropsOf['CommandOutput'] }
   | { component: 'TurnDuration'; props: RenderPropsOf['TurnDuration']; finishedAt?: number }
   | { component: 'InfoNotice'; props: RenderPropsOf['InfoNotice'] }
@@ -179,6 +186,16 @@ const M = {
   /** When the last turn ended: a turn-duration row drawn right after it ended then. */
   turnEndedAt: 0,
   flushing: false,
+  /** Which folded run holds each tool call: the call's id, then the run's row id. */
+  foldedInto: new Map<string, string>(),
+  /** The run that is live now: the model's next thinking and calls join it. */
+  liveGroup: undefined as string | undefined,
+  /** The run that was drawn first most recently, and when. */
+  newestGroup: undefined as { id: string; at: number } | undefined,
+  /** Thinking of the main loop that ended and that no run has taken yet. */
+  pendingThought: undefined as { ms: number; at: number } | undefined,
+  /** Lines plugins logged so far: each gets a row id of its own. */
+  logCount: 0,
 }
 
 /** Text of a prompt or reply as a Row carries it: secrets hidden, an extreme length cut. */
@@ -253,9 +270,16 @@ export function buildRow(id: string, captured: Captured): Row | undefined {
       }
     }
     case 'ToolGroup': {
-      // A run with no calls draws nothing in the terminal either
-      if (captured.props.calls.length === 0) return undefined
-      return { kind: 'tool-group', id, calls: captured.props.calls.map(toolCall), isActive: captured.props.isActive }
+      const { props, thoughtMs } = captured
+      // A run that holds neither a call nor thinking the Bridge timed has nothing to show here
+      if (props.calls.length === 0 && thoughtMs === undefined) return undefined
+      return {
+        kind: 'tool-group',
+        id,
+        calls: props.calls.map(toolCall),
+        isActive: props.isActive,
+        ...(thoughtMs === undefined ? {} : { thoughtMs }),
+      }
     }
     case 'CommandOutput': {
       const { command, args, text, isErrored } = captured.props
@@ -273,11 +297,19 @@ export function buildRow(id: string, captured: Captured): Row | undefined {
     }
     case 'InfoNotice':
       return { kind: 'notice', id, text: maskSecrets(captured.props.text), command: captured.props.command }
+    case 'Log':
+      return { kind: 'log', id, plugin: captured.plugin, text: maskSecrets(captured.text.slice(0, LOG_CHARS)) }
   }
 }
 
 /** Forget a row. */
 function drop(id: string) {
+  // A run that goes takes its hold on its calls with it
+  if (M.captured.get(id)?.component === 'ToolGroup') {
+    for (const [callId, run] of M.foldedInto) if (run === id) M.foldedInto.delete(callId)
+    if (M.liveGroup === id) M.liveGroup = undefined
+    if (M.newestGroup?.id === id) M.newestGroup = undefined
+  }
   M.captured.delete(id)
   M.built.delete(id)
   M.stale.delete(id)
@@ -336,9 +368,178 @@ function capture(id: string, captured: Captured) {
   }
 }
 
+/** Put a row where another stood: right before the row that followed that one, or last. */
+function moveBefore(id: string, follower: string | undefined) {
+  const order = M.placement.order.filter(row => row !== id)
+  const at = follower === undefined ? -1 : order.indexOf(follower)
+  if (at === -1) order.push(id)
+  else order.splice(at, 0, id)
+  M.placement.order = order
+}
+
+/** The row that follows a row, to give its place to another with {@link moveBefore}. */
+function followerOf(id: string): string | undefined {
+  const at = M.placement.order.indexOf(id)
+  return at === -1 ? undefined : M.placement.order[at + 1]
+}
+
+/** Add thinking to a run's total. */
+function addThought(id: string, ms: number) {
+  const run = M.captured.get(id)
+  if (run?.component !== 'ToolGroup') return
+  run.thoughtMs = (run.thoughtMs ?? 0) + ms
+  M.stale.add(id)
+  M.transcriptChanged = true
+}
+
+/**
+ * A block of the main loop's thinking ended: give its length to the run that holds it.
+ *
+ * Why it exists: the terminal's line for a folded run says how long the model thought inside it
+ * (`Thought for 8s, read 2 files`), but the run's drawing event carries only its calls. The terminal
+ * adds a thinking block to the live run, or opens a run for it; the Bridge follows the same rule
+ * with the length it timed. Called by the `turn.step` hook of {@link registerMirror}.
+ *
+ * @param ms - How long the block took.
+ * @param endedAt - When it ended, in milliseconds since 1970.
+ */
+export function noteThought(ms: number, endedAt: number) {
+  if (M.liveGroup !== undefined && M.captured.get(M.liveGroup)?.component === 'ToolGroup') return addThought(M.liveGroup, ms)
+  // The run the terminal opened for this block may have been drawn already
+  const newest = M.newestGroup
+  if (newest !== undefined && newest.at >= endedAt - THOUGHT_SLACK_MS && M.captured.get(newest.id)?.component === 'ToolGroup') {
+    return addThought(newest.id, ms)
+  }
+  const waiting = M.pendingThought
+  const isFresh = waiting !== undefined && endedAt - waiting.at <= THOUGHT_FRESH_MS
+  M.pendingThought = { ms: (isFresh ? waiting.ms : 0) + ms, at: endedAt }
+}
+
+/**
+ * Keep a folded run the terminal just drew, in the place of what it folds.
+ *
+ * Why it exists: a run is not one row from start to end. A call is first drawn as a row of its own
+ * while its input arrives and joins a run after; and a run is drawn under one id while the response
+ * streams and under another once it is whole, the first never drawn again. Kept as they came, the
+ * Mirror would show the call twice and the run twice. Called by the `ToolGroup` hook of
+ * {@link registerMirror}.
+ *
+ * @param id - The run's row id.
+ * @param props - What the terminal handed the run's line.
+ */
+export function captureGroup(id: string, props: RenderPropsOf['ToolGroup']) {
+  // Unfolded (verbose, the ctrl+o view): each call is its own row there; the Mirror keeps the main view
+  if (props.isExpanded) return
+  const now = Date.now()
+  const known = M.captured.get(id)
+  const isNew = known === undefined
+  let thoughtMs = known?.component === 'ToolGroup' ? known.thoughtMs : undefined
+  // Where the run goes when it is new: the place of the first row it replaces
+  let spot: { follower: string | undefined } | undefined
+  for (const call of props.calls) {
+    const callId = call.tool_use_id
+    if (callId === undefined) continue
+    // The same run under its earlier id: this drawing replaces it and keeps its thinking
+    const earlier = M.foldedInto.get(callId)
+    const twin = earlier === undefined || earlier === id ? undefined : M.captured.get(earlier)
+    if (earlier !== undefined && twin?.component === 'ToolGroup') {
+      if (twin.thoughtMs !== undefined) thoughtMs = (thoughtMs ?? 0) + twin.thoughtMs
+      spot ??= { follower: followerOf(earlier) }
+      drop(earlier)
+    }
+    // The call's own row, drawn while its input arrived: the run shows the call now
+    if (M.captured.get(callId)?.component === 'ToolUse') {
+      spot ??= { follower: followerOf(callId) }
+      drop(callId)
+    }
+    M.foldedInto.set(callId, id)
+  }
+  capture(id, { component: 'ToolGroup', props, ...(thoughtMs === undefined ? {} : { thoughtMs }) })
+  if (isNew) {
+    if (spot !== undefined) moveBefore(id, spot.follower)
+    // Two live runs never stand next to each other: a live run right above this one is this run's earlier id
+    const at = M.placement.order.indexOf(id)
+    const above = at > 0 ? M.placement.order[at - 1] : undefined
+    const aboveRun = above === undefined ? undefined : M.captured.get(above)
+    if (above !== undefined && aboveRun?.component === 'ToolGroup' && aboveRun.props.isActive) {
+      if (aboveRun.thoughtMs !== undefined) addThought(id, aboveRun.thoughtMs)
+      drop(above)
+    }
+    M.newestGroup = { id, at: now }
+  }
+  // Thinking that ended before the terminal drew the run it belongs to
+  const waiting = M.pendingThought
+  if (waiting !== undefined && (isNew ? now - waiting.at <= THOUGHT_FRESH_MS : M.liveGroup === id)) {
+    addThought(id, waiting.ms)
+    M.pendingThought = undefined
+  }
+  if (props.isActive) M.liveGroup = id
+  else if (M.liveGroup === id) M.liveGroup = undefined
+}
+
+/**
+ * Keep a tool call's own row the terminal just drew.
+ *
+ * Called by the `ToolUse` hook of {@link registerMirror}. A call that a folded run holds is drawn
+ * as a row of its own in two cases only, told apart here: the ctrl+o view (or verbose) draws every
+ * call in full, which the Mirror does not follow; the main view draws it when it left its run.
+ *
+ * @param id - The call's id, which is its row's id.
+ * @param props - What the terminal handed the row.
+ */
+export function captureTool(id: string, props: RenderPropsOf['ToolUse']) {
+  if (M.foldedInto.has(id)) {
+    // Drawn in full by the ctrl+o view: the Mirror keeps the main view's fold
+    if (props.isExpanded) return
+    // Drawn as a row of its own in the main view: it left its run
+    M.foldedInto.delete(id)
+  }
+  capture(id, { component: 'ToolUse', props })
+}
+
+/**
+ * The Rows as they stand now, oldest first.
+ *
+ * Called by {@link flushMirror} when the Transcript changed. Cutting and masking happen here, for
+ * the rows whose data changed since the last call.
+ */
+export function currentRows(): Row[] {
+  for (const id of M.stale) {
+    const captured = M.captured.get(id)
+    const row = captured === undefined ? undefined : buildRow(id, captured)
+    if (row === undefined) M.built.delete(id)
+    else M.built.set(id, row)
+  }
+  M.stale.clear()
+  return M.placement.order.flatMap(id => {
+    const row = M.built.get(id)
+    return row === undefined ? [] : [row]
+  })
+}
+
+/** Forget every row and every run: a Session's Mirror starts empty. Called by the specs between cases. */
+export function resetMirror() {
+  M.captured.clear()
+  M.built.clear()
+  M.stale.clear()
+  M.placement = newPlacement()
+  M.dropped = 0
+  M.foldedInto.clear()
+  M.liveGroup = undefined
+  M.newestGroup = undefined
+  M.pendingThought = undefined
+  M.logCount = 0
+  M.transcriptChanged = true
+}
+
 /** Change the live state and remember that it has to be written. */
 function setLive(change: Partial<LiveDocument>) {
   M.live = { ...M.live, ...change }
+}
+
+/** Note the Session's permission mode from the input of a classic hook, which always carries it. */
+function hearMode(e: { permission_mode?: string }) {
+  if (typeof e.permission_mode === 'string' && e.permission_mode !== M.live.permissionMode) setLive({ permissionMode: e.permission_mode })
 }
 
 /**
@@ -366,6 +567,7 @@ export function noteTurnStart(turnId: string) {
   M.turn = turnId
   M.finishedLength = 0
   M.arrivingLength = 0
+  M.pendingThought = undefined
   // The spinner of the turn before is not this turn's
   const { spinner: _spinner, effort: _effort, ...rest } = M.live
   M.live = { ...rest, isBusy: true, startedAt: Date.now(), responseLength: 0 }
@@ -375,6 +577,7 @@ export function noteTurnStart(turnId: string) {
 export function noteTurnComplete() {
   M.turn = undefined
   M.turnEndedAt = Date.now()
+  M.pendingThought = undefined
   const { spinner: _spinner, startedAt: _startedAt, responseLength: _length, effort: _effort, ...rest } = M.live
   M.live = { ...rest, isBusy: false }
 }
@@ -396,18 +599,7 @@ export async function flushMirror($: EngineInterface, bridgeDir: string, session
   try {
     if (M.transcriptChanged || force || !M.transcriptWritten) {
       M.transcriptChanged = false
-      for (const id of M.stale) {
-        const captured = M.captured.get(id)
-        const row = captured === undefined ? undefined : buildRow(id, captured)
-        if (row === undefined) M.built.delete(id)
-        else M.built.set(id, row)
-      }
-      M.stale.clear()
-      const rows = M.placement.order.flatMap(id => {
-        const row = M.built.get(id)
-        return row === undefined ? [] : [row]
-      })
-      const transcript: TranscriptDocument = { v: 1, sessionId, dropped: M.dropped, rows }
+      const transcript: TranscriptDocument = { v: 1, sessionId, dropped: M.dropped, rows: currentRows() }
       await $.fs.write(`${bridgeDir}/mirror-transcript.json`, JSON.stringify(transcript))
       M.transcriptWritten = true
     }
@@ -440,12 +632,12 @@ export function registerMirror(on: On, isWatched: () => boolean) {
     return next(e)
   })
   on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
-    capture(e.requestId, { component: 'ToolUse', props: e.props })
+    captureTool(e.requestId, e.props)
     return next(e)
   })
   on('ui.render', { component: 'ToolResult' }, ($, e, next) => {
-    // The result block belongs to the tool row drawn just above it
-    const row = M.captured.get(e.requestId)
+    // The result block belongs to the tool row drawn just above it; a folded call has no row
+    const row = M.foldedInto.has(e.requestId) ? undefined : M.captured.get(e.requestId)
     if (row?.component === 'ToolUse') {
       row.result = e.props
       M.stale.add(e.requestId)
@@ -454,8 +646,7 @@ export function registerMirror(on: On, isWatched: () => boolean) {
     return next(e)
   })
   on('ui.render', { component: 'ToolGroup' }, ($, e, next) => {
-    // A run with no calls draws nothing: it takes no place until a call joins it
-    if (e.props.calls.length > 0 || M.captured.has(e.requestId)) capture(e.requestId, { component: 'ToolGroup', props: e.props })
+    captureGroup(e.requestId, e.props)
     return next(e)
   })
   on('ui.render', { component: 'CommandOutput' }, ($, e, next) => {
@@ -483,6 +674,20 @@ export function registerMirror(on: On, isWatched: () => boolean) {
     return next(e)
   })
 
+  // A line a plugin writes into the transcript is a row of the terminal's, drawn with the plugin's name
+  on('ui.log', ($, e, next) => {
+    if (e.to === 'transcript') {
+      M.logCount += 1
+      capture(`log-${M.logCount}`, { component: 'Log', plugin: next.origin.plugin, text: e.text })
+    }
+    return next(e)
+  })
+
+  // The permission mode opens the hint line; Claude Code tells it with every classic hook's input
+  on('classic.UserPromptSubmit', ($, e, next) => (hearMode(e), next(e)))
+  on('classic.PostToolUse', ($, e, next) => (hearMode(e), next(e)))
+  on('classic.Stop', ($, e, next) => (hearMode(e), next(e)))
+
   // How much the model has written in the running turn. Chunks and the response pass through as they are
   on('turn.step', async function* ($, e, next) {
     // A subagent's responses, and a Session nobody watches, pass untouched
@@ -491,19 +696,47 @@ export function registerMirror(on: On, isWatched: () => boolean) {
     const stream = next(e)
     let arrived = 0
     let counted = false
+    // A thinking block runs from the engine's item that opens it to the one that closes it: the first
+    // and the last engine items between two pieces of content
+    let gapStart: number | undefined = Date.now()
+    let gapEnd: number | undefined
+    let thinking: { index: number; startedAt: number } | undefined
+    const endThinking = (at: number) => {
+      if (thinking === undefined) return
+      noteThought(Math.max(1, Math.round(at - thinking.startedAt)), at)
+      thinking = undefined
+    }
     try {
       for await (const chunk of stream) {
+        const now = Date.now()
+        if (chunk.kind === 'engine') {
+          gapStart ??= now
+          gapEnd = now
+        } else {
+          if (chunk.kind === 'thinking') {
+            // Another block of thinking: the one before ended at the items between them
+            if (thinking !== undefined && thinking.index !== chunk.index) endThinking(gapEnd ?? now)
+            thinking ??= { index: chunk.index, startedAt: gapStart ?? now }
+          } else {
+            endThinking(gapEnd ?? now)
+          }
+          gapStart = undefined
+          gapEnd = undefined
+        }
         const chars = chunkChars(chunk)
         arrived += chars
         M.arrivingLength += chars
         yield chunk
       }
+      endThinking(gapEnd ?? Date.now())
       const response = await stream.result
       // The response is whole: its real token count takes the place of the estimate
       M.finishedLength += response.usage ? response.usage.output_tokens * 4 : arrived
       counted = true
       return response
     } finally {
+      // Interrupted while thinking: the block ended there
+      endThinking(Date.now())
       // Interrupted mid-response: what arrived still counts, as the estimate it was
       if (!counted) M.finishedLength += arrived
       M.arrivingLength = Math.max(0, M.arrivingLength - arrived)

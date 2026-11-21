@@ -1,6 +1,7 @@
 import type { Row } from '@dw/protocol'
 
 import { CommandOutputRow } from './CommandOutputRow'
+import { LogRow } from './LogRow'
 import { NoticeRow } from './NoticeRow'
 import { PromptRow } from './PromptRow'
 import { ReplyRow } from './ReplyRow'
@@ -11,7 +12,7 @@ import { TurnDurationRow } from './TurnDurationRow'
 /**
  * Draw one Row of the Transcript with the component of its kind.
  *
- * Why it exists: a Transcript is a list of Rows of seven kinds, and each kind is drawn by its own
+ * Why it exists: a Transcript is a list of Rows of eight kinds, and each kind is drawn by its own
  * component in its own file; this is the one place that maps a kind to its component. Called by
  * {@link Transcript} for every Row.
  *
@@ -33,5 +34,7 @@ export function RowView({ row }: { row: Row }) {
       return <TurnDurationRow row={row} />
     case 'notice':
       return <NoticeRow row={row} />
+    case 'log':
+      return <LogRow row={row} />
   }
 }

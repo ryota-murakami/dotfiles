@@ -2,6 +2,15 @@ import type { LiveDocument } from '@dw/protocol'
 
 import { Dim, themeColor, type ThemeColorName } from '../terminal'
 
+/** The pill each permission mode opens the hint line with; `default` has none. */
+const PILL_OF_MODE: Readonly<Record<string, string>> = {
+  plan: '⏸ plan mode on',
+  acceptEdits: '⏵⏵ accept edits on',
+  bypassPermissions: '⏵⏵ bypass permissions on',
+  dontAsk: "⏵⏵ don't ask on",
+  auto: '⏵⏵ auto mode on',
+}
+
 /** The permission-mode pills, as the terminal words them, with the colour each is drawn in. */
 const MODE_PILLS: readonly (readonly [string, ThemeColorName])[] = [
   ['⏸ plan mode on', 'planMode'],
@@ -16,15 +25,19 @@ const MODE_PILLS: readonly (readonly [string, ThemeColorName])[] = [
 const HIDDEN_WHILE_DRAFT = new Set(['? for shortcuts', 'esc to interrupt'])
 
 /**
- * Cut the terminal's hint line into the items it joins with ` · `.
+ * Cut the terminal's hint line into the items it joins with ` · `, the permission mode's pill first.
  *
  * @param hint - The hint as the terminal words it.
  * @param hasDraft - True while the Input box holds text: the items that only make sense for an empty box go.
+ * @param permissionMode - The Session's permission mode, when the Bridge has heard it.
  */
-export function hintItems(hint: string, hasDraft: boolean): string[] {
-  return hint
+export function hintItems(hint: string, hasDraft: boolean, permissionMode?: string): string[] {
+  const items = hint
     .split(' · ')
     .filter((item) => item !== '' && !(hasDraft && HIDDEN_WHILE_DRAFT.has(item.trim().toLowerCase())))
+  const pill = permissionMode === undefined ? undefined : PILL_OF_MODE[permissionMode]
+  // The terminal's line does not name the mode: its pill is drawn before the line
+  return pill === undefined || items.some((item) => item.startsWith(pill)) ? items : [pill, ...items]
 }
 
 /** One hint item: a known pill or the background-tasks count in its own colour, the rest dim. */
@@ -61,7 +74,7 @@ function HintItem({ item }: { item: string }) {
  * @param props.hasDraft - True while the Input box holds text: the hint items about interrupting go.
  */
 export function Footer({ live, hasDraft }: { live: LiveDocument | undefined; hasDraft: boolean }) {
-  const items = live?.hint ? hintItems(live.hint, hasDraft) : []
+  const items = hintItems(live?.hint ?? '', hasDraft, live?.permissionMode)
   const modes = live?.modes ?? []
   return (
     <div className="footer">
@@ -75,7 +88,7 @@ export function Footer({ live, hasDraft }: { live: LiveDocument | undefined; has
       </div>
       {modes.length > 0 ? (
         <div className="footer-modes">
-          <Dim>{modes.join(' · ')}</Dim>
+          <Dim>{modes.join(' & ')}</Dim>
         </div>
       ) : null}
     </div>

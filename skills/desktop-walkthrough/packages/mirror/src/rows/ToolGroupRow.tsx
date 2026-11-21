@@ -31,21 +31,23 @@ function Clause({ clause, isFirst }: { clause: GroupClause; isFirst: boolean }) 
  *
  * Why it exists: consecutive read, search and shell calls would fill the Transcript, so the terminal
  * folds them into `Searched for 3 patterns, read 2 files` (`Searching for 3 patterns, reading 2
- * files… · 5s` while they run, with the latest file or pattern under it). A finished run is dim with a
+ * files… · 5s` while they run, with the latest file or pattern under it), after `Thought for 8s` when
+ * the model thought inside the run. A finished run is dim with a
  * blank marker; a run with a failed call has a red marker and ends with ` N failed`. A run of agents is
  * drawn as the agent tree instead. Drawn by {@link RowView} for a `tool-group` Row.
  *
  * @param props.row - The `tool-group` Row.
  */
 export function ToolGroupRow({ row }: { row: ToolGroupRowData }) {
-  const elapsed = useElapsed(row.isActive)
+  // The elapsed time counts a call that runs, not a live run whose calls are done
+  const elapsed = useElapsed(row.isActive && row.calls.some((call) => call.isRunning))
   const visible = row.calls.filter((call) => !isRowlessTool(call.tool))
   // A group of agent calls has its own layout
   if (visible.length > 1 && visible.every((call) => call.tool === 'Agent' || call.tool === 'Task')) {
     return <AgentGroup calls={visible} isActive={row.isActive} />
   }
-  const { clauses, failed } = summarizeGroup(row.calls, row.isActive)
-  // Only calls that draw no row: the group draws nothing either
+  const { clauses, failed } = summarizeGroup(row.calls, row.isActive, row.thoughtMs)
+  // Only calls that draw no row, and no thinking: the group draws nothing either
   if (clauses.length === 0) return null
   const detail = row.isActive ? latestDetail(row.calls) : undefined
   const hasElapsed = elapsed !== undefined && elapsed >= ELAPSED_AFTER_MS

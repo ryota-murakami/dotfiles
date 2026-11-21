@@ -103,6 +103,11 @@ export const toolGroupRowSchema = z.object({
   calls: z.array(toolCallSchema),
   /** True while a call in the group may still run and the next call may join it. */
   isActive: z.boolean(),
+  /**
+   * How long the model thought inside the run, in milliseconds: the line's `Thought for 8s`. Absent
+   * when it did not think there, and for a run drawn before the Bridge was watching.
+   */
+  thoughtMs: z.number().optional(),
 })
 export type ToolGroupRow = z.infer<typeof toolGroupRowSchema>
 
@@ -140,6 +145,16 @@ export const noticeRowSchema = z.object({
 })
 export type NoticeRow = z.infer<typeof noticeRowSchema>
 
+/** A line a plugin wrote into the transcript, shown dim as `<plugin>: <text>`. */
+export const logRowSchema = z.object({
+  kind: z.literal('log'),
+  id: z.string(),
+  /** The plugin that wrote the line, as the terminal names it before the text. */
+  plugin: z.string(),
+  text: z.string(),
+})
+export type LogRow = z.infer<typeof logRowSchema>
+
 /** One Row of the Transcript. */
 export const rowSchema = z.discriminatedUnion('kind', [
   promptRowSchema,
@@ -149,6 +164,7 @@ export const rowSchema = z.discriminatedUnion('kind', [
   commandOutputRowSchema,
   turnDurationRowSchema,
   noticeRowSchema,
+  logRowSchema,
 ])
 export type Row = z.infer<typeof rowSchema>
 
@@ -187,9 +203,15 @@ export const liveDocumentSchema = z.object({
   responseLength: z.number().optional(),
   /** Effort of the turn's requests (`xhigh`), as "thinking with … effort" names it. */
   effort: z.string().optional(),
-  /** The hint line under the Input box, as the terminal words it. */
+  /**
+   * The Session's permission mode as Claude Code names it (`default`, `acceptEdits`, `plan`,
+   * `bypassPermissions`, `dontAsk`, `auto`): the pill that opens the hint line. Absent until the
+   * Bridge has heard it.
+   */
+  permissionMode: z.string().optional(),
+  /** The hint line under the Input box, as the terminal words it (the permission pill is not in it). */
   hint: z.string().optional(),
-  /** The mode labels at the right of the footer (`focus`, `memory paused`). */
+  /** The mode labels at the right of the footer (`focus`, `memory paused`), which the terminal joins with ` & `. */
   modes: z.array(z.string()).optional(),
 })
 export type LiveDocument = z.infer<typeof liveDocumentSchema>

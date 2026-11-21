@@ -1,5 +1,5 @@
 import { expect, test } from 'claude-code/testing'
-import { chunkChars, clipText, clipValue, newPlacement, place } from './mirror'
+import { captureGroup, captureTool, chunkChars, clipText, clipValue, currentRows, newPlacement, noteThought, place, resetMirror } from './mirror'
 
 // A fake credential assembled at run time, so secret scanners do not flag this public file
 const TOKEN = ['abcdefgh', 'ijklmnop', 'qrstuvwx'].join('')
@@ -125,4 +125,114 @@ test('the spinner line counts streamed text, thinking and tool arguments, and no
 
   // Assert
   expect(chars).toEqual([4, 3, 7, 0, 0])
+})
+
+/** A tool call as the terminal hands it to its own row. */
+const call = (id: string, tool: string, input: unknown) => ({
+  tool_use_id: id,
+  tool,
+  input,
+  isRunning: false,
+  isErrored: false,
+  isInterrupted: false,
+})
+
+/** A folded run as the terminal hands it to its line. */
+const run = (calls: ReturnType<typeof call>[], isActive: boolean) => ({ calls, isActive, isExpanded: false, isCallsOnly: true })
+
+test('a call drawn on its own while its input arrives is shown once after it joins a folded run', () => {
+  // Arrange
+  resetMirror()
+  captureTool('call-1', { ...call('call-1', 'Bash', {}), isExpanded: false })
+  captureTool('call-2', { ...call('call-2', 'Bash', { command: 'pnpm test' }), isExpanded: false })
+
+  // Act
+  captureGroup('run-1', run([call('call-1', 'Bash', { command: 'ls src' })], true))
+
+  // Assert
+  expect(currentRows().map(row => `${row.kind} ${row.id}`)).toEqual(['tool-group run-1', 'tool call-2'])
+})
+
+test('a folded run drawn again under a new id is shown once, where it stood', () => {
+  // Arrange
+  resetMirror()
+  captureGroup('run-while-streaming', run([call('call-1', 'Read', { file_path: 'a.ts' })], true))
+  captureTool('call-2', { ...call('call-2', 'Bash', { command: 'pnpm test' }), isExpanded: false })
+
+  // Act
+  captureGroup('run-once-whole', run([call('call-1', 'Read', { file_path: 'a.ts' })], true))
+
+  // Assert
+  expect(currentRows().map(row => `${row.kind} ${row.id}`)).toEqual(['tool-group run-once-whole', 'tool call-2'])
+})
+
+test('a folded run says how long the model thought inside it', () => {
+  // Arrange
+  resetMirror()
+  captureGroup('run-1', run([call('call-1', 'Read', { file_path: 'a.ts' })], true))
+
+  // Act
+  noteThought(8200, Date.now())
+  noteThought(11000, Date.now())
+
+  // Assert
+  expect(currentRows()).toEqual([
+    {
+      kind: 'tool-group',
+      id: 'run-1',
+      calls: [{ tool: 'Read', input: { file_path: 'a.ts' }, isRunning: false, isErrored: false, isInterrupted: false }],
+      isActive: true,
+      thoughtMs: 19200,
+    },
+  ])
+})
+
+test('thinking that ends before the terminal draws its run is given to that run', () => {
+  // Arrange
+  resetMirror()
+  noteThought(8200, Date.now())
+
+  // Act
+  captureGroup('run-1', run([], false))
+
+  // Assert
+  expect(currentRows()).toEqual([{ kind: 'tool-group', id: 'run-1', calls: [], isActive: false, thoughtMs: 8200 }])
+})
+
+test('a run that holds no call and no thinking shows nothing', () => {
+  // Arrange
+  resetMirror()
+
+  // Act
+  captureGroup('run-1', run([], false))
+
+  // Assert
+  expect(currentRows()).toEqual([])
+})
+
+test('a run that goes on under a new id keeps the thinking it held', () => {
+  // Arrange
+  resetMirror()
+  noteThought(8200, Date.now())
+  captureGroup('run-while-streaming', run([], true))
+
+  // Act
+  captureGroup('run-once-whole', run([call('call-1', 'Read', { file_path: 'a.ts' })], true))
+
+  // Assert
+  expect(currentRows().map(row => (row.kind === 'tool-group' ? `${row.id} ${row.thoughtMs}` : row.kind))).toEqual([
+    'run-once-whole 8200',
+  ])
+})
+
+test('a folded call that the ctrl+o view draws in full stays folded', () => {
+  // Arrange
+  resetMirror()
+  captureGroup('run-1', run([call('call-1', 'Read', { file_path: 'a.ts' })], false))
+
+  // Act
+  captureTool('call-1', { ...call('call-1', 'Read', { file_path: 'a.ts' }), isExpanded: true })
+
+  // Assert
+  expect(currentRows().map(row => `${row.kind} ${row.id}`)).toEqual(['tool-group run-1'])
 })

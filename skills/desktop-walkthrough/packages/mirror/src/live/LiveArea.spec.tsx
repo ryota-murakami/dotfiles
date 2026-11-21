@@ -205,7 +205,7 @@ test('shows the terminal hint and the mode labels under the box', () => {
   expect(container.querySelector('.footer-hint')?.textContent).toBe(
     '⏵⏵ bypass permissions on · esc to interrupt',
   )
-  expect(container.querySelector('.footer-modes')?.textContent).toBe('focus · memory paused')
+  expect(container.querySelector('.footer-modes')?.textContent).toBe('focus & memory paused')
 })
 
 test('hides the hint about interrupting while the box holds a draft and brings it back when emptied', () => {
@@ -423,4 +423,28 @@ test('Up does not leave a text of several lines: the arrow moves the caret', () 
 
   // Assert
   expect(box.value).toBe('one\ntwo')
+})
+
+test('opens the hint line with the pill of the permission mode', () => {
+  // Arrange
+  const live = busy({ permissionMode: 'bypassPermissions', hint: '2 shells · esc to interrupt' })
+
+  // Act
+  const { container } = render(<LiveArea live={live} />)
+
+  // Assert
+  expect(container.querySelector('.footer-hint')?.textContent).toBe(
+    '⏵⏵ bypass permissions on · 2 shells · esc to interrupt',
+  )
+})
+
+test('shows no pill in the default permission mode', () => {
+  // Arrange
+  const live = busy({ permissionMode: 'default', hint: 'esc to interrupt' })
+
+  // Act
+  const { container } = render(<LiveArea live={live} />)
+
+  // Assert
+  expect(container.querySelector('.footer-hint')?.textContent).toBe('esc to interrupt')
 })

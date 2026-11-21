@@ -286,3 +286,34 @@ test('words a live folded run in the progressive form with the latest file under
   // Assert
   expect(text).toBe('⏺Reading 1 file… (ctrl+o to expand)  ⎿  /p/a.ts')
 })
+
+test('starts a finished folded run with how long the model thought inside it', () => {
+  // Arrange
+  const row: Row = {
+    kind: 'tool-group',
+    id: 'g-thought',
+    isActive: false,
+    thoughtMs: 19_400,
+    calls: [
+      call('Bash', { command: 'ls src' }, { stdout: 'a.ts', stderr: '', interrupted: false }),
+      call('Bash', { command: 'ls docs' }, { stdout: 'b.md', stderr: '', interrupted: false }),
+    ],
+  }
+
+  // Act
+  const { text } = draw(row)
+
+  // Assert
+  expect(text).toBe(' Thought for 19s, listed 2 directories (ctrl+o to expand)')
+})
+
+test('shows a run that only held thinking as the time the model thought', () => {
+  // Arrange
+  const row: Row = { kind: 'tool-group', id: 'g-only-thought', isActive: false, thoughtMs: 8200, calls: [] }
+
+  // Act
+  const { text } = draw(row)
+
+  // Assert
+  expect(text).toBe(' Thought for 8s (ctrl+o to expand)')
+})
