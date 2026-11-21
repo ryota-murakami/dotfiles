@@ -1,5 +1,10 @@
 import type { EngineInterface, Register } from 'claude-code'
 
+import { flushMirror, noteTurnComplete, noteTurnStart, registerMirror } from './mirror'
+import { maskSecrets } from './secrets'
+
+export { maskSecrets } from './secrets'
+
 /**
  * hud-bridge: connects a Claude Code session to the desktop-walkthrough HUD through plain files,
  * so the person can read the conversation, talk to the agent and stop it from any desktop
@@ -21,6 +26,7 @@ import type { EngineInterface, Register } from 'claude-code'
  * - `bridge/tool-class`    mod → HUD  what the newest tool call of the running turn is: "skill", "waiting" or "other"
  * - `bridge/tool-at`       mod → HUD  rewritten at every tool call: the agent reacted (ends the HUD's delivery progress)
  * - `bridge/ack`           mod → HUD  `{ kind, at }` after a HUD message or stop was handed to the session
+ * - `bridge/mirror-transcript.json`, `bridge/mirror-live.json`  mod → HUD  the Mirror's documents (see mirror.ts)
  * - `status.txt`           mod → HUD  the status line, for tools that do not narrate through `dw say`
  * - `typing`, `hud.alive`   HUD → mod  message being typed, heartbeat
  */
@@ -29,51 +35,6 @@ const FEED_LIMIT = 300
 const HUD_STALE_MS = 8000
 /** Bash commands that drive the GUI: these wait while the person has taken over the Mac. */
 const GUI_COMMAND = /agent-desktop|desktop-walkthrough|(^|[\s;&|(])dw\s/
-
-/**
- * Values that must never reach the HUD, each written out literally, paired with what is shown
- * instead. A reference such as `$TOKEN`, `"$(op read …)"` or `op://…` does not match, so a command
- * that fetches a secret stays readable.
- *
- * Why it exists: the mirror shows every Bash command in full, and a signed email-verification link
- * once reached it inside a command. Applied by {@link maskSecrets} to everything this module writes
- * for the HUD. The PreToolUse hook `~/.claude/hooks/block-literal-secrets.py` refuses Bash commands
- * that spell a secret out; keep its list in step with this one.
- */
-const SECRET_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
-  // Private key blocks, whole
-  [/-----BEGIN ([A-Z ]*)PRIVATE KEY-----[\s\S]*?-----END \1PRIVATE KEY-----/g, '-----BEGIN $1PRIVATE KEY-----•••-----END $1PRIVATE KEY-----'],
-  // Signed links and tokens in a query string: the parameter name stays, its value goes
-  [/([?&](?:signature|sig|token|access_token|refresh_token|id_token|api_key|apikey|key|secret|client_secret|password|code)=)[^&#\s'"`]{6,}/gi, '$1•••'],
-  // Authorization headers that carry the credential itself
-  [/\b(Bearer|Authorization: *Basic) +(?![$`])[A-Za-z0-9._~+/=-]{12,}/g, '$1 •••'],
-  // JSON Web Tokens: header and payload both start with base64 `{"`
-  [/\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, 'eyJ•••'],
-  // API keys known by their prefix: OpenAI/Anthropic, GitHub, GitLab, Slack, Stripe, 1Password service accounts
-  [/\b(sk-(?:ant-|proj-)?|gh[pousr]_|github_pat_|glpat-|xox[abprs]-|(?:sk|rk)_(?:live|test)_|ops_eyJ)[A-Za-z0-9_-]{16,}/g, '$1•••'],
-  // AWS access key ids, Google API keys, Resend keys
-  [/\bAKIA[0-9A-Z]{16}\b/g, 'AKIA•••'],
-  [/\bAIza[0-9A-Za-z_-]{35}/g, 'AIza•••'],
-  [/\bre_[A-Za-z0-9]{6,}_[A-Za-z0-9]{16,}/g, 're_•••'],
-  // NAME=value where the name says secret, unless the value is a reference ($X, $(…), `…`)
-  [/\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|PASSWD|API_KEY|APIKEY|ACCESS_KEY|PRIVATE_KEY))=(["']?)(?![$`])[^\s"'`;&|]{6,}\2/g, '$1=$2•••$2'],
-]
-
-/**
- * Hide every literal secret in a text shown on the HUD (see {@link SECRET_PATTERNS}).
- *
- * Called by {@link pushFeed} for every mirror entry and by the `tool.call` hook for the status
- * line, so no path to the screen skips it.
- *
- * @param text - A prompt, an agent message or a tool call description.
- * @returns The same text with each secret value replaced by `•••`.
- *
- * @example
- * maskSecrets('open https://app.test/verify?expires=1&signature=abc123def') // '…&signature=•••'
- */
-export function maskSecrets(text: string): string {
-  return SECRET_PATTERNS.reduce((shown, [pattern, replacement]) => shown.replace(pattern, replacement), text)
-}
 
 type Paths = {
   feed: string
@@ -91,6 +52,7 @@ type Paths = {
   toolClass: string
   toolAt: string
   ack: string
+  bridge: string
 }
 
 type FeedEntry = { role: 'you' | 'agent' | 'tool' | 'hud'; text: string; ts: number }
@@ -133,6 +95,7 @@ async function paths($: EngineInterface): Promise<Paths> {
     toolClass: `${bridge}/tool-class`,
     toolAt: `${bridge}/tool-at`,
     ack: `${bridge}/ack`,
+    bridge,
   }
   return S.paths
 }
@@ -406,9 +369,20 @@ async function pollHud($: EngineInterface) {
 }
 
 export const register: Register = on => {
+  // The Mirror's documents come from watching what the terminal draws (mirror.ts)
+  registerMirror(on, () => S.wasActive)
+
   on('session.start', async ($, e, next) => {
     const started = await next(e)
     await logLoaded($).catch(() => undefined)
+    // The Mirror's documents are written a few times a second, while this session owns a live HUD
+    $.clock.every(200, () => {
+      if (!S.wasActive) return
+      void (async () => {
+        const p = await paths($)
+        await flushMirror($, p.bridge, await $.session.id())
+      })().catch(() => undefined)
+    })
     // One poll loop for the feed and the HUD's inbox/control files; idle unless this session owns a live HUD
     $.clock.every(600, () => {
       // A slow tick must not overlap the next one
@@ -425,7 +399,10 @@ export const register: Register = on => {
         // `dw start` deletes the state file and waits for the owning session to write it back
         if (taking || !(await $.fs.exists(p.state))) await writeState($)
         await syncFeed($).catch(() => undefined)
-        if (taking) await pushFeed($, [], true)
+        if (taking) {
+          await pushFeed($, [], true)
+          await flushMirror($, p.bridge, await $.session.id(), true).catch(() => undefined)
+        }
         await pollHud($).catch(() => undefined)
       })()
         .catch(() => undefined)
@@ -439,6 +416,7 @@ export const register: Register = on => {
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) {
       S.runningTurn = e.turnId
+      noteTurnStart(e.turnId)
       if (await isActive($)) {
         // A new turn starts as "other work" until a tool call or `dw` says more
         await $.fs.write((await paths($)).toolClass, 'other').catch(() => undefined)
@@ -452,6 +430,7 @@ export const register: Register = on => {
     const done = await next(e)
     if (e.agentId === undefined) {
       S.runningTurn = undefined
+      noteTurnComplete()
       if (await isActive($)) {
         await writeState($)
         await syncFeed($).catch(() => undefined)

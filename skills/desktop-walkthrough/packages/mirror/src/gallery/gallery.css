@@ -1,0 +1,42 @@
+/* Chrome of the gallery itself; the Mirror's own look is in ../styles.css */
+body {
+  background: rgb(24 24 24);
+  padding: 1rem;
+}
+
+.gallery-section {
+  margin-bottom: 2.5rem;
+}
+
+.gallery-title {
+  margin: 0 0 0.25lh;
+  font-size: 1rem;
+  font-weight: bold;
+  color: var(--claude);
+}
+
+.gallery-note {
+  max-width: 100ch;
+  margin: 0 0 1lh;
+  color: var(--inactive);
+}
+
+.gallery-frames {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 2rem;
+}
+
+.gallery-caption {
+  margin-bottom: 0.25lh;
+  color: var(--inactive);
+}
+
+/* A stand-in for the HUD's panel: the page itself is transparent */
+.gallery-frame {
+  box-sizing: content-box;
+  padding-bottom: 1lh;
+  background: rgb(16 16 16);
+  outline: 1px solid rgb(70 70 70);
+}

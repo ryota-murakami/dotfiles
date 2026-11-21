@@ -219,6 +219,12 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     lazy var zoomOut = IconButton(symbol: "minus", label: "文字を小さく", pointSize: 12, target: self, action: #selector(zoomOutTapped))
     let zoomLabel = NSTextField(labelWithString: "")
     var feedStamp: Date?
+    /// The Mirror's page: the conversation drawn the way Claude Code's terminal draws it, with its
+    /// Input box (see MirrorPage.swift). It takes the place of the feed and the message box whenever
+    /// the page and the Bridge's Transcript are both there.
+    let mirrorPage = MirrorPage()
+    /// The app the user came from when the page's Input box took the keyboard: it gets the keyboard back.
+    var mirrorPreviousApp: NSRunningApplication?
     /// Keys of long tool entries the user expanded (like an open <details>), kept while the HUD runs.
     var expandedEntries = Set<String>()
     var zoom: CGFloat { CGFloat(settings.value("mirror.zoom")) }
@@ -422,7 +428,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             settingsCard.dismiss()
             effects.hide()
             // A message box left focused would take the user's typing unseen
-            if mirror.isKeyWindow { input.returnFocus() }
+            if mirror.isKeyWindow {
+                // Whichever input had the keyboard gives it back: the message box, or the page's Input box
+                if mirrorPage.webView.isHidden { input.returnFocus() } else { returnMirrorFocus() }
+            }
             // The bar's polling no longer runs: a resize cursor it had set would stay
             if barEdgeHovered {
                 barEdgeHovered = false

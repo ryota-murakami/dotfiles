@@ -1,0 +1,195 @@
+/*
+ * Markdown as the terminal draws it (messages.md, section 4): no frames, no code backgrounds, inline
+ * code in the `permission` colour, `-` list markers, a `▎` bar for quotes, tables in box-drawing lines.
+ */
+.md {
+  display: flex;
+  flex-direction: column;
+}
+
+/* One blank row between blocks that had one in the source, and around tables, quotes, rules and headings */
+.md-gap {
+  margin-top: 1lh;
+}
+
+.md-p {
+  margin: 0;
+}
+
+.md-h1 {
+  font-weight: bold;
+  font-style: italic;
+  text-decoration: underline;
+}
+
+.md-h {
+  font-weight: bold;
+}
+
+.md-strong {
+  font-weight: bold;
+}
+
+.md-code {
+  color: var(--permission);
+}
+
+.md-link {
+  color: var(--ansi-blue-bright);
+  text-decoration: none;
+}
+
+/* Fenced and indented code: no frame, no indent, no background */
+.md-fence {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.md-fence-plain {
+  color: var(--permission);
+}
+
+/* highlight.js tokens, coloured with the terminal palette as Claude Code does (messages.md, 4.4) */
+.hljs-keyword,
+.hljs-literal,
+.hljs-name,
+.hljs-title.class_ {
+  color: var(--ansi-blue-bright);
+}
+
+.hljs-built_in,
+.hljs-attr {
+  color: var(--ansi-cyan);
+}
+
+.hljs-type {
+  color: var(--ansi-cyan);
+  opacity: 0.6;
+}
+
+.hljs-number,
+.hljs-comment,
+.hljs-doctag,
+.hljs-addition {
+  color: var(--ansi-green);
+}
+
+.hljs-string,
+.hljs-regexp,
+.hljs-deletion {
+  color: var(--ansi-red);
+}
+
+.hljs-title.function_ {
+  color: var(--ansi-yellow);
+}
+
+.hljs-meta,
+.hljs-tag {
+  color: var(--ansi-gray);
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-link {
+  text-decoration: underline;
+}
+
+/* Lists: a marker cell, then the item; a nested list sits in its parent's item */
+.md-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.md-item {
+  display: flex;
+  align-items: flex-start;
+}
+
+.md-marker {
+  flex: none;
+  white-space: pre;
+}
+
+.md-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Quotes: the bar `▎` is a quarter-cell wide on the left of its cell, then one column of padding */
+.md-quote {
+  border-left: 0.25ch solid var(--faint);
+  padding-left: 1.75ch;
+  font-style: italic;
+}
+
+/*
+ * Tables are a grid whose lines are drawn with CSS: a bar column, then per table column a pad, the
+ * text and a pad, then a bar. Border cells carry the line pieces so that corners and crossings join.
+ */
+.md-table {
+  display: grid;
+  align-items: center;
+  white-space: pre-wrap;
+}
+
+.tb {
+  position: relative;
+  align-self: stretch;
+  min-height: 1lh;
+}
+
+.tb > i {
+  position: absolute;
+  background: var(--text);
+}
+
+.tb-u,
+.tb-d {
+  left: calc(50% - 0.5px);
+  width: 1px;
+}
+
+.tb-u {
+  top: 0;
+  height: calc(50% + 0.5px);
+}
+
+.tb-d {
+  bottom: 0;
+  height: calc(50% + 0.5px);
+}
+
+.tb-l,
+.tb-r {
+  top: calc(50% - 0.5px);
+  height: 1px;
+}
+
+.tb-l {
+  left: 0;
+  width: calc(50% + 0.5px);
+}
+
+.tb-r {
+  right: 0;
+  width: calc(50% + 0.5px);
+}
+
+.tcell {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.md-vertical-rule {
+  overflow: hidden;
+  white-space: nowrap;
+}

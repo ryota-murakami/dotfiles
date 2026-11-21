@@ -47,8 +47,15 @@ export const promptRowSchema = z.object({
   text: z.string(),
   /** Where it came from, as Claude Code names it (`composer`, `plugin`, `task-notification`, `peer`, …). */
   origin: z.string(),
-  /** The sender's name, for a message from another agent or session. */
+  /**
+   * The sender's name: the agent or session of a `peer` message, the plugin of a `plugin` prompt
+   * (the HUD's own prompts name the skill), shown on the dim line above the prompt.
+   */
   from: z.string().optional(),
+  /** How a background task ended, for a `task-notification`: it colours the row's bullet. */
+  status: z.enum(['completed', 'failed', 'killed']).optional(),
+  /** How long the background task of a `task-notification` ran, in milliseconds: shown dim after ` · `. */
+  durationMs: z.number().optional(),
 })
 export type PromptRow = z.infer<typeof promptRowSchema>
 
@@ -68,12 +75,16 @@ export type ReplyRow = z.infer<typeof replyRowSchema>
 export const toolCallSchema = z.object({
   /** The tool's name as the Session calls it (`Bash`, `Read`, `mcp__server__tool`). */
   tool: z.string(),
-  /** The call's input as the model sent it, long texts clipped. */
+  /**
+   * The call's input as the model sent it, cut down by the Bridge: a long text inside it is a
+   * {@link Clipped} (its head and the size of the whole), and a long list ends with
+   * `{ __dwMore: n }`, n being the items left out.
+   */
   input: z.unknown(),
   isRunning: z.boolean(),
   isErrored: z.boolean(),
   isInterrupted: z.boolean(),
-  /** The tool's own result object once the call resolved, long texts clipped. */
+  /** The tool's own result object once the call resolved, cut down the same way as `input`. */
   output: z.unknown().optional(),
 })
 export type ToolCall = z.infer<typeof toolCallSchema>
@@ -115,6 +126,8 @@ export const turnDurationRowSchema = z.object({
   /** The past-tense word the line drew (`Baked`). */
   word: z.string(),
   durationMs: z.number(),
+  /** When the turn finished, in milliseconds since 1970: the line adds ` · done 3:04 PM` after it. */
+  finishedAt: z.number().optional(),
 })
 export type TurnDurationRow = z.infer<typeof turnDurationRowSchema>
 
@@ -187,8 +200,10 @@ export const pageMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ready') }),
   /** The user sent a Prompt from the Input box. */
   z.object({ type: z.literal('submit'), text: z.string() }),
-  /** The user asked to stop the running turn (Esc on an empty Input box). */
+  /** The user asked to stop the running turn (Esc on an empty Input box while a turn runs). */
   z.object({ type: z.literal('interrupt') }),
+  /** The user is done with the Input box: the keyboard goes back to the app they came from (Esc on an empty Input box while nothing runs). */
+  z.object({ type: z.literal('release') }),
   /** The Input box took or lost the keyboard. */
   z.object({ type: z.literal('focus'), isFocused: z.boolean() }),
   /** The Input box holds a draft, or no longer does: while it does, the agent's GUI steps wait. */

@@ -15,6 +15,8 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
+    // The theme spec reads theme.css as text; by default the runner blanks stylesheets
+    css: true,
     setupFiles: ['src/test-setup.ts'],
     // Not `*.test.ts`: `claude plugin test` takes every such file under the plugin for a hooks test
     include: ['src/**/*.spec.{ts,tsx}'],

@@ -1,7 +1,7 @@
 import { expect, test } from 'vitest'
 
-import { liveWhileToolRuns, turnInProgress } from './fixtures'
-import { liveDocumentSchema, transcriptDocumentSchema } from './index'
+import { galleryFixtures, liveWhileToolRuns, turnInProgress } from './fixtures'
+import { liveDocumentSchema, rowSchema, transcriptDocumentSchema } from './index'
 
 test('the Mirror accepts the transcript of a turn in progress', () => {
   // Arrange
@@ -34,4 +34,15 @@ test('the Mirror refuses a live state whose spinner names a mode Claude Code doe
 
   // Assert
   expect(parsed.success).toBe(false)
+})
+
+test('the Mirror accepts every Row of its gallery', () => {
+  // Arrange
+  const rows = galleryFixtures.flatMap((fixture) => fixture.rows)
+
+  // Act
+  const failures = rows.filter((row) => !rowSchema.safeParse(row).success)
+
+  // Assert
+  expect(failures).toEqual([])
 })
