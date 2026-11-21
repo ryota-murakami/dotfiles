@@ -1,8 +1,13 @@
 import { turnInProgress } from '@dw/protocol/fixtures'
 import { act, render, screen } from '@testing-library/react'
-import { expect, test } from 'vitest'
+import { beforeEach, expect, test } from 'vitest'
 
-import { App, receive } from './App'
+import { App } from './App'
+import { receiveTranscript, resetStore } from './store'
+
+beforeEach(() => {
+  resetStore()
+})
 
 test('shows the prompt of a turn the HUD handed over', () => {
   // Arrange
@@ -10,24 +15,24 @@ test('shows the prompt of a turn the HUD handed over', () => {
 
   // Act
   act(() => {
-    receive(turnInProgress)
+    receiveTranscript(turnInProgress)
   })
 
   // Assert
   expect(screen.getByText('run the tests').isConnected).toBe(true)
 })
 
-test('keeps the last transcript when the HUD hands over something that is not a document', () => {
+test('keeps the last transcript when the HUD hands over something that is not a transcript', () => {
   // Arrange
   render(<App />)
   act(() => {
-    receive(turnInProgress)
+    receiveTranscript(turnInProgress)
   })
 
   // Act
   let accepted = true
   act(() => {
-    accepted = receive({ rows: 'nonsense' })
+    accepted = receiveTranscript({ rows: 'nonsense' })
   })
 
   // Assert

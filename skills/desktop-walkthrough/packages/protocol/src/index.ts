@@ -1,28 +1,54 @@
 /**
- * The protocol between the Bridge (the plugin's hooks module, inside a Claude Code Session) and the
- * HUD: what the Bridge tells the HUD about the Session so that the Mirror can draw it.
+ * The protocol between the Bridge (the plugin's hooks module, inside a Claude Code Session), the HUD
+ * and the Mirror's page: what the Bridge tells about the Session so that the Mirror can draw it, and
+ * what the page tells the HUD back.
  *
  * Why it exists: the Bridge runs in Claude Code's plugin sandbox, the HUD is a Swift app and the
- * Mirror's drawing is a web page inside it. They meet only in JSON files, so the shape of that JSON
- * is written once, here: the Bridge imports the types, the Mirror checks what it receives against
- * the schemas, and the tests of both use the same sample data.
+ * Mirror's drawing is a web page inside it. They meet only in JSON, so the shape of that JSON is
+ * written once, here: the Bridge imports the types, the page checks what it receives against the
+ * schemas, and the tests of both use the same sample data.
+ *
+ * A Row carries what Claude Code hands its own terminal UI for that row (the props of its row
+ * components), cut down by the Bridge to what a Row shows. How a Row is drawn is not in here.
  */
 import { z } from 'zod'
 
-/** Version of the document the Bridge writes; the Mirror refuses a document it does not know. */
+/** Version of the documents the Bridge writes; the page refuses a document it does not know. */
 export const PROTOCOL_VERSION = 1
+
+/**
+ * A long text cut down by the Bridge: its head, and how long the whole was.
+ *
+ * Why it exists: a Row shows the first lines of a command's output and how many more there were;
+ * the megabytes behind them have no business in the HUD.
+ */
+export const clippedSchema = z.object({
+  /** The first lines of the text. */
+  head: z.string(),
+  /** Lines of the whole text. */
+  lines: z.number(),
+  /** Characters of the whole text. */
+  chars: z.number(),
+})
+export type Clipped = z.infer<typeof clippedSchema>
+
+/** A text as the Bridge passes it on: whole when short, clipped when long. */
+export type Text = string | Clipped
 
 /** What a running turn is doing, as Claude Code's spinner tells it. */
 export const spinnerModeSchema = z.enum(['requesting', 'responding', 'thinking', 'tool-input', 'tool-use'])
 export type SpinnerMode = z.infer<typeof spinnerModeSchema>
 
-/** A Prompt as its Row shows it: the user's own, or one that came from elsewhere. */
+/** A Prompt's Row: the user's own words, or a message that reached the Session another way. */
 export const promptRowSchema = z.object({
   kind: z.literal('prompt'),
   id: z.string(),
+  /** What the row shows: the prompt as typed, a notification's summary, another party's message. */
   text: z.string(),
-  /** Who sent it: the person at the terminal, the HUD's Input box, a background task, another agent. */
-  origin: z.enum(['user', 'hud', 'notification', 'peer', 'other']),
+  /** Where it came from, as Claude Code names it (`composer`, `plugin`, `task-notification`, `peer`, …). */
+  origin: z.string(),
+  /** The sender's name, for a message from another agent or session. */
+  from: z.string().optional(),
 })
 export type PromptRow = z.infer<typeof promptRowSchema>
 
@@ -34,68 +60,138 @@ export const replyRowSchema = z.object({
   /** True on the block that opens a reply: it draws the reply's bullet. */
   isFirstOfReply: z.boolean(),
   /** True on a block that summarizes text the model wrote between two tool calls. */
-  isSummary: z.literal(true).optional(),
+  isSummary: z.boolean().optional(),
 })
 export type ReplyRow = z.infer<typeof replyRowSchema>
 
-/** A tool call and, once it resolved, its result. */
-export const toolRowSchema = z.object({
-  kind: z.literal('tool'),
-  id: z.string(),
+/** A tool call with, once it resolved, its result. */
+export const toolCallSchema = z.object({
   /** The tool's name as the Session calls it (`Bash`, `Read`, `mcp__server__tool`). */
   tool: z.string(),
-  /** The call's input as the model sent it. */
+  /** The call's input as the model sent it, long texts clipped. */
   input: z.unknown(),
-  state: z.enum(['running', 'done', 'errored', 'interrupted']),
-  /** The tool's result, cut down by the Bridge to what a Row shows. */
+  isRunning: z.boolean(),
+  isErrored: z.boolean(),
+  isInterrupted: z.boolean(),
+  /** The tool's own result object once the call resolved, long texts clipped. */
   output: z.unknown().optional(),
 })
+export type ToolCall = z.infer<typeof toolCallSchema>
+
+export const toolRowSchema = toolCallSchema.extend({
+  kind: z.literal('tool'),
+  id: z.string(),
+})
 export type ToolRow = z.infer<typeof toolRowSchema>
+
+/** A run of tool calls the terminal folds into one line (`Read 3 files, ran 2 shell commands`). */
+export const toolGroupRowSchema = z.object({
+  kind: z.literal('tool-group'),
+  id: z.string(),
+  /** In the order the model made them. */
+  calls: z.array(toolCallSchema),
+  /** True while a call in the group may still run and the next call may join it. */
+  isActive: z.boolean(),
+})
+export type ToolGroupRow = z.infer<typeof toolGroupRowSchema>
+
+/** What a slash command printed under its echo. */
+export const commandOutputRowSchema = z.object({
+  kind: z.literal('command-output'),
+  id: z.string(),
+  /** The command, without its slash. */
+  command: z.string(),
+  args: z.string(),
+  /** What it printed, markdown. */
+  text: z.string(),
+  isErrored: z.boolean(),
+})
+export type CommandOutputRow = z.infer<typeof commandOutputRowSchema>
 
 /** The line that closes a turn (`Baked for 3s`). */
 export const turnDurationRowSchema = z.object({
   kind: z.literal('turn-duration'),
   id: z.string(),
+  /** The past-tense word the line drew (`Baked`). */
   word: z.string(),
   durationMs: z.number(),
 })
 export type TurnDurationRow = z.infer<typeof turnDurationRowSchema>
+
+/** A dim notice (the model's source, a settings hint), with a slash command after it when it has one. */
+export const noticeRowSchema = z.object({
+  kind: z.literal('notice'),
+  id: z.string(),
+  text: z.string(),
+  command: z.string().nullable(),
+})
+export type NoticeRow = z.infer<typeof noticeRowSchema>
 
 /** One Row of the Transcript. */
 export const rowSchema = z.discriminatedUnion('kind', [
   promptRowSchema,
   replyRowSchema,
   toolRowSchema,
+  toolGroupRowSchema,
+  commandOutputRowSchema,
   turnDurationRowSchema,
+  noticeRowSchema,
 ])
 export type Row = z.infer<typeof rowSchema>
 
-/** What changes while a turn runs: the Spinner line's inputs and the footer under the Input box. */
-export const liveSchema = z.object({
+/** The Transcript as the Bridge last wrote it. */
+export const transcriptDocumentSchema = z.object({
+  v: z.literal(PROTOCOL_VERSION),
+  sessionId: z.string(),
+  /** Rows the Bridge dropped from the start to keep the document small. */
+  dropped: z.number(),
+  /** Oldest Row first. */
+  rows: z.array(rowSchema),
+})
+export type TranscriptDocument = z.infer<typeof transcriptDocumentSchema>
+
+/** What changes while a turn runs: what the Spinner line and the footer under the Input box are drawn from. */
+export const liveDocumentSchema = z.object({
+  v: z.literal(PROTOCOL_VERSION),
   /** True while a turn of the Session runs. */
   isBusy: z.boolean(),
   /** When the running turn began, in milliseconds since 1970. */
   startedAt: z.number().optional(),
   spinner: z
     .object({
-      /** The word the terminal's spinner shows (`Puzzling`). */
+      /** The word the terminal's spinner shows (`Puzzling`), or the text that overrides it. */
       word: z.string(),
       /** What follows the word (`…`). */
       suffix: z.string(),
       mode: spinnerModeSchema,
     })
     .optional(),
+  /**
+   * How much the model has written in the running turn, in characters, as Claude Code's spinner
+   * counts it: four per output token of each finished response, plus the characters of the response
+   * that is arriving. The Spinner line shows a quarter of it as tokens.
+   */
+  responseLength: z.number().optional(),
+  /** Effort of the turn's requests (`xhigh`), as "thinking with … effort" names it. */
+  effort: z.string().optional(),
   /** The hint line under the Input box, as the terminal words it. */
   hint: z.string().optional(),
+  /** The mode labels at the right of the footer (`focus`, `memory paused`). */
+  modes: z.array(z.string()).optional(),
 })
-export type Live = z.infer<typeof liveSchema>
+export type LiveDocument = z.infer<typeof liveDocumentSchema>
 
-/** Everything the Mirror draws, as the Bridge last wrote it. */
-export const mirrorDocumentSchema = z.object({
-  v: z.literal(PROTOCOL_VERSION),
-  sessionId: z.string(),
-  /** The Transcript, oldest Row first. */
-  rows: z.array(rowSchema),
-  live: liveSchema,
-})
-export type MirrorDocument = z.infer<typeof mirrorDocumentSchema>
+/** What the page tells the HUD. */
+export const pageMessageSchema = z.discriminatedUnion('type', [
+  /** The page has loaded and takes documents. */
+  z.object({ type: z.literal('ready') }),
+  /** The user sent a Prompt from the Input box. */
+  z.object({ type: z.literal('submit'), text: z.string() }),
+  /** The user asked to stop the running turn (Esc on an empty Input box). */
+  z.object({ type: z.literal('interrupt') }),
+  /** The Input box took or lost the keyboard. */
+  z.object({ type: z.literal('focus'), isFocused: z.boolean() }),
+  /** The Input box holds a draft, or no longer does: while it does, the agent's GUI steps wait. */
+  z.object({ type: z.literal('draft'), hasDraft: z.boolean() }),
+])
+export type PageMessage = z.infer<typeof pageMessageSchema>
