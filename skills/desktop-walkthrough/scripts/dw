@@ -127,9 +127,19 @@ note_owner() {
   printf '%s' "$CLAUDE_PID" > "$DW_HOME/owner.pid"
 }
 
+# The Mirror's page follows the skill: when the built page differs from the copy the HUD loads (the
+# skill was updated while the HUD runs), copy it, and the running HUD loads the newer file by itself
+sync_mirror_page() {
+  local built="$SKILL_DIR/packages/mirror/dist/index.html" shown="$DW_HOME/mirror/index.html"
+  [ -f "$built" ] && [ -d "$DW_HOME/mirror" ] || return 0
+  cmp -s "$built" "$shown" || cp "$built" "$shown" 2>/dev/null
+  return 0
+}
+
 # Relaunch the HUD when a walkthrough is active but the HUD is gone, unless the user quit it from its settings
 ensure_hud() {
   [ -f "$BRIDGE/owner" ] || return 0
+  sync_mirror_page
   hud_alive && return 0
   if [ -f "$DW_HOME/hud-closed-by-user" ]; then
     echo "dw: note: the user quit the HUD from its settings; it stays closed until 'dw start'" >&2; return 0

@@ -37,7 +37,10 @@ export function hintItems(hint: string, hasDraft: boolean, permissionMode?: stri
     .filter((item) => item !== '' && !(hasDraft && HIDDEN_WHILE_DRAFT.has(item.trim().toLowerCase())))
   const pill = permissionMode === undefined ? undefined : PILL_OF_MODE[permissionMode]
   // The terminal's line does not name the mode: its pill is drawn before the line
-  return pill === undefined || items.some((item) => item.startsWith(pill)) ? items : [pill, ...items]
+  if (pill === undefined || items.some((item) => item.startsWith(pill))) return items
+  const [first, ...rest] = items
+  // The pill's own note (`(shift+tab to cycle)`) follows it after a space, not after the separator
+  return first !== undefined && first.startsWith('(') ? [`${pill} ${first}`, ...rest] : [pill, ...items]
 }
 
 /** One hint item: a known pill or the background-tasks count in its own colour, the rest dim. */

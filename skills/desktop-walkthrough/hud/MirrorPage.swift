@@ -33,6 +33,8 @@ final class MirrorPage: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     let webView: MirrorWebView
     /// True once the page was asked to load.
     private var isLoading = false
+    /// Modification time of the page file that was loaded: a file with another time is loaded anew.
+    private var pageStamp: Date?
     /// True once the page said it takes documents.
     private var isReady = false
     /// Modification times of the documents last handed over: each goes to the page only when it changed.
@@ -97,10 +99,16 @@ final class MirrorPage: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         if webView.responds(to: Selector(("_setDrawsBackground:"))) { webView.setValue(false, forKey: "drawsBackground") }
     }
 
-    /// Load the page, once it is there.
+    /// Load the page once it is there, and again when the file on disk is another one.
     private func load() {
-        guard !isLoading, exists(mirrorPagePath) else { return }
+        guard exists(mirrorPagePath) else { return }
+        let modified = mtime(mirrorPagePath)
+        // Loaded already, and the file is the one that was loaded. A newer file (the skill was updated
+        // while the HUD runs, and `dw` copied its page) is loaded in its place
+        if isLoading, modified == pageStamp { return }
         isLoading = true
+        isReady = false
+        pageStamp = modified
         webView.loadFileURL(URL(fileURLWithPath: mirrorPagePath), allowingReadAccessTo: URL(fileURLWithPath: mirrorPageDir, isDirectory: true))
     }
 

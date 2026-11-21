@@ -448,3 +448,16 @@ test('shows no pill in the default permission mode', () => {
   // Assert
   expect(container.querySelector('.footer-hint')?.textContent).toBe('esc to interrupt')
 })
+
+test('writes the note of the permission pill right after it, as the terminal does', () => {
+  // Arrange
+  const live = busy({ permissionMode: 'bypassPermissions', hint: '(shift+tab to cycle) · esc to interrupt' })
+
+  // Act
+  const { container } = render(<LiveArea live={live} />)
+
+  // Assert
+  expect(container.querySelector('.footer-hint')?.textContent).toBe(
+    '⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt',
+  )
+})
