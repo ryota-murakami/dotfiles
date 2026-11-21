@@ -14,7 +14,7 @@ import {
 } from './mirror'
 
 // A fake credential assembled at run time, so secret scanners do not flag this public file
-const TOKEN = ['abcdefgh', 'ijklmnop', 'qrstuvwx'].join('')
+const TOKEN = 'a1b2c3d4'.repeat(4)
 
 test('a short command output reaches the Mirror whole', () => {
   // Arrange

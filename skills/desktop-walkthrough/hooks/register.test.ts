@@ -4,10 +4,11 @@ import { classifyTool, maskSecrets, showsToolOnBar } from './register'
 // Fake credentials are assembled at run time so secret scanners (gitleaks, gstack-redact) do not
 // flag this public file; each one has the shape of the real thing.
 const SIGNATURE = '0123456789abcdef'.repeat(4)
-const TOKEN = ['abcdefgh', 'ijklmnop', 'qrstuvwx'].join('')
+const TOKEN = 'a1b2c3d4'.repeat(4)
 const ANTHROPIC_KEY = ['sk', 'ant', 'api03', 'x'.repeat(32)].join('-')
 const GITHUB_TOKEN = ['ghp', 'y'.repeat(36)].join('_')
 const SEARCH_KEY = ['tvly', 'dev', 'z'.repeat(32)].join('-')
+const OPAQUE = ['k9f3a7c1', 'e5b2d8f6', 'a4c0'].join('')
 
 test('the mirror hides the signature of a signed verification link', () => {
   // Arrange
@@ -64,7 +65,18 @@ test('the mirror hides a GitHub token pasted into a remote URL', () => {
   expect(shown).toBe('git remote set-url origin https://ghp_•••@github.com/acme/app.git')
 })
 
-test('the mirror hides the value of a password variable and keeps its name', () => {
+test('the mirror hides a machine-made value of a secret variable and keeps its name', () => {
+  // Arrange
+  const command = `SESSION_SECRET=${OPAQUE} node server.js`
+
+  // Act
+  const shown = maskSecrets(command)
+
+  // Assert
+  expect(shown).toBe('SESSION_SECRET=••• node server.js')
+})
+
+test('the mirror leaves a local database password that is a plain word readable', () => {
   // Arrange
   const command = 'PGPASSWORD=engawa-local-only psql -h 127.0.0.1 -p 55432'
 
@@ -72,7 +84,18 @@ test('the mirror hides the value of a password variable and keeps its name', () 
   const shown = maskSecrets(command)
 
   // Assert
-  expect(shown).toBe('PGPASSWORD=••• psql -h 127.0.0.1 -p 55432')
+  expect(shown).toBe('PGPASSWORD=engawa-local-only psql -h 127.0.0.1 -p 55432')
+})
+
+test('the mirror leaves the token a listing continues from readable', () => {
+  // Arrange
+  const command = `curl "https://api.test/v1/items?pageSize=50&pageToken=${OPAQUE}"`
+
+  // Act
+  const shown = maskSecrets(command)
+
+  // Assert
+  expect(shown).toBe(command)
 })
 
 test('the mirror leaves commit hashes and ordinary commands unchanged', () => {
@@ -187,7 +210,7 @@ test('looking at a file outside the skill keeps the state already shown', () => 
 
 test('the mirror hides an API key that a link carries under the service\'s own parameter name', () => {
   // Arrange: what a process list shows of a server started with its key in the address
-  const line = `npm exec mcp-remote https://mcp.search.test/mcp/?searchApiKey=${SEARCH_KEY}`
+  const line = `npm exec mcp-remote https://mcp.search.test/mcp/?searchApiKey=${OPAQUE}`
 
   // Act
   const shown = maskSecrets(line)
