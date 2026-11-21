@@ -189,24 +189,6 @@ export const transcriptDocumentSchema = z.object({
 })
 export type TranscriptDocument = z.infer<typeof transcriptDocumentSchema>
 
-/** One agent of the list the terminal keeps under its footer. */
-export const agentSchema = z.object({
-  id: z.string(),
-  /** The agent's own name when it has one, else its type (`general-purpose`): the row's first word. */
-  name: z.string(),
-  /** The words the terminal shows beside the name (`waiting on 1 shell`). */
-  label: z.string(),
-  /** What the agent was asked to do, in a few words. */
-  description: z.string(),
-  /** The agent's state as Claude Code names it (`running`, `idle`, …). */
-  status: z.string(),
-  /** When the agent started, in milliseconds since 1970. */
-  startedAt: z.number(),
-  /** Tokens in the agent's context. */
-  tokenCount: z.number(),
-})
-export type Agent = z.infer<typeof agentSchema>
-
 /** What changes while a turn runs: what the Spinner line and the footer under the Input box are drawn from. */
 export const liveDocumentSchema = z.object({
   v: z.literal(PROTOCOL_VERSION),
@@ -241,8 +223,6 @@ export const liveDocumentSchema = z.object({
   hint: z.string().optional(),
   /** The mode labels at the right of the footer (`focus`, `memory paused`), which the terminal joins with ` & `. */
   modes: z.array(z.string()).optional(),
-  /** The agents the terminal lists under its footer, in its order; absent or empty when it lists none. */
-  agents: z.array(agentSchema).optional(),
 })
 export type LiveDocument = z.infer<typeof liveDocumentSchema>
 

@@ -1,6 +1,6 @@
 import type { EngineInterface, Register, RenderPropsOf, TurnStepChunk } from 'claude-code'
 
-import type { Agent, LiveDocument, Row, Text, ToolCall, TranscriptDocument } from '../packages/protocol/src/index'
+import type { LiveDocument, Row, Text, ToolCall, TranscriptDocument } from '../packages/protocol/src/index'
 import { maskSecrets } from './secrets'
 
 /**
@@ -198,8 +198,6 @@ const M = {
   pendingThought: undefined as { ms: number; at: number } | undefined,
   /** Lines plugins logged so far: each gets a row id of its own. */
   logCount: 0,
-  /** The agents the terminal lists under its footer, by id. */
-  agents: new Map<string, Agent>(),
   /** Messages the terminal drew again under a second id: that id, then the id their row is kept under. */
   aliases: new Map<string, string>(),
 }
@@ -604,7 +602,6 @@ export function resetMirror() {
   M.newestGroup = undefined
   M.pendingThought = undefined
   M.logCount = 0
-  M.agents.clear()
   M.aliases.clear()
   M.transcriptChanged = true
 }
@@ -748,16 +745,6 @@ export function registerMirror(on: On, isWatched: () => boolean) {
   })
   on('ui.render', { component: 'SessionMode' }, ($, e, next) => {
     setLive({ modes: [...e.props.modes] })
-    return next(e)
-  })
-  // The list of agents under the footer: each agent's row is asked for on its own, with the ids of all rows
-  on('ui.render', { component: 'AgentRow' }, ($, e, next) => {
-    const { id, name, type, label, description, status, startTime, tokenCount, isHidden, rowIds } = e.props
-    if (isHidden) M.agents.delete(id)
-    else M.agents.set(id, { id, name: name ?? type, label: maskSecrets(label), description: maskSecrets(description), status, startedAt: startTime, tokenCount })
-    // An agent whose row is gone goes; the terminal's order is the order of the ids
-    for (const known of M.agents.keys()) if (!rowIds.includes(known)) M.agents.delete(known)
-    setLive({ agents: rowIds.flatMap(rowId => M.agents.get(rowId) ?? []) })
     return next(e)
   })
 

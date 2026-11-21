@@ -23,11 +23,17 @@ Judge a change by that. The HUD is with the user all day, over any app, like a p
 | `hud/Effects.swift`, `explainer/effects.html` | the effects layer: a see-through window over the screen and the page that draws in it (banner, achievement, sparks, ring) |
 | `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking, stepping behind the explainer, staying on the desktop of its page |
 | `hud/Pending.swift` | the delivery progress of a press |
-| `hud/Mirror.swift` | the conversation mirror and its message box; the shared edge resize handle |
+| `hud/Mirror.swift` | the mirror's panel (header, zoom, the earlier plain feed and its message box); the shared edge resize handle |
+| `hud/MirrorPage.swift` | the web view of the mirror's page: handing it the bridge's two documents, taking its messages |
+| `packages/mirror` | the mirror's page (React, built into `dist/index.html`): `src/rows` one component per kind of row, `src/live` the spinner line, input box and footer, `src/terminal` the cell layout and the theme, `src/gallery` every row and state from sample data |
+| `packages/protocol` | the documents the bridge writes (`mirror-transcript.json`, `mirror-live.json`) and the messages the page posts, as zod schemas; sample data for specs and the gallery |
+| `hooks/mirror.ts`, `hooks/mirror.test.ts` | what the bridge reports for the mirror: it watches the terminal's drawing events and keeps the rows in the terminal's order |
+| `docs/claude-code-tui/` | how Claude Code draws its terminal UI: the rules the page follows, with where each was read |
 | `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting) and the card that shows them |
 | `hud/Controls.swift` | shared controls: buttons, the state badge, tooltip-style placement (`popupFrame`), cursors, hot keys (`HotKey`), a shortcut of modifier keys alone (`ModifierChord`), a shortcut the user records (`Shortcut`, `ShortcutRecorder`), and the switch that hides every surface (`hudHidden`, applied by `NSWindow.setConcealed`) |
 | `hud/Appearance.swift` | the look every surface shares: the dark appearance, each surface's colour, the material behind translucent surfaces, the accessibility display settings |
 | `hooks/register.ts`, `hooks/register.test.ts` | the session bridge (the plugin's hooks module) and its tests |
+| `package.json`, `turbo.json`, `.github/workflows/desktop-walkthrough.yml` (repository root) | the workspace's tasks and the CI that runs them on every push and pull request touching the skill |
 
 Everything the three parts say to each other goes through small files in the state folder. A new signal is a new file: name its path in `hud/HUD.swift` (or the surface's own file) with who writes it and what it means, and list it in the header of `hooks/register.ts` when the bridge reads or writes it.
 
@@ -45,8 +51,21 @@ Everything the three parts say to each other goes through small files in the sta
 5. Put the new build in front of the user: `dw note --clear` (a note still on file is shown again at launch, on whichever desktop is active), `touch <state>/quit`, wait for the HUD to exit, then any `dw say`: it rebuilds and relaunches, with the explainer and the mirror open or closed as the user left them. A HUD the user quit from its settings is not relaunched (`hud-closed-by-user`): leave it closed and say so.
 6. A change to `explainer/page.html` reaches pages already shown with `dw explain --rebuild` (every page is built again from its Markdown); `explainer/effects.html` and `sounds/synth.py` are taken up when `dw` next starts the HUD.
 7. A change under `hooks/` or `.claude-plugin/` reaches the running session only after the user runs `/reload-plugins`. Make the HUD work with the bridge that is loaded until then (a missing file means "not known", never "no").
+8. A change to the mirror's page (`packages/mirror`, `packages/protocol`): `pnpm install` once, then
+   - look at it in the gallery: `pnpm --filter @dw/mirror dev`, open `/gallery.html` (every row and state from sample data, at two widths, with a clock you can drive);
+   - `pnpm check` (lint, format, types, specs, build). The build writes `packages/mirror/dist/index.html`: commit it with the source, CI fails when the two differ;
+   - `dw` copies the built page to `<state>/mirror/index.html` when it starts the HUD; on a scratch HUD copy it there yourself and evaluate `location.reload()` in the page.
+9. Compare the mirror with the real terminal, the same moment on both sides: take the terminal's screen as text with its colours (a multiplexer's pane read, read-only), copy the bridge's two documents, feed them to the built page in a headless browser at the terminal's width, and compare the texts word by word. Record both for a few minutes while a session works to see rows appear, fold and change. The terminal's screen shows a private conversation: keep the captures out of the repository, and build sample data by hand.
+10. Try a changed bridge without touching the installed plugin: copy `hooks/` and `packages/protocol/src/index.ts` into a dev mod (the plugin-authoring skill says where), with the state folder in `paths()` pointed at a scratch folder, and run a scratch HUD on that folder. A dev mod loads when the turn that wrote it ends, so every trial of a bridge change needs a turn to end; remove the dev mod afterwards.
 
 ## Things that bit
+
+- A row of the terminal is not one id from start to end. A tool call is drawn as a row of its own while its input arrives and joins a folded run after; a folded run is drawn under one id while the response streams and under another once it is whole; after a compaction the kept messages are drawn again under their own ids. Each case is handled in `hooks/mirror.ts` and has a test: a new one shows as a row that appears twice or never goes away.
+- The drawing events carry a row's data, not everything its line shows: a folded run's thinking time, the count after "still running", the permission mode. The bridge works those out from other events (`turn.step` chunks, the hint line, the classic hooks' input), each next to where it is used.
+- A hooks module has no timers of its own and a hook has ten seconds: the `tool.call` hook that holds GUI commands while the user types is cut off after that and the command runs.
+- A scroll container reports the page's own scrolls with the same event as the reader's, a frame late: a pin that follows new rows must not take its own echo for the reader scrolling away (`createPin`).
+- The page is told nothing when its panel hides: after a reload it says `ready` again and the HUD forgets the focus and the draft the earlier page reported.
+- What the terminal words itself and a plugin cannot read is left out, never worded by us (the agents under the footer, the user's status line): a line the user has never seen in their terminal does not belong in the mirror.
 
 - The live HUD and a scratch HUD are both called `StatusHUD`: accessibility queries by app name reach the live one. Click the scratch one by coordinates read from a screenshot.
 - The bar ignores the pointer until it rests on a control: `mouse-move`, wait half a second, then click.
