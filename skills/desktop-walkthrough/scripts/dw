@@ -879,12 +879,14 @@ end run
 OSA
 }
 
-# What the HUD shows and plays besides its own code: the effects page (copied from the skill, so the
-# HUD and its page are of one version) and the sounds (rendered from sounds/synth.py when they are
+# What the HUD shows and plays besides its own code: the effects page and the Mirror's page (copied
+# from the skill, so the HUD and its pages are of one version) and the sounds (rendered from sounds/synth.py when they are
 # missing or older than the script). Without python3 the HUD is silent; everything else works
 prepare_assets() {
-  mkdir -p "$EXPLAIN"
+  mkdir -p "$EXPLAIN" "$DW_HOME/mirror"
   cp "$SKILL_DIR/explainer/effects.html" "$EXPLAIN/effects.html" 2>/dev/null
+  # The Mirror's page is built from packages/mirror and committed: the HUD loads this copy
+  cp "$SKILL_DIR/packages/mirror/dist/index.html" "$DW_HOME/mirror/index.html" 2>/dev/null
   if [ -f "$DW_HOME/sounds/sounds.json" ] && [ ! "$SKILL_DIR/sounds/synth.py" -nt "$DW_HOME/sounds/sounds.json" ]; then return 0; fi
   if ! command -v python3 >/dev/null 2>&1; then
     echo "dw: note: python3 is missing: the HUD's sound effects are not rendered" >&2; return 0

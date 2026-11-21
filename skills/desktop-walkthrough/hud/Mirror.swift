@@ -205,11 +205,26 @@ extension HUD {
         zoomLabel.alignment = .center
         updateZoomLabel()
 
+        // The page that draws the conversation: under the header, down to the Mirror's lower edge.
+        // Hidden until the page and a Transcript are there (see updateMirrorPage)
+        mirrorPage.attach()
+        mirrorPage.webView.isHidden = true
+        mirrorPage.onSubmit = { [weak self] text in self?.submitPrompt(text) }
+        mirrorPage.onInterrupt = { [weak self] in
+            // Esc in the terminal stops the running turn: here it is the stop button
+            if !isStopOn() { self?.toggleStop() }
+        }
+        mirrorPage.onRelease = { [weak self] in self?.returnMirrorFocus() }
+        mirrorPage.onFocus = { [weak self] focused in
+            guard let self, focused, self.mirrorPreviousApp == nil, let last = lastOtherApp, !last.isTerminated else { return }
+            self.mirrorPreviousApp = last
+        }
+
         mirrorGrip.toolTip = "ドラッグでミラーを移動"
         // Invisible 6pt borders on every side and 14pt corners: drag any of them to resize
         for h in mirrorHandles { h.onResize = { [weak self] r in self?.resizeMirror(to: r) } }
         // The header labels sit inside the grip so a drag that starts on them moves the mirror too
-        for v in [mirrorGrip, scroll, input, sendButton, zoomIn, zoomOut, zoomLabel, closeButton] as [NSView] {
+        for v in [mirrorGrip, scroll, input, sendButton, mirrorPage.webView, zoomIn, zoomOut, zoomLabel, closeButton] as [NSView] {
             v.translatesAutoresizingMaskIntoConstraints = false
             root.addSubview(v)
         }
@@ -251,6 +266,10 @@ extension HUD {
             input.trailingAnchor.constraint(equalTo: sendButton.leadingAnchor, constant: -6),
             input.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -8),
             input.heightAnchor.constraint(equalToConstant: 28),
+            mirrorPage.webView.topAnchor.constraint(equalTo: mirrorGrip.bottomAnchor, constant: 2),
+            mirrorPage.webView.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 4),
+            mirrorPage.webView.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -4),
+            mirrorPage.webView.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -6),
             sendButton.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             sendButton.centerYAnchor.constraint(equalTo: input.centerYAnchor),
             sendButton.widthAnchor.constraint(equalToConstant: 70),
@@ -328,9 +347,40 @@ extension HUD {
         }
     }
 
+    /// Show the Mirror's page in place of the feed and the message box whenever the page and the
+    /// Bridge's Transcript are there, and hand the page what changed.
+    ///
+    /// Why it exists: the page needs a Bridge that writes the Transcript, and a session keeps the
+    /// Bridge it loaded until its plugins are reloaded; until then the older feed keeps the Mirror
+    /// useful. Called by {@link HUD.reloadFeed} on its timer.
+    ///
+    /// @returns True while the page is what the Mirror shows.
+    func updateMirrorPage() -> Bool {
+        let paged = mirrorPage.isAvailable
+        if mirrorPage.webView.isHidden == paged {
+            mirrorPage.webView.isHidden = !paged
+            for view in [scroll, input, sendButton] as [NSView] { view.isHidden = paged }
+        }
+        if paged { mirrorPage.refresh(zoom: zoom) }
+        return paged
+    }
+
+    /// Give the keyboard back to the app the user came from before the page's Input box took it.
+    func returnMirrorFocus() {
+        mirror.makeFirstResponder(nil)
+        if let app = mirrorPreviousApp, !app.isTerminated {
+            // Cooperative activation (macOS 14+): yield to the app first, then ask it to come forward
+            NSApp.yieldActivation(to: app)
+            app.activate()
+        }
+        mirrorPreviousApp = nil
+    }
+
     /// Re-render the conversation when the mod rewrote the feed (or an option changed).
     /// `keepScroll` keeps the reader's position (used when an entry is folded or unfolded).
     func reloadFeed(force: Bool, keepScroll: Bool = false) {
+        // The page draws the conversation when it can: the feed below is what shows until then
+        if updateMirrorPage() { return }
         let stamp = mtime(feedPath)
         guard force || stamp != feedStamp else { return }
         feedStamp = stamp
@@ -389,8 +439,11 @@ extension HUD {
     /// While the message box is being edited (focused, or holding a draft), keep the agent's GUI steps waiting.
     func updateTypingFlag() {
         let editing = mirror.isKeyWindow && mirror.firstResponder is NSTextView && (mirror.firstResponder as? NSTextView)?.delegate === input
+        // The page's Input box counts the same way: focused in the key Mirror, or holding a draft
+        // A draft in a Mirror that is not on screen is not being typed: it holds nothing back
+        let paging = mirror.isVisible && !mirrorPage.webView.isHidden && ((mirror.isKeyWindow && mirrorPage.isFocused) || mirrorPage.hasDraft)
         // Not while the HUD is hidden: the user cannot see that a draft keeps the agent waiting
-        let typing = (editing || !input.stringValue.isEmpty) && !hudHidden
+        let typing = (editing || !input.stringValue.isEmpty || paging) && !hudHidden
         if typing && !exists(typingPath) {
             FileManager.default.createFile(atPath: typingPath, contents: Data())
         } else if !typing && exists(typingPath) {
@@ -407,10 +460,16 @@ extension HUD {
     @objc func sendMessage() {
         let text = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return }
-        appendLine(inboxPath, ["text": text])
-        notePending("メッセージ", route: .message)
+        submitPrompt(text)
         input.stringValue = ""
         input.returnFocus()
+    }
+
+    /// Hand a Prompt to the Bridge through the inbox file; it reaches the Session without any GUI step.
+    /// Called for the message box ({@link HUD.sendMessage}) and for the page's Input box.
+    func submitPrompt(_ text: String) {
+        appendLine(inboxPath, ["text": text.trimmingCharacters(in: .whitespacesAndNewlines)])
+        notePending("メッセージ", route: .message)
         // Speaking lifts a stop, as typing in Claude Code would
         if isStopOn() { setStop(false) }
     }

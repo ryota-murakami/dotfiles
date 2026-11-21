@@ -1,0 +1,6 @@
+# Workspace of the skill. `hooks` (the bridge) and `hud` stay where Claude Code and `dw` look for
+# them; everything new lives under `packages/`.
+packages:
+  - packages/*
+  - hooks
+  - hud

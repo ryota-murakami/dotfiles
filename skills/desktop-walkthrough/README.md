@@ -7,11 +7,17 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | Path | What it is |
 | --- | --- |
 | `SKILL.md` | The operating manual the agent follows: what each HUD surface is for, the steps, how to explain, wait and ask, the rules for acting |
-| `.claude-plugin/plugin.json`, `hooks/` | Makes this folder a plugin; `hooks/register.ts` is the session bridge (conversation mirror, messages typed in the HUD, stop switch, secrets masked before display), `hooks/register.test.ts` its tests |
+| `.claude-plugin/plugin.json`, `hooks/` | Makes this folder a plugin; `hooks/register.ts` is the session bridge (messages typed in the HUD, stop switch, the state at the end of the bar), `hooks/mirror.ts` what it reports for the mirror (the conversation as rows, the spinner's figures), `hooks/secrets.ts` the masking of secrets before display; `*.test.ts` their tests |
+| `packages/protocol` | The shape of what the bridge, the HUD and the mirror's page say to each other (zod schemas, types, sample data) |
+| `packages/mirror` | The mirror's page: the conversation redrawn the way Claude Code's terminal draws it (React, built into the one file `dist/index.html`, which is committed and which the HUD loads). `gallery.html` shows every row and state from sample data |
+| `docs/claude-code-tui/` | How Claude Code 2.1.330 draws its terminal UI, in this project's own words: the reference the mirror's page follows |
+| `GLOSSARY.md`, `docs/adr/` | The project's words, and the decisions that would surprise a reader without their reasons |
+| `package.json`, `pnpm-workspace.yaml`, `turbo.json` | The pnpm workspace and its tasks (`pnpm check`): `packages/*`, `hooks` and `hud` are its packages |
 | `scripts/dw` | Helper CLI: HUD lifecycle, narration, focus checks, non-blocking Terminal commands |
-| `scripts/check` | Static checks: bash 3.2 syntax and pitfalls, shellcheck, Swift typecheck, plugin validate, hooks tests and types |
+| `scripts/check` | Static checks: bash 3.2 syntax and pitfalls, shellcheck, Swift typecheck, plugin validate, hooks tests and types, and the workspace's lint, types, tests and build when its dependencies are installed |
 | `hud/HUD.swift` | The HUD class (stored views, launch, settings, stop, lifecycle) and the state-file paths shared with `dw` and the hooks |
-| `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift`, `hud/Explainer.swift`, `hud/Note.swift` | One surface each: status bar (with the session state at its end), conversation mirror with its message box, prompt card with answers and feedback buttons, explainer panel (long-form pages in a web view), note popup beside what it explains |
+| `hud/Bar.swift`, `hud/Mirror.swift`, `hud/AskPrompt.swift`, `hud/Explainer.swift`, `hud/Note.swift` | One surface each: status bar (with the session state at its end), conversation mirror, prompt card with answers and feedback buttons, explainer panel (long-form pages in a web view), note popup beside what it explains |
+| `hud/MirrorPage.swift` | The web view that hosts the mirror's page: it hands the page what the bridge wrote and takes what the user did in it (a prompt, Esc, focus) |
 | `hud/Border.swift`, `hud/Pending.swift` | The green line around the screen while the walkthrough acts; the delivery progress of a press (on its way, taken, reacted) |
 | `explainer/page.html`, `explainer/note.html` | Templates of an explainer page and of a note: `dw explain` / `dw note` fill in the Markdown, the page renders it with marked, highlight.js and mermaid (fetched once into the state folder, pinned by digest). The page draws the reading marks (a check per block, the frame on the block being read), the note its 理解した button |
 | `hud/Reading.swift`, `hud/Sound.swift`, `hud/Effects.swift`, `explainer/effects.html` | Reading feedback: what was read (kept in `progress.json`, with a copy in the record), the achievements, the sounds that answer a mark, and the see-through layer that draws the banner of a cleared page and an achievement under the bar |
@@ -35,10 +41,19 @@ ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
 
 `npx skills add ~/dotfiles/skills --skill desktop-walkthrough -g -y` (or `npx skills update`) replaces the link with a copy again. After a change to `hooks/` or `.claude-plugin/`, run `/reload-plugins` in Claude Code (or start a new session). `claude plugin list` shows it as `desktop-walkthrough@skills-dir`.
 
+## The mirror
+
+The mirror shows the session's conversation the way Claude Code's own terminal shows it: the same rows, glyphs, colours and wording, the spinner line with its time and token count, the input box and the hint line under it. It is a redrawing, not a copy of the screen: the bridge watches what the terminal draws and writes it down as rows, and the page draws those rows (`docs/adr/0001-the-mirror-redraws-the-conversation.md`). So it works in any terminal, and it has a real input box (input methods and dictation work in it).
+
+What it cannot show, because Claude Code does not tell a plugin: your own status line, the list of agents under the footer, the row a compaction leaves, and thinking-token estimates while the model thinks (the token count catches up when the response ends). Rows drawn before the bridge loaded appear only if the terminal draws them again.
+
+Until the bridge of a session has written its first transcript (a session that loaded the plugin before this version, until `/reload-plugins`), the mirror shows its earlier plain feed.
+
 ## Requirements
 
 - [agent-desktop](https://github.com/vercel-labs/agent-desktop) with Accessibility permission, `jq`, and Xcode Command Line Tools (`swiftc`, and `python3` for the sound effects: without it the HUD is silent). `scripts/dw doctor` checks them.
 - Terminal.app for the `dw term` commands.
+- To change the mirror's page or the protocol: Node 24 and pnpm (`pnpm install`, then `pnpm check`). Using the skill needs neither: the built page is in the repository.
 
 ## Use
 

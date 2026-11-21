@@ -1,0 +1,37 @@
+#!/bin/bash
+# typecheck-hooks — type-check the bridge (hooks/) against this Claude Code build's declarations.
+#
+# Why it exists: the declarations are not in the repository (they are Claude Code's own file): the
+# engine lays them beside a plugin it loads, or writes them to a temp folder when the plugin-authoring
+# skill loads. Called by scripts/check and by the bridge's `typecheck` task; skipped where neither exists.
+set -u
+cd "$(dirname "$0")/.." || exit 1
+if [ -d .claude-plugin/types ]; then
+  types="$PWD/.claude-plugin/types"
+else
+  types=$(ls -t /private/tmp/claude-"$(id -u)"/bundled-skills/*/*/plugin-authoring/types/claude-code.d.ts 2>/dev/null | head -1)
+fi
+if [ -z "$types" ]; then
+  echo "skipped: no Claude Code type declarations found (load the plugin-authoring skill once, then rerun)"
+  exit 0
+fi
+tmp=$(mktemp -d)
+cat > "$tmp/tsconfig.json" <<JSON
+{
+  "compilerOptions": {
+    "target": "es2023", "lib": ["es2023"], "types": [],
+    "module": "esnext", "moduleResolution": "bundler",
+    "strict": true, "noUncheckedIndexedAccess": true,
+    "noEmit": true, "skipLibCheck": true
+  },
+  "include": ["$types", "$PWD/hooks/*.ts", "$PWD/packages/protocol/src/index.ts"]
+}
+JSON
+if [ -x node_modules/.bin/tsc ]; then
+  node_modules/.bin/tsc -p "$tmp/tsconfig.json"
+else
+  npx --yes -p typescript@5 tsc -p "$tmp/tsconfig.json"
+fi
+status=$?
+rm -rf "$tmp"
+exit $status

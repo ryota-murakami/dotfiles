@@ -1,0 +1,6 @@
+node_modules/
+.turbo/
+coverage/
+*.tsbuildinfo
+# Scratch output of the Claude Code release check: extracted modules never enter the repository
+.claude-code-sync/

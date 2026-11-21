@@ -1,0 +1,194 @@
+/*
+ * Tool rows (docs/claude-code-tui/tools.md): the call row's title, the result block's colours, the
+ * diff and the code preview. Colours come from theme.css.
+ */
+
+/* Title: the bold name never shrinks; the summary wraps in its own column, under the parenthesis */
+.tool-title {
+  display: flex;
+  align-items: flex-start;
+}
+
+.tool-name {
+  flex: none;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.tool-summary {
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-strong {
+  font-weight: bold;
+}
+
+/* Running marker: visible 600 ms, blank 600 ms. Without motion it is steady and white */
+.tool-running > .marker {
+  animation: tool-blink 1.2s steps(1, end) infinite;
+}
+
+@keyframes tool-blink {
+  0% {
+    visibility: visible;
+  }
+  50% {
+    visibility: hidden;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-running > .marker {
+    animation: none;
+    color: var(--text) !important;
+  }
+}
+
+/* Result tones */
+.tool-error {
+  color: var(--error);
+}
+
+.tool-warning {
+  color: var(--warning);
+}
+
+.tool-row {
+  min-height: 1lh;
+}
+
+.tool-oneline {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tool-indent {
+  margin-left: 2ch;
+}
+
+/* The diff: every row is a gutter, a marker and the code; a wrapped line keeps the code column */
+.diff-row {
+  display: flex;
+}
+
+.diff-gutter {
+  flex: none;
+  white-space: pre;
+}
+
+.diff-gutter-context {
+  color: var(--inactive);
+}
+
+.diff-marker {
+  flex: none;
+  width: 1ch;
+  white-space: pre;
+}
+
+.diff-code {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diff-add {
+  background: var(--diffAdded);
+}
+
+.diff-remove {
+  background: var(--diffRemoved);
+}
+
+.diff-word-add {
+  background: var(--diffAddedWord);
+}
+
+.diff-word-remove {
+  background: var(--diffRemovedWord);
+}
+
+/* An edit that never applied: dimmed backgrounds and text */
+.diff-dimmed .diff-add {
+  background: var(--diffAddedDimmed);
+}
+
+.diff-dimmed .diff-remove {
+  background: var(--diffRemovedDimmed);
+}
+
+.diff-dimmed .diff-row {
+  color: var(--inactive);
+}
+
+/* The code preview */
+.code-row {
+  display: flex;
+}
+
+.code-gutter {
+  flex: none;
+  white-space: pre;
+}
+
+.code-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* The preview's colours: the palette the terminal's highlighter uses for code in a result */
+.tool-code .hljs-keyword,
+.tool-code .hljs-tag,
+.tool-code .hljs-name,
+.tool-code .hljs-selector-tag {
+  color: rgb(249 38 114);
+}
+
+.tool-code .hljs-built_in,
+.tool-code .hljs-type {
+  color: rgb(102 217 239);
+}
+
+.tool-code .hljs-title,
+.tool-code .hljs-title.class_,
+.tool-code .hljs-title.function_,
+.tool-code .hljs-attr,
+.tool-code .hljs-attribute {
+  color: rgb(166 226 46);
+}
+
+.tool-code .hljs-string,
+.tool-code .hljs-regexp,
+.tool-code .hljs-template-variable {
+  color: rgb(230 219 116);
+}
+
+.tool-code .hljs-number,
+.tool-code .hljs-literal,
+.tool-code .hljs-symbol {
+  color: rgb(174 129 255);
+}
+
+.tool-code .hljs-comment,
+.tool-code .hljs-doctag {
+  color: rgb(117 113 94);
+}
+
+.tool-code .hljs-meta {
+  color: rgb(249 38 114);
+}
+
+/* Folded runs and the agent tree */
+.tool-tree-row {
+  display: flex;
+}
+
+.tool-tree-connector {
+  flex: none;
+  width: 2ch;
+}

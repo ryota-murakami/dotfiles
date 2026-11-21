@@ -1,0 +1,11 @@
+{
+  "name": "@dw/bridge",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The bridge: the plugin's hooks module, loaded by Claude Code as it is (no build step, no runtime dependencies)",
+  "type": "module",
+  "scripts": {
+    "typecheck": "../scripts/typecheck-hooks",
+    "test": "sh -c 'if command -v claude >/dev/null 2>&1; then claude plugin test ..; else echo \"skipped: the claude CLI runs the hooks tests\"; fi'"
+  }
+}

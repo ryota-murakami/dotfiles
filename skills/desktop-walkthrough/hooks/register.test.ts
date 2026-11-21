@@ -7,6 +7,7 @@ const SIGNATURE = '0123456789abcdef'.repeat(4)
 const TOKEN = ['abcdefgh', 'ijklmnop', 'qrstuvwx'].join('')
 const ANTHROPIC_KEY = ['sk', 'ant', 'api03', 'x'.repeat(32)].join('-')
 const GITHUB_TOKEN = ['ghp', 'y'.repeat(36)].join('_')
+const SEARCH_KEY = ['tvly', 'dev', 'z'.repeat(32)].join('-')
 
 test('the mirror hides the signature of a signed verification link', () => {
   // Arrange
@@ -182,4 +183,37 @@ test('looking at a file outside the skill keeps the state already shown', () => 
 
   // Assert
   expect(toolClass).toBeUndefined()
+})
+
+test('the mirror hides an API key that a link carries under the service\'s own parameter name', () => {
+  // Arrange: what a process list shows of a server started with its key in the address
+  const line = `npm exec mcp-remote https://mcp.search.test/mcp/?searchApiKey=${SEARCH_KEY}`
+
+  // Act
+  const shown = maskSecrets(line)
+
+  // Assert
+  expect(shown).toBe('npm exec mcp-remote https://mcp.search.test/mcp/?searchApiKey=•••')
+})
+
+test('the mirror hides a search API key wherever it stands', () => {
+  // Arrange
+  const line = `export KEY_FOR_SEARCH="${SEARCH_KEY}"`
+
+  // Act
+  const shown = maskSecrets(line)
+
+  // Assert
+  expect(shown).toBe('export KEY_FOR_SEARCH="tvly-dev-•••"')
+})
+
+test('the mirror leaves a page number and a sort key in a link readable', () => {
+  // Arrange
+  const link = 'https://app.test/items?page=12&sortkey=created_at&zipcode=1500001'
+
+  // Act
+  const shown = maskSecrets(link)
+
+  // Assert
+  expect(shown).toBe('https://app.test/items?page=12&sortkey=created_at&zipcode=1500001')
 })
