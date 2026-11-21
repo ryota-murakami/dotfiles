@@ -361,3 +361,31 @@ test('keeps the timeout note only under a command that ran for seconds', () => {
   expect(quickText).toBe('⏺Bash(pnpm test)  ⎿  ok')
   expect(slowText).toBe('⏺Bash(pnpm build)  ⎿  ok  ⎿  (timeout 5m)')
 })
+
+test('cuts a long line of command output where the row ends and counts the rows that leaves out', () => {
+  // Arrange: 80 columns leave 70 for output; one line of 300 characters makes five rows
+  const row = tool('bash-long', 'Bash', { command: 'cat min.js' }, { stdout: 'ab '.repeat(100), stderr: '' })
+
+  // Act
+  const { container } = draw(row)
+
+  // Assert
+  const rows = [...container.querySelectorAll('.tool-row')].map((element) => element.textContent)
+  expect(rows).toEqual([
+    'ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab a',
+    'b ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab',
+    ' ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab ab',
+  ])
+  expect(container.textContent).toContain('… +2 lines (ctrl+o to expand)')
+})
+
+test('draws nothing for a call whose input has not arrived yet', () => {
+  // Arrange
+  const row = tool('bash-arriving', 'Bash', {})
+
+  // Act
+  const { text } = draw(row)
+
+  // Assert
+  expect(text).toBe('')
+})

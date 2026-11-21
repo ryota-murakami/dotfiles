@@ -1,5 +1,17 @@
 import { expect, test } from 'claude-code/testing'
-import { captureGroup, captureTool, chunkChars, clipText, clipValue, currentRows, newPlacement, noteThought, place, resetMirror } from './mirror'
+import {
+  captureGroup,
+  captureReply,
+  captureTool,
+  chunkChars,
+  clipText,
+  clipValue,
+  currentRows,
+  newPlacement,
+  noteThought,
+  place,
+  resetMirror,
+} from './mirror'
 
 // A fake credential assembled at run time, so secret scanners do not flag this public file
 const TOKEN = ['abcdefgh', 'ijklmnop', 'qrstuvwx'].join('')
@@ -259,4 +271,32 @@ test('a call that ran says how long the terminal showed it running', () => {
       ranMs: 41_000,
     },
   ])
+})
+
+test('a reply the terminal draws again under its own id after a compaction is shown once', () => {
+  // Arrange
+  resetMirror()
+  captureReply('2f84b0e2-79df-4460-9d7e-000000000000', { text: 'Tests pass.', isFirstOfReply: true })
+  captureTool('call-1', { ...call('call-1', 'Bash', { command: 'pnpm test' }), isExpanded: false })
+
+  // Act
+  captureReply('2f84b0e2-79df-4460-9d7e-bf56f6a1f31b', { text: 'Tests pass.', isFirstOfReply: true })
+
+  // Assert
+  expect(currentRows().map(row => `${row.kind} ${row.id}`)).toEqual([
+    'reply 2f84b0e2-79df-4460-9d7e-000000000000',
+    'tool call-1',
+  ])
+})
+
+test('two blocks of one reply stay two rows', () => {
+  // Arrange
+  resetMirror()
+  captureReply('2f84b0e2-79df-4460-9d7e-000000000000', { text: 'First the plan.', isFirstOfReply: true })
+
+  // Act
+  captureReply('2f84b0e2-79df-4460-9d7e-000000000001', { text: 'Then the result.', isFirstOfReply: false })
+
+  // Assert
+  expect(currentRows().map(row => (row.kind === 'reply' ? row.text : row.kind))).toEqual(['First the plan.', 'Then the result.'])
 })

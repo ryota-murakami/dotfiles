@@ -58,6 +58,43 @@ export function displayWidth(text: string): number {
 }
 
 /**
+ * Cut a text into rows of at most `width` columns the way the terminal cuts command output: by
+ * columns alone, in the middle of a word when the row is full.
+ *
+ * Why it exists: prose wraps at spaces ({@link wrapLines}), but a command's output is cut at the
+ * column where the row ends, and the `… +N lines` under it counts the rows that cut makes. Used by
+ * the clamped output of the tool rows.
+ *
+ * @param text - The output, with its own line breaks.
+ * @param width - Columns a row may take.
+ * @returns The rows, each without trailing white space.
+ *
+ * @example
+ * hardWrapLines('abcdef', 4) // ['abcd', 'ef']
+ */
+export function hardWrapLines(text: string, width: number): string[] {
+  const limit = Math.max(1, width)
+  const rows: string[] = []
+  for (const line of text.split('\n')) {
+    let row = ''
+    let rowWidth = 0
+    for (const char of line) {
+      const charWidth = cellWidth(char.codePointAt(0) ?? 0)
+      // The row is full: the character opens the next one
+      if (rowWidth + charWidth > limit) {
+        rows.push(row.trimEnd())
+        row = ''
+        rowWidth = 0
+      }
+      row += char
+      rowWidth += charWidth
+    }
+    rows.push(row.trimEnd())
+  }
+  return rows
+}
+
+/**
  * Break a text into lines of at most a width, at spaces where it can and inside a word where it must.
  *
  * Why it exists: it is how a terminal wraps a table cell, and the table layout needs the line count to

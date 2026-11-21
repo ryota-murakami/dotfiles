@@ -14,7 +14,8 @@ import { GLYPH, RowLayout, themeColor } from '../terminal'
 export function LogRow({ row }: { row: LogRowData }) {
   return (
     <RowLayout marker={GLYPH.bullet} markerColor={themeColor('inactive')} markerLabel="plugin:">
-      <span className="dim dim-inactive">{`${row.plugin}: ${row.text}`}</span>
+      {/* The terminal wraps these lines ten columns short of its width: eight short of the content's */}
+      <div className="log-text dim dim-inactive">{`${row.plugin}: ${row.text}`}</div>
     </RowLayout>
   )
 }

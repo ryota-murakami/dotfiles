@@ -161,6 +161,11 @@ body {
   color: var(--inactive);
 }
 
+/* A plugin's log line wraps ten columns short of the terminal's width (the marker cell takes two) */
+.log-text {
+  max-width: calc(100% - 8ch);
+}
+
 .live-area {
   flex: none;
 }

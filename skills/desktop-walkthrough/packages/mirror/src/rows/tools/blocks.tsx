@@ -8,7 +8,7 @@
  */
 import type { ReactNode } from 'react'
 
-import { Dim, wrapLines, type DimTone } from '../../terminal'
+import { Dim, hardWrapLines, type DimTone } from '../../terminal'
 import type { ReadText } from './data'
 import { nounFor } from './format'
 
@@ -135,14 +135,14 @@ export function ClampedText({
   hintTone,
 }: ClampedTextProps) {
   const body = text.isClipped ? cleanOutput(text.text) : prettyJsonLines(cleanOutput(text.text))
-  const rows = wrapLines(body, Math.max(width, 10))
+  // Command output is cut where the row ends, not at spaces
+  const rows = hardWrapLines(body, Math.max(width, 10))
   // A clipped text has more lines than the Bridge kept: they count as rows too
   const keptLines = body === '' ? 0 : body.split('\n').length
   const total = rows.length + (text.isClipped ? Math.max(0, text.lines - keptLines) : 0)
   const shown = isLenient && total === limit + 1 ? total : limit
   const visible = rows.slice(0, shown)
   const hidden = total - visible.length
-  const hiddenChars = Math.max(0, text.chars - visible.join('\n').length)
   return (
     <>
       {visible.map((row, index) => (
@@ -150,7 +150,8 @@ export function ClampedText({
           {row}
         </div>
       ))}
-      {hidden > 0 && <ExpandHint hidden={hidden} hiddenChars={hiddenChars} tone={hintTone ?? 'faint'} />}
+      {/* Command output says how many lines it left out, never their size */}
+      {hidden > 0 && <ExpandHint hidden={hidden} tone={hintTone ?? 'faint'} />}
     </>
   )
 }

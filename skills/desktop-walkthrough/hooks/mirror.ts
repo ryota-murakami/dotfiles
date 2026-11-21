@@ -1,6 +1,6 @@
 import type { EngineInterface, Register, RenderPropsOf, TurnStepChunk } from 'claude-code'
 
-import type { LiveDocument, Row, Text, ToolCall, TranscriptDocument } from '../packages/protocol/src/index'
+import type { Agent, LiveDocument, Row, Text, ToolCall, TranscriptDocument } from '../packages/protocol/src/index'
 import { maskSecrets } from './secrets'
 
 /**
@@ -37,6 +37,8 @@ const REDRAW_ROWS = 3
 const SAME_PROMPT_REACH = 60
 /** The terminal draws this much of a line a plugin logged. */
 const LOG_CHARS = 2000
+/** A message's id without its last group: the ids of one message's drawings share it. */
+const ID_STEM_CHARS = 24
 /** Thinking that ended this long ago and that no run took belongs to no run that appears now. */
 const THOUGHT_FRESH_MS = 5000
 /** A run drawn this little before its thinking was known to have ended still takes that thinking. */
@@ -164,7 +166,7 @@ type Captured =
   | { component: 'ToolGroup'; props: RenderPropsOf['ToolGroup']; thoughtMs?: number }
   | { component: 'Log'; plugin: string; text: string }
   | { component: 'CommandOutput'; props: RenderPropsOf['CommandOutput'] }
-  | { component: 'TurnDuration'; props: RenderPropsOf['TurnDuration']; finishedAt?: number }
+  | { component: 'TurnDuration'; props: RenderPropsOf['TurnDuration']; finishedAt?: number; stillRunning?: string }
   | { component: 'InfoNotice'; props: RenderPropsOf['InfoNotice'] }
 
 /** The Bridge's memory of the Mirror; module variables start over on every reload. */
@@ -196,6 +198,10 @@ const M = {
   pendingThought: undefined as { ms: number; at: number } | undefined,
   /** Lines plugins logged so far: each gets a row id of its own. */
   logCount: 0,
+  /** The agents the terminal lists under its footer, by id. */
+  agents: new Map<string, Agent>(),
+  /** Messages the terminal drew again under a second id: that id, then the id their row is kept under. */
+  aliases: new Map<string, string>(),
 }
 
 /** Text of a prompt or reply as a Row carries it: secrets hidden, an extreme length cut. */
@@ -299,6 +305,7 @@ export function buildRow(id: string, captured: Captured): Row | undefined {
         word,
         durationMs,
         ...(captured.finishedAt === undefined ? {} : { finishedAt: captured.finishedAt }),
+        ...(captured.stillRunning === undefined ? {} : { stillRunning: captured.stillRunning }),
       }
     }
     case 'InfoNotice':
@@ -355,8 +362,13 @@ function capture(id: string, captured: Captured, now = Date.now()) {
   if (known === undefined && captured.component === 'UserMessage') dropEarlierDrawing(captured.props)
   if (captured.component === 'TurnDuration') {
     // Drawn right after a turn ended: that is when it finished. On a later redraw the time stays
-    const finishedAt = known?.component === 'TurnDuration' ? known.finishedAt : now - M.turnEndedAt < 3000 ? M.turnEndedAt : undefined
+    const before = known?.component === 'TurnDuration' ? known : undefined
+    const isFresh = before === undefined && now - M.turnEndedAt < 3000
+    const finishedAt = before ? before.finishedAt : isFresh ? M.turnEndedAt : undefined
     if (finishedAt !== undefined) captured.finishedAt = finishedAt
+    // What still runs in the background when the turn closes: the count that opens the hint line
+    const stillRunning = before ? before.stillRunning : isFresh ? (M.live.hint ?? '').split(' · ').find(item => /^\d+ /.test(item)) : undefined
+    if (stillRunning !== undefined) captured.stillRunning = stillRunning
   }
   if (captured.component === 'ToolUse') {
     const before = known?.component === 'ToolUse' ? known : undefined
@@ -490,6 +502,56 @@ export function captureGroup(id: string, props: RenderPropsOf['ToolGroup']) {
 }
 
 /**
+ * The id a message's row is kept under: the id of its first drawing.
+ *
+ * Why it exists: after a compaction the terminal draws the messages it keeps again, under their own
+ * ids instead of the ids it derived for their blocks before; kept as a new row each, the Mirror would
+ * show the same words twice. The two ids of one message share everything but their last group.
+ *
+ * @param id - The id the terminal drew the message under.
+ * @param component - Which kind of message.
+ * @param text - Its words: only a drawing with the same words is the same message.
+ * @returns The id of the row that already shows this message, else `id`.
+ */
+function messageRowId(id: string, component: 'UserMessage' | 'AssistantMessage', text: string): string {
+  const alias = M.aliases.get(id)
+  if (alias !== undefined && M.captured.has(alias)) return alias
+  if (M.captured.has(id) || id.length <= ID_STEM_CHARS) return id
+  const stem = id.slice(0, ID_STEM_CHARS)
+  const order = M.placement.order
+  for (let at = order.length - 1; at >= 0 && at >= order.length - SAME_PROMPT_REACH; at--) {
+    const other = order[at]
+    const row = other === undefined ? undefined : M.captured.get(other)
+    if (other === undefined || row?.component !== component) continue
+    if (other.startsWith(stem) && row.props.text === text) {
+      M.aliases.set(id, other)
+      return other
+    }
+  }
+  return id
+}
+
+/**
+ * Keep a prompt's row the terminal just drew. Called by the `UserMessage` hook of {@link registerMirror}.
+ *
+ * @param id - The id the terminal drew it under.
+ * @param props - What the terminal handed the row.
+ */
+export function capturePrompt(id: string, props: RenderPropsOf['UserMessage']) {
+  capture(messageRowId(id, 'UserMessage', props.text), { component: 'UserMessage', props })
+}
+
+/**
+ * Keep a block of a reply the terminal just drew. Called by the `AssistantMessage` hook of {@link registerMirror}.
+ *
+ * @param id - The id the terminal drew it under.
+ * @param props - What the terminal handed the row.
+ */
+export function captureReply(id: string, props: RenderPropsOf['AssistantMessage']) {
+  capture(messageRowId(id, 'AssistantMessage', props.text), { component: 'AssistantMessage', props })
+}
+
+/**
  * Keep a tool call's own row the terminal just drew.
  *
  * Called by the `ToolUse` hook of {@link registerMirror}. A call that a folded run holds is drawn
@@ -542,6 +604,8 @@ export function resetMirror() {
   M.newestGroup = undefined
   M.pendingThought = undefined
   M.logCount = 0
+  M.agents.clear()
+  M.aliases.clear()
   M.transcriptChanged = true
 }
 
@@ -637,11 +701,11 @@ export async function flushMirror($: EngineInterface, bridgeDir: string, session
  */
 export function registerMirror(on: On, isWatched: () => boolean) {
   on('ui.render', { component: 'UserMessage' }, ($, e, next) => {
-    capture(e.requestId, { component: 'UserMessage', props: e.props })
+    capturePrompt(e.requestId, e.props)
     return next(e)
   })
   on('ui.render', { component: 'AssistantMessage' }, ($, e, next) => {
-    capture(e.requestId, { component: 'AssistantMessage', props: e.props })
+    captureReply(e.requestId, e.props)
     return next(e)
   })
   on('ui.render', { component: 'ToolUse' }, ($, e, next) => {
@@ -684,6 +748,16 @@ export function registerMirror(on: On, isWatched: () => boolean) {
   })
   on('ui.render', { component: 'SessionMode' }, ($, e, next) => {
     setLive({ modes: [...e.props.modes] })
+    return next(e)
+  })
+  // The list of agents under the footer: each agent's row is asked for on its own, with the ids of all rows
+  on('ui.render', { component: 'AgentRow' }, ($, e, next) => {
+    const { id, name, type, label, description, status, startTime, tokenCount, isHidden, rowIds } = e.props
+    if (isHidden) M.agents.delete(id)
+    else M.agents.set(id, { id, name: name ?? type, label: maskSecrets(label), description: maskSecrets(description), status, startedAt: startTime, tokenCount })
+    // An agent whose row is gone goes; the terminal's order is the order of the ids
+    for (const known of M.agents.keys()) if (!rowIds.includes(known)) M.agents.delete(known)
+    setLive({ agents: rowIds.flatMap(rowId => M.agents.get(rowId) ?? []) })
     return next(e)
   })
 
