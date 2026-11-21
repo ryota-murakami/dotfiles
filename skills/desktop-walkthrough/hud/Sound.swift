@@ -22,7 +22,7 @@ final class SoundPlayer: NSObject, AVAudioPlayerDelegate {
 
     /// Play a sound.
     ///
-    /// @param name - File name without extension (`tick`, `mark-1` … `mark-6`, `unmark`, `note`, `complete`, `next`).
+    /// @param name - File name without extension (`tick`, `mark`, `unmark`, `note`, `complete`, `next`).
     /// @param gain - Scales this one sound under the user's volume (a focus move is quieter than a mark).
     /// @param delay - Seconds to wait first: the sound of what a mark led to comes after the mark's own.
     func play(_ name: String, gain: Float = 1, after delay: TimeInterval = 0) {

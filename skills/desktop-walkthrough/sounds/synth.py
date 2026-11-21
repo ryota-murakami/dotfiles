@@ -10,7 +10,7 @@ Usage: python3 -I synth.py <output folder>
 
 The set is one family (a wooden bar, a plucked string, a small bell) at four levels, quiet to loud:
   tick                 a feedback button, the focus moving without a mark
-  mark-1 .. mark-6     a block marked as read: two rising notes, one step higher each
+  mark                 a block marked as read: two rising notes, the same for every block
   unmark               a mark taken back
   note, complete       a note understood; every block of a page read
   next                 the page cleared: the only fanfare
@@ -27,8 +27,6 @@ import wave
 SR = 44100
 TAU = math.tau
 NOTES = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11}
-# Semitones above the first mark for mark-1 .. mark-6: a pentatonic climb to the octave
-MARK_STEPS = (0, 2, 4, 7, 9, 12)
 
 
 def hz(name):
@@ -171,13 +169,10 @@ def sounds():
     """Every sound as name -> (samples, level in dB RMS of its loudest moment)."""
     random.seed(7)
 
-    def mark(semitones):
-        ratio = 2 ** (semitones / 12)
-        pair = marimba(hz("D5") * ratio, 0.16, tau=0.07)
-        return mix(pair, marimba(hz("G5") * ratio, 0.32, tau=0.11), 0.075)
-
     out = {"tick": (marimba(hz("G5"), 0.12, tau=0.045), -31)}
-    out["mark-1"] = (mark(MARK_STEPS[0]), -23)
+    # The same two notes for every block: the mark does not climb as a page fills up
+    mark = marimba(hz("D5"), 0.16, tau=0.07)
+    out["mark"] = (mix(mark, marimba(hz("G5"), 0.32, tau=0.11), 0.075), -23)
     out["unmark"] = (marimba(hz("A4"), 0.16, tau=0.06), -33)
 
     note = marimba(hz("B4"), 0.3)
@@ -198,9 +193,6 @@ def sounds():
     mix(fan, bell(hz("G6"), 1.0, tau=0.45), 0.62, 0.28)
     mix(fan, bell(hz("C7"), 1.0, tau=0.45), 0.77, 0.2)
     out["next"] = (reverb(fan, wet=0.24, tail=0.8), -15)
-    # The higher marks come last: the sounds above keep the noise they were first made with
-    for index, semitones in enumerate(MARK_STEPS[1:], start=2):
-        out[f"mark-{index}"] = (mark(semitones), -23)
     return out
 
 

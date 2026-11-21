@@ -160,8 +160,7 @@ extension HUD {
         explainer.setProgress(read: read.count, total: total, animated: event != "init")
         switch event {
         case "mark":
-            let step = total <= 1 ? 6 : 1 + Int((Double(read.count - 1) * 5 / Double(total - 1)).rounded())
-            sounds.play("mark-\(min(6, max(1, step)))")
+            sounds.play("mark")
             marked(page: page, read: read.count, total: total, wasComplete: wasComplete)
         case "unmark": sounds.play("unmark")
         // The frame moved without a mark: the sound of a cursor moving in a menu
@@ -270,7 +269,7 @@ extension HUD {
             payload["radius"] = surfaceCornerRadius
             effects.play("banner", payload, on: screen)
         } else {
-            sounds.play("mark-1")
+            sounds.play("mark")
         }
     }
 
