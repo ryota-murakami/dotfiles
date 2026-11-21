@@ -92,6 +92,16 @@ end_ad_session() {
 hud_alive() { local pid; pid=$(cat "$DW_HOME/hud.pid" 2>/dev/null); [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; }
 stop_on() { [ "$(cat "$BRIDGE/stop" 2>/dev/null)" = on ]; }
 
+# The user can take the whole HUD off the screen with a shortcut (it keeps running). What is shown
+# meanwhile waits out of sight, so the agent is told. $1 = what was just shown ("the page").
+hidden_note() {
+  local keys
+  [ -f "$DW_HOME/hud-hidden" ] || return 0
+  hud_alive || return 0
+  keys=$(cat "$DW_HOME/hud-hidden" 2>/dev/null)
+  echo "note: the user has hidden the HUD${keys:+ (they bring it back with $keys)}: $1 shows when they do. Leave it hidden; say in the chat what is waiting if it cannot wait." >&2
+}
+
 # Honor the HUD before acting: stop aborts (exit 130), a message being typed in the HUD waits.
 # The wait is bounded so a tool call never hangs the session: exit 75 means "still typing".
 gate() {
@@ -306,6 +316,7 @@ cmd_ask() {
     printf '%s %s\n' "$(date +%H:%M:%S)" "$kind: $text" >> "$DW_HOME/narration.log"
     journal "${icon} ${text}（${ok_label}／${no_label}$(printf '%s' "$buttons" | sed 's/^/／/' | tr -d '\n')）"
   fi
+  hidden_note "the question"
   # Tell the HUD someone is waiting; once this process is gone, a click is delivered as a chat message
   printf '%s' "$$" > "$DW_HOME/ask-waiter"
   trap 'rm -f "$DW_HOME/ask-waiter"' EXIT
@@ -714,6 +725,7 @@ cmd_explain() {
   done
   if [ -z "$src" ] && [ -n "$request" ]; then
     mkdir -p "$EXPLAIN"; printf '%s' "$request" > "$EXPLAIN/visibility-request"
+    [ "$request" = show ] && hidden_note "the panel"
     echo "explainer: $request"; return 0
   fi
   [ -n "$src" ] || die "usage: dw explain <file.md|-> [--title \"<title>\"] [--replace] [--back] | dw explain --back|--show|--hide|--clear"
@@ -762,9 +774,11 @@ cmd_explain() {
   fi
   diagrams=$(jq -r '.diagrams // 0' "$EXPLAIN/rendered.json"); errors=$(jq -r '.errors | length' "$EXPLAIN/rendered.json")
   if [ "$errors" != 0 ]; then
+    hidden_note "the page"
     echo "explainer: page $n shown with $errors problem(s): fix the source, then dw explain <file> --replace"
     jq -r '.errors[] | "  - " + .' "$EXPLAIN/rendered.json"; return 1
   fi
+  hidden_note "the page"
   echo "explainer: page $n shown (${title}; diagrams: $diagrams)"
 }
 
@@ -823,6 +837,7 @@ cmd_note() {
   if [ "$(jq -r '.id // ""' "$EXPLAIN/note-shown.json" 2>/dev/null)" != "$id" ]; then
     echo "note: written, but the popup did not confirm it is on screen (HUD closed?)"; return 3
   fi
+  hidden_note "the note"
   echo "note: shown (${title:-untitled}) at $(jq -r '.frame | map(floor) | "x=\(.[0]) y=\(.[1]) \(.[2])x\(.[3])"' "$EXPLAIN/note-shown.json") (bottom-left origin)"
 }
 
@@ -1012,7 +1027,7 @@ cmd_end() {
   rm -f "$DW_HOME/ask.json" "$DW_HOME/ask-answer" "$EXPLAIN/note.json" "$EXPLAIN/note-shown.json"
   rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration"
   rm -f "$DW_HOME/typing" "$DW_HOME/mirror-suspend" "$DW_HOME/quit" "$DW_HOME/hud.pid" "$DW_HOME/step" \
-    "$DW_HOME/owner.pid" "$DW_HOME/chat_window" "$DW_HOME/hud-closed-by-user"
+    "$DW_HOME/owner.pid" "$DW_HOME/chat_window" "$DW_HOME/hud-closed-by-user" "$DW_HOME/hud-hidden"
   # Without an owner the bridge mod goes dormant in every session
   rm -f "$BRIDGE/owner"
   end_ad_session

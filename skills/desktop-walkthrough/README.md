@@ -16,7 +16,7 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `explainer/page.html`, `explainer/note.html` | Templates of an explainer page and of a note: `dw explain` / `dw note` fill in the Markdown, the page renders it with marked, highlight.js and mermaid (fetched once into the state folder, pinned by digest). The page draws the reading marks (a check per block, the frame on the block being read), the note its 理解した button |
 | `hud/Reading.swift`, `hud/Sound.swift`, `hud/Effects.swift`, `explainer/effects.html` | Reading feedback: what was read (kept in `progress.json`, with a copy in the record), the achievements, the sounds that answer a mark, and the see-through layer that draws the banner of a cleared page and an achievement under the bar |
 | `sounds/synth.py` | The sound effects as source: `dw` renders them to WAV files in the state folder before it starts the HUD (no audio files in the repository) |
-| `hud/Settings.swift`, `hud/SettingsCard.swift`, `hud/Controls.swift`, `hud/Appearance.swift` | The options registry, the settings card, shared controls and the hot keys (stop, Command-C over a page), and the look every surface shares (appearance, colours, materials, accessibility display settings). Compiled on first `dw start` |
+| `hud/Settings.swift`, `hud/SettingsCard.swift`, `hud/Controls.swift`, `hud/Appearance.swift` | The options registry, the settings card, shared controls and the hot keys (stop, Command-C over a page, hiding the HUD with keys the user records), and the look every surface shares (appearance, colours, materials, accessibility display settings). Compiled on first `dw start` |
 | `references/records.md` | What a recorded walkthrough holds, and how to resume or repeat one |
 | `references/developing.md` | How to change the HUD, the bridge or `dw` and try the change on a scratch HUD |
 | `references/pitfalls.md` | Failures seen in real runs and the rules they produced |
@@ -42,4 +42,4 @@ ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
 
 ## Use
 
-Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.
+Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Hide the whole HUD and bring it back with Control-Option-Command-H (click the shortcut in the settings to record other keys). Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.

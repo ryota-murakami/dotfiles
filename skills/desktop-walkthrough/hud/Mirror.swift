@@ -319,12 +319,13 @@ extension HUD {
             let normal = list.first { ($0[kCGWindowLayer as String] as? Int) == 0 }
             claudeInFront = (normal?[kCGWindowNumber as String] as? Int).map { CGWindowID($0) == claudeWindowID } ?? false
         }
+        // Concealed before it is ordered in: a mirror that opens while the HUD is hidden never shows
+        mirror.setConcealed(claudeInFront || exists(mirrorSuspendPath))
         if off {
             if mirror.isVisible { mirror.orderOut(nil) }
         } else if !mirror.isVisible {
             mirror.orderFrontRegardless()
         }
-        mirror.setConcealed(claudeInFront || exists(mirrorSuspendPath))
     }
 
     /// Re-render the conversation when the mod rewrote the feed (or an option changed).
@@ -388,7 +389,8 @@ extension HUD {
     /// While the message box is being edited (focused, or holding a draft), keep the agent's GUI steps waiting.
     func updateTypingFlag() {
         let editing = mirror.isKeyWindow && mirror.firstResponder is NSTextView && (mirror.firstResponder as? NSTextView)?.delegate === input
-        let typing = editing || !input.stringValue.isEmpty
+        // Not while the HUD is hidden: the user cannot see that a draft keeps the agent waiting
+        let typing = (editing || !input.stringValue.isEmpty) && !hudHidden
         if typing && !exists(typingPath) {
             FileManager.default.createFile(atPath: typingPath, contents: Data())
         } else if !typing && exists(typingPath) {

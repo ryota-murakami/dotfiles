@@ -156,10 +156,11 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         // A new note is ordered out until its page reports a height, so it appears on the desktop the
         // user is looking at when `dw note` runs: the one of the app it points into
         let wanted = contentHeight > 0 && !dismissed
+        // Out of the way while `dw click-xy` clicks: a floating card would swallow a click that lands on it.
+        // Concealed before it is ordered in: a note that opens while the HUD is hidden never shows
+        panel.setConcealed(exists(mirrorSuspendPath))
         if wanted, !panel.isVisible { panel.orderFrontRegardless() }
         if !wanted, panel.isVisible { panel.orderOut(nil) }
-        // Out of the way while `dw click-xy` clicks: a floating card would swallow a click that lands on it
-        panel.setConcealed(exists(mirrorSuspendPath))
     }
 
     /// Read the note file and load its page; the popup appears once the page has reported its height.

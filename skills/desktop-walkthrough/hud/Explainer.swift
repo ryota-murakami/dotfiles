@@ -511,9 +511,10 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// Show the panel when it is switched on and has a page; conceal it while `dw click-xy` needs it out of the way.
     func updateVisibility() {
         let wanted = settings.isOn("explain.visible") && shown > 0
+        // Concealed before it is ordered in: a panel that opens while the HUD is hidden never shows
+        panel.setConcealed(exists(mirrorSuspendPath))
         if wanted, !panel.isVisible { panel.orderFrontRegardless() }
         if !wanted, panel.isVisible { panel.orderOut(nil) }
-        panel.setConcealed(exists(mirrorSuspendPath))
     }
 
     /// Outline of the panel: its own green, stronger with "Increase contrast". Called at launch and

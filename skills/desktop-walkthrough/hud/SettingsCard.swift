@@ -9,7 +9,9 @@ import AppKit
 final class SettingsCard: NSObject {
     static let width: CGFloat = 348
     private weak var hud: HUD?
-    private let panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    /// Keyable for the shortcut recorder alone: with `becomesKeyOnlyIfNeeded` no other control takes the keyboard
+    private let panel = KeyablePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+    private var recordingObserver: NSObjectProtocol?
     private let watcher = OutsideClickWatcher()
     private var list: SettingsList!
     private let root = NSView()
@@ -52,7 +54,22 @@ final class SettingsCard: NSObject {
             scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -14),
         ])
         panel.contentView = root
+        recordingObserver = NotificationCenter.default.addObserver(forName: ShortcutRecorder.recordingChanged, object: nil, queue: .main) { [weak self] note in
+            if (note.userInfo?["recording"] as? Bool) == false { self?.releaseKeyboard() }
+        }
     }
+
+    /// Give the keyboard back to the app in front once a shortcut was recorded: the card took it for
+    /// that moment only, and the user's typing must not end in it. A panel stops being key when it is
+    /// ordered out; it comes straight back without the keyboard.
+    private func releaseKeyboard() {
+        guard panel.isKeyWindow else { return }
+        panel.orderOut(nil)
+        panel.orderFrontRegardless()
+    }
+
+    /// Close the card, whoever asks (the HUD being hidden).
+    func dismiss() { if isOpen { close() } }
 
     /// Background and outline of the card, and which sliders can be used: opaque while "Reduce
     /// transparency" is on (the see-through sliders then do nothing), a full outline with

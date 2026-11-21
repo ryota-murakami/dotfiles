@@ -62,7 +62,7 @@ final class Effects: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     /// @param name - `banner`, `toast`, `burst` or `ring`.
     /// @param screen - The screen the effect is drawn on (the one the surface it is about is on).
     func play(_ name: String, _ payload: [String: Any], on screen: NSScreen) {
-        guard settings.isOn("feedback.effects"), exists(effectsPagePath),
+        guard settings.isOn("feedback.effects"), !hudHidden, exists(effectsPagePath),
               let data = try? JSONSerialization.data(withJSONObject: payload), let json = String(data: data, encoding: .utf8) else { return }
         load()
         if panel.frame != screen.frame { panel.setFrame(screen.frame, display: false) }
@@ -71,6 +71,9 @@ final class Effects: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         panel.orderFrontRegardless()
         if loaded { webView.evaluateJavaScript(call) } else { waiting.append(call) }
     }
+
+    /// Take the layer off the screen at once, with whatever it was drawing: the user hid the HUD.
+    func hide() { panel.orderOut(nil) }
 
     /// A rectangle of the screen (Cocoa coordinates) as the page counts: points from the top-left corner of `screen`.
     func rect(_ frame: NSRect, on screen: NSScreen) -> [String: Any] {

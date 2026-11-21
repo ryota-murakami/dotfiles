@@ -380,6 +380,8 @@ extension HUD {
 
     /// Accept mouse events only over the controls and the handles; everything else clicks through.
     func updateClickThrough() {
+        // Hidden by the user's shortcut: the bar is concealed and lets every click through
+        guard !hudHidden else { return }
         let mouse = NSEvent.mouseLocation
         // The stop button takes the pointer only while it shows; the state badge is a label and lets clicks through
         let controls: [NSView] = [explainButton, mirrorButton, settingsButton, resizeHandle, grip]

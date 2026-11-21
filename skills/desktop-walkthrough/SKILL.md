@@ -46,6 +46,8 @@ Each surface has one job. Put each thing on the surface that fits it.
 
 Stop (the red button, or Control-Option-Command-Period), the mirror, its message box and closing the HUD belong to the user. A HUD the user closed stays closed: `say` and `ad` reopen one that vanished for another reason (the agent restarted under the same session), and print a note when the user quit it; then say in chat that it is closed.
 
+Hiding belongs to the user too: a shortcut (Control-Option-Command-H, or the keys they recorded in the settings) takes every surface off the screen and brings it back. A hidden HUD keeps running and every `dw` command works; `dw explain`, `dw note`, `dw ask` and `dw wait-user` print a note when what they show is out of sight. Leave it hidden, and say in the chat what is waiting when it cannot wait.
+
 ## Start
 
 1. `$DW doctor`, then fix what it reports before working around it. A broken tool is repaired from its own docs and issue tracker first; a workaround comes only after that fails.

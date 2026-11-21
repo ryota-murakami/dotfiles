@@ -8,6 +8,8 @@
 //   drag the header to move, any edge to resize.
 // - Settings: one registry (Settings.swift) shown as a card above the bar (SettingsCard.swift).
 // - Stop: the red button on the bar, or Control-Option-Command-Period from anywhere.
+// - Hide: Control-Option-Command-H (the user can record other keys in the settings) takes every
+//   surface off the screen and brings it back; the HUD keeps running meanwhile.
 //
 // The status bar never takes focus. Clicking the mirror makes the HUD the frontmost app so dictation
 // tools can reach its message box; Enter or Esc gives focus back to the app that had it.
@@ -89,6 +91,10 @@ let adSessionPath = "\(stateDir)/ad_session"
 /// Rewritten every second: the mod and `dw` ignore the typing flag once this heartbeat is stale.
 let alivePath = "\(stateDir)/hud.alive"
 let pidPath = "\(stateDir)/hud.pid"
+/// Present while the user has hidden the HUD with its shortcut ({@link HUD.toggleHidden}); it holds
+/// the keys that bring the HUD back ("⌃⌥⌘H"). Read by `dw`, which tells the agent that what it
+/// shows is out of sight.
+let hiddenPath = "\(stateDir)/hud-hidden"
 
 /// Option values, shared by the HUD and the settings card.
 let settings = SettingsStore(stateDir: stateDir)
@@ -266,6 +272,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let copyHotKey = HotKey(id: 2, keyCode: kVK_ANSI_C, modifiers: cmdKey)
     /// Sees clicks in other apps: a selection left behind in a page is no longer what Command-C means.
     let copyClickWatcher = OutsideClickWatcher()
+    /// Hides and shows the whole HUD; its keys are the "hud.toggleKey" setting (see {@link HUD.applyToggleKey}).
+    let toggleHotKey = HotKey(id: 3, keyCode: Shortcut.toggleDefault.keyCode, modifiers: Shortcut.toggleDefault.modifiers)
 
     /// When the owning agent process was first seen missing (nil while it is alive).
     var ownerGoneSince: Date?
@@ -297,6 +305,14 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         }
         stopHotKey.setEnabled(settings.isOn("stop.hotkey"))
         startCopyShortcut()
+        // A HUD starts in sight, whatever the last one was
+        try? FileManager.default.removeItem(atPath: hiddenPath)
+        toggleHotKey.onPress = { [weak self] in self?.toggleHidden() }
+        applyToggleKey()
+        // While the user records new keys the current ones must reach the recorder, not hide the HUD
+        NotificationCenter.default.addObserver(forName: ShortcutRecorder.recordingChanged, object: nil, queue: .main) { [weak self] note in
+            if (note.userInfo?["recording"] as? Bool) == true { self?.toggleHotKey.setEnabled(false) } else { self?.applyToggleKey() }
+        }
         settingsCard.attach(to: self)
         // Contrast, transparency and motion are the user's system-wide choices: follow them as they change
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
@@ -334,6 +350,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         case "mirror.opacity": applyMirrorOpacity()
         case "bar.opacity": applyBarColor()
         case "stop.hotkey": stopHotKey.setEnabled(settings.isOn(id))
+        case "hud.toggleKey": applyToggleKey()
         case "reading.marks", "reading.dim": applyReadingOptions()
         default: break
         }
@@ -356,6 +373,52 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     @objc func toggleSettings() {
         settingsCard.toggle()
         settingsButton.isActive = settingsCard.isOpen
+    }
+
+    // MARK: hide and show
+
+    /// Register the shortcut that hides and shows the HUD with the keys of the "hud.toggleKey" setting.
+    /// Called at launch, when the setting changes and when a recording of new keys ends.
+    func applyToggleKey() {
+        // "なし": the user removed the shortcut
+        guard let shortcut = Shortcut(packed: settings.value("hud.toggleKey")) else {
+            toggleHotKey.setEnabled(false)
+            return
+        }
+        toggleHotKey.setKeys(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers)
+        toggleHotKey.setEnabled(true)
+        // Keys the system refuses are not kept: the setting then says what is true, no shortcut
+        if !toggleHotKey.isEnabled { settings.set("hud.toggleKey", 0) }
+    }
+
+    /// Hide every surface of the HUD, or bring them back as they were.
+    ///
+    /// Why it exists: the HUD lies over whatever the user works on, all day. For a screenshot, a call
+    /// or a quiet moment they take it off the screen without quitting it. The surfaces are concealed,
+    /// not closed ({@link NSWindow.setConcealed}): each keeps its desktop, its place and what it
+    /// showed, the agent's commands keep working and the stop shortcut still stops. Only the same
+    /// keys bring a hidden HUD back; `dw` tells the agent that it is hidden ({@link hiddenPath}).
+    /// Called by {@link HUD.toggleHotKey}.
+    func toggleHidden() {
+        hudHidden.toggle()
+        if hudHidden {
+            let keys = Shortcut(packed: settings.value("hud.toggleKey"))?.display ?? ""
+            try? keys.write(toFile: hiddenPath, atomically: true, encoding: .utf8)
+            settingsCard.dismiss()
+            effects.hide()
+            // A message box left focused would take the user's typing unseen
+            if mirror.isKeyWindow { input.returnFocus() }
+            // The bar's polling no longer runs: a resize cursor it had set would stay
+            if barEdgeHovered {
+                barEdgeHovered = false
+                NSCursor.arrow.set()
+            }
+        } else {
+            try? FileManager.default.removeItem(atPath: hiddenPath)
+        }
+        // Every surface conceals or shows itself in its own refresh
+        refresh()
+        announce(hudHidden ? "HUD を隠しました" : "HUD を表示しました")
     }
 
     // MARK: stop and lifecycle
@@ -436,7 +499,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// Quit the HUD. Removes every flag that could keep the agent waiting (typing, mirror suspend)
     /// so automation never blocks on a HUD that is no longer there.
     @objc func quitHUD() {
-        for path in [typingPath, mirrorSuspendPath, quitRequestPath, pidPath, alivePath] {
+        for path in [typingPath, mirrorSuspendPath, quitRequestPath, pidPath, alivePath, hiddenPath] {
             try? FileManager.default.removeItem(atPath: path)
         }
         NSApp.terminate(nil)
@@ -502,5 +565,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         updateAsk()
         settingsCard.follow()
         panel.orderFrontRegardless()
+        // Out of sight while the user has hidden the HUD
+        panel.setConcealed(false)
     }
 }

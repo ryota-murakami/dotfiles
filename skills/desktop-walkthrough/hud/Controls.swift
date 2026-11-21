@@ -342,7 +342,7 @@ func sectionHeading(_ title: String) -> NSTextField {
     return label
 }
 
-/// A labelled control bound to one setting: switch, slider or button, chosen by the setting's kind.
+/// A labelled control bound to one setting: switch, slider, button or shortcut recorder, chosen by the setting's kind.
 ///
 /// Why it exists: every setting is shown the same way, whatever its kind; the settings card only
 /// places the list. Created by {@link SettingsList}.
@@ -352,6 +352,7 @@ final class SettingRow: NSView {
     private var toggle: HUDSwitch?
     private var slider: NSSlider?
     private var valueLabel: NSTextField?
+    private var recorder: ShortcutRecorder?
 
     /// - Parameters:
     ///   - compact: Stack a slider under its title, for narrow columns.
@@ -430,6 +431,17 @@ final class SettingRow: NSView {
             control.setAccessibilityLabel("\(setting.title)を\(button)")
             control.setContentHuggingPriority(.required, for: .horizontal)
             line.addArrangedSubview(control)
+        case .shortcut:
+            let control = ShortcutRecorder()
+            // Delete while recording gives nil: stored as 0, no shortcut
+            control.onRecord = { [weak self] shortcut in
+                guard let self else { return }
+                self.store.set(self.setting.id, shortcut?.packed ?? 0)
+            }
+            control.setAccessibilityLabel("\(setting.title)のショートカット")
+            control.setContentHuggingPriority(.required, for: .horizontal)
+            line.addArrangedSubview(control)
+            recorder = control
         }
 
         body.translatesAutoresizingMaskIntoConstraints = false
@@ -452,6 +464,7 @@ final class SettingRow: NSView {
         // "Reduce transparency" makes every surface opaque: the see-through sliders then do nothing
         slider?.isEnabled = !(DisplayOptions.reduceTransparency && setting.id.hasSuffix(".opacity"))
         valueLabel?.stringValue = percentText(store.value(setting.id))
+        recorder?.shortcut = Shortcut(packed: store.value(setting.id))
     }
 
     @objc private func switchChanged(_ sender: HUDSwitch) { store.set(setting.id, sender.isOn ? 1 : 0) }
@@ -796,6 +809,10 @@ let hudCollectionBehavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .fu
 /// to the active desktop, which {@link NSWindow.orderFrontOnActiveSpace} relies on.
 let stageCollectionBehavior: NSWindow.CollectionBehavior = [.transient, .fullScreenAuxiliary, .ignoresCycle]
 
+/// True while the user has hidden the whole HUD with its shortcut ({@link HUD.toggleHidden}):
+/// every surface is then concealed, whatever it would show otherwise.
+var hudHidden = false
+
 extension NSWindow {
     /// True while the window is open on a desktop other than the one the user is looking at.
     var isOnAnotherSpace: Bool { isVisible && !isOnActiveSpace }
@@ -816,8 +833,10 @@ extension NSWindow {
     /// Why it exists: a surface steps aside for a moment (`dw click-xy` clicks under it, the real chat
     /// window is in front of the mirror). Ordering it out and in again would move it to whichever
     /// desktop is active when it returns; a concealed window keeps its desktop. Called on every
-    /// refresh tick by the surfaces that step aside.
+    /// refresh tick by the surfaces that step aside, and by every surface for {@link hudHidden}.
     func setConcealed(_ concealed: Bool) {
+        // Hidden by the user's shortcut: the surface stays out of sight whatever its own reason says
+        let concealed = concealed || hudHidden
         guard (alphaValue == 0) != concealed else { return }
         alphaValue = concealed ? 0 : 1
         ignoresMouseEvents = concealed
@@ -833,14 +852,14 @@ private var hotKeyHandler: EventHandlerRef?
 /// Why it exists: the HUD is never the active app, so its windows get no key events. Carbon hot keys
 /// reach an app that is not frontmost and need no Accessibility permission. A registered hot key is
 /// taken from every other app, so it is registered only while it means something here. Owned by
-/// {@link HUD}: the stop shortcut (the "stop.hotkey" setting) and Command-C over a reading surface
-/// ({@link HUD.updateCopyHotKey}).
+/// {@link HUD}: the stop shortcut (the "stop.hotkey" setting), Command-C over a reading surface
+/// ({@link HUD.updateCopyHotKey}) and the shortcut that hides the HUD ({@link HUD.applyToggleKey}).
 final class HotKey {
     /// Called on the main thread when the shortcut is pressed.
     var onPress: (() -> Void)?
     private let id: UInt32
-    private let keyCode: Int
-    private let modifiers: Int
+    private var keyCode: Int
+    private var modifiers: Int
     private var ref: EventHotKeyRef?
 
     /// - Parameters:
@@ -861,6 +880,17 @@ final class HotKey {
         if enabled { register() } else { unregister() }
     }
 
+    /// Change the keys of the shortcut. One that is registered is registered again with the new keys;
+    /// when the system refuses them, {@link HotKey.isEnabled} is false afterwards.
+    func setKeys(keyCode: Int, modifiers: Int) {
+        guard keyCode != self.keyCode || modifiers != self.modifiers else { return }
+        let wasEnabled = isEnabled
+        unregister()
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+        if wasEnabled { register() }
+    }
+
     private func register() {
         guard ref == nil else { return }
         if hotKeyHandler == nil {
@@ -876,11 +906,261 @@ final class HotKey {
             }, 1, &spec, nil, &hotKeyHandler)
         }
         let hotKeyID = EventHotKeyID(signature: OSType(0x4457_5354), id: id)   // 'DWST'
-        RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hotKeyID, GetApplicationEventTarget(), 0, &ref)
+        // Keys the system refuses leave the shortcut unregistered
+        if RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), hotKeyID, GetApplicationEventTarget(), 0, &ref) != noErr { ref = nil }
     }
 
     private func unregister() {
         if let ref { UnregisterEventHotKey(ref) }
         ref = nil
+    }
+}
+
+/// A key with its modifiers, as the user chose it for a hot key.
+///
+/// Why it exists: a shortcut the user can change has to be stored (one number in `settings.json`),
+/// shown ("⌃⌥⌘H") and read from a key press. Used by the "hud.toggleKey" setting:
+/// {@link HUD.applyToggleKey} registers it and {@link ShortcutRecorder} records a new one.
+struct Shortcut: Equatable {
+    /// Virtual key code (`kVK_…`).
+    let keyCode: Int
+    /// Carbon modifier flags (`cmdKey | optionKey …`).
+    let modifiers: Int
+
+    /// Hides and shows the HUD until the user records other keys: the modifiers of the stop shortcut
+    /// with H, which macOS does not use.
+    static let toggleDefault = Shortcut(keyCode: kVK_ANSI_H, modifiers: controlKey | optionKey | cmdKey)
+    /// Stops the agent ({@link HUD.stopHotKey}).
+    static let stop = Shortcut(keyCode: kVK_ANSI_Period, modifiers: controlKey | optionKey | cmdKey)
+    /// Copies a selection in a page or note ({@link HUD.copyHotKey}).
+    static let copy = Shortcut(keyCode: kVK_ANSI_C, modifiers: cmdKey)
+
+    /// The shortcut as one number for the settings file: modifiers × 1000 + key code. 0 is "no shortcut".
+    var packed: Double { Double(modifiers * 1000 + keyCode) }
+
+    init(keyCode: Int, modifiers: Int) {
+        self.keyCode = keyCode
+        self.modifiers = modifiers
+    }
+
+    /// @param packed - A value from {@link Shortcut.packed}. 0 (no shortcut) gives nil.
+    init?(packed: Double) {
+        let value = Int(packed)
+        guard value > 0 else { return nil }
+        keyCode = value % 1000
+        modifiers = value / 1000
+    }
+
+    /// The key of a key-down event with the modifiers held at that moment.
+    init(event: NSEvent) {
+        keyCode = Int(event.keyCode)
+        modifiers = Shortcut.carbonModifiers(event.modifierFlags)
+    }
+
+    /// AppKit's modifier flags as the Carbon flags a hot key is registered with.
+    static func carbonModifiers(_ flags: NSEvent.ModifierFlags) -> Int {
+        var result = 0
+        if flags.contains(.control) { result |= controlKey }
+        if flags.contains(.option) { result |= optionKey }
+        if flags.contains(.shift) { result |= shiftKey }
+        if flags.contains(.command) { result |= cmdKey }
+        return result
+    }
+
+    /// True with Command, Control or Option held: a key alone, or with Shift only, is ordinary typing,
+    /// and a hot key would take it from every app.
+    var hasCommandModifier: Bool { modifiers & (cmdKey | controlKey | optionKey) != 0 }
+
+    /// The shortcut as menus write it: "⌃⌥⌘H".
+    var display: String { Shortcut.symbols(modifiers) + Shortcut.keyName(keyCode) }
+
+    /// Modifier symbols in the order menus use.
+    static func symbols(_ modifiers: Int) -> String {
+        var text = ""
+        if modifiers & controlKey != 0 { text += "⌃" }
+        if modifiers & optionKey != 0 { text += "⌥" }
+        if modifiers & shiftKey != 0 { text += "⇧" }
+        if modifiers & cmdKey != 0 { text += "⌘" }
+        return text
+    }
+
+    /// Keys that print nothing, by what keyboards and menus call them.
+    private static let namedKeys: [Int: String] = [
+        kVK_Space: "Space", kVK_Return: "↩", kVK_ANSI_KeypadEnter: "⌤", kVK_Tab: "⇥", kVK_Delete: "⌫",
+        kVK_ForwardDelete: "⌦", kVK_Escape: "⎋", kVK_LeftArrow: "←", kVK_RightArrow: "→", kVK_UpArrow: "↑",
+        kVK_DownArrow: "↓", kVK_Home: "↖", kVK_End: "↘", kVK_PageUp: "⇞", kVK_PageDown: "⇟",
+        kVK_F1: "F1", kVK_F2: "F2", kVK_F3: "F3", kVK_F4: "F4", kVK_F5: "F5", kVK_F6: "F6", kVK_F7: "F7",
+        kVK_F8: "F8", kVK_F9: "F9", kVK_F10: "F10", kVK_F11: "F11", kVK_F12: "F12", kVK_F13: "F13",
+        kVK_F14: "F14", kVK_F15: "F15", kVK_F16: "F16", kVK_F17: "F17", kVK_F18: "F18", kVK_F19: "F19",
+        kVK_F20: "F20",
+    ]
+
+    /// What is printed on a key, read from the keyboard layout in use (its Latin one, whatever the
+    /// input method), in capitals as on the key cap.
+    static func keyName(_ keyCode: Int) -> String {
+        if let name = namedKeys[keyCode] { return name }
+        let fallback = "キー\(keyCode)"
+        guard let source = TISCopyCurrentASCIICapableKeyboardLayoutInputSource()?.takeRetainedValue(),
+              let raw = TISGetInputSourceProperty(source, kTISPropertyUnicodeKeyLayoutData) else { return fallback }
+        let layout = Unmanaged<CFData>.fromOpaque(raw).takeUnretainedValue() as Data
+        var deadKeys: UInt32 = 0
+        var length = 0
+        var characters = [UniChar](repeating: 0, count: 4)
+        let status = layout.withUnsafeBytes { bytes -> OSStatus in
+            guard let keyboard = bytes.bindMemory(to: UCKeyboardLayout.self).baseAddress else { return OSStatus(paramErr) }
+            return UCKeyTranslate(keyboard, UInt16(keyCode), UInt16(kUCKeyActionDisplay), 0, UInt32(LMGetKbdType()),
+                                  OptionBits(kUCKeyTranslateNoDeadKeysBit), &deadKeys, characters.count, &length, &characters)
+        }
+        guard status == noErr, length > 0 else { return fallback }
+        let name = String(utf16CodeUnits: characters, count: length).uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? fallback : name
+    }
+}
+
+/// A button that shows a shortcut and records a new one: click it, then press the keys.
+///
+/// Why it exists: the shortcut that hides the HUD must be the user's to choose (the default may be
+/// taken by one of their tools). The HUD's panels never take the keyboard, so the recorder asks its
+/// panel to become key for the moment of recording; {@link SettingsCard} gives the keyboard back to
+/// the app in front when it ends. Esc leaves the shortcut as it was, Delete removes it.
+/// Created by {@link SettingRow} for a `.shortcut` setting.
+final class ShortcutRecorder: NSView {
+    /// Posted when a recording starts or ends; `userInfo["recording"]` is a Bool. Meanwhile the HUD
+    /// lets go of the hot key being recorded: pressing the current keys must record them, not act.
+    static let recordingChanged = Notification.Name("dw.shortcut.recording")
+
+    /// The shortcut on show; nil reads "なし".
+    var shortcut: Shortcut? { didSet { updateLook() } }
+    /// Called with what the user recorded: a shortcut, or nil after Delete (no shortcut).
+    var onRecord: ((Shortcut?) -> Void)?
+    private(set) var isRecording = false
+    /// Why the last key press was not taken, shown until the next one.
+    private var hint: String?
+    /// Modifiers held right now, shown while recording so the user sees the keys arrive.
+    private var heldModifiers = 0
+    private let label = NSTextField(labelWithString: "")
+    private var resignObserver: NSObjectProtocol?
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = 6
+        label.font = NSFont.systemFont(ofSize: 12, weight: .medium)
+        label.alignment = .center
+        label.lineBreakMode = .byTruncatingTail
+        label.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(label)
+        NSLayoutConstraint.activate([
+            label.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            label.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -6),
+            label.centerYAnchor.constraint(equalTo: centerYAnchor),
+        ])
+        updateLook()
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: 124, height: 24) }
+    override var acceptsFirstResponder: Bool { true }
+    /// The one control of the settings card that needs the keyboard: a click on it makes the panel key.
+    override var needsPanelToBecomeKey: Bool { true }
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// A click starts a recording; a second click leaves the shortcut as it was.
+    override func mouseDown(with event: NSEvent) {
+        if isRecording { end(recorded: nil, keep: true) } else { start() }
+    }
+
+    /// Start waiting for the keys of the new shortcut.
+    func start() {
+        guard !isRecording, let window else { return }
+        isRecording = true
+        hint = nil
+        heldModifiers = 0
+        window.makeKey()
+        window.makeFirstResponder(self)
+        // The card closed, or the user clicked into another window: the shortcut stays as it was
+        resignObserver = NotificationCenter.default.addObserver(forName: NSWindow.didResignKeyNotification, object: window, queue: .main) { [weak self] _ in
+            self?.end(recorded: nil, keep: true)
+        }
+        NotificationCenter.default.post(name: Self.recordingChanged, object: self, userInfo: ["recording": true])
+        updateLook()
+    }
+
+    /// Stop recording.
+    ///
+    /// @param recorded - The keys the user pressed; nil with `keep` false removes the shortcut.
+    /// @param keep - True to leave the shortcut as it was (Esc, a click elsewhere).
+    private func end(recorded: Shortcut?, keep: Bool) {
+        guard isRecording else { return }
+        isRecording = false
+        hint = nil
+        if let resignObserver { NotificationCenter.default.removeObserver(resignObserver) }
+        resignObserver = nil
+        if window?.firstResponder === self { window?.makeFirstResponder(nil) }
+        if !keep { onRecord?(recorded) }
+        NotificationCenter.default.post(name: Self.recordingChanged, object: self, userInfo: ["recording": false])
+        updateLook()
+    }
+
+    /// Take a key press while recording: the new shortcut, or the reason it cannot be one.
+    private func take(_ event: NSEvent) {
+        let pressed = Shortcut(event: event)
+        // Esc and Delete by themselves are commands to the recorder, not shortcuts
+        if pressed.modifiers == 0, pressed.keyCode == kVK_Escape { end(recorded: nil, keep: true); return }
+        if pressed.modifiers == 0, pressed.keyCode == kVK_Delete || pressed.keyCode == kVK_ForwardDelete { end(recorded: nil, keep: false); return }
+        if !pressed.hasCommandModifier {
+            hint = "修飾キーが必要"
+        } else if pressed == .stop {
+            hint = "停止で使用中"
+        } else if pressed == .copy {
+            hint = "コピーで使用中"
+        } else {
+            end(recorded: pressed, keep: false)
+            return
+        }
+        updateLook()
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard isRecording else { super.keyDown(with: event); return }
+        take(event)
+    }
+
+    /// Keys with Command arrive as key equivalents first: taken here, they never reach a menu.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        guard isRecording, event.type == .keyDown else { return super.performKeyEquivalent(with: event) }
+        take(event)
+        return true
+    }
+
+    override func flagsChanged(with event: NSEvent) {
+        guard isRecording else { super.flagsChanged(with: event); return }
+        heldModifiers = Shortcut.carbonModifiers(event.modifierFlags)
+        if heldModifiers != 0 { hint = nil }
+        updateLook()
+    }
+
+    /// Text and outline for the state: the shortcut, or what the recorder waits for.
+    private func updateLook() {
+        if isRecording {
+            label.stringValue = hint ?? (heldModifiers != 0 ? Shortcut.symbols(heldModifiers) + "…" : "キーを押す…")
+        } else {
+            label.stringValue = shortcut?.display ?? "なし"
+        }
+        label.textColor = isRecording || shortcut == nil ? .secondaryLabelColor : .labelColor
+        layer?.backgroundColor = NSColor.white.withAlphaComponent(isRecording ? 0.2 : 0.12).cgColor
+        layer?.borderWidth = isRecording ? 1.5 : 1
+        layer?.borderColor = isRecording ? primaryFill.hudCG : NSColor.white.withAlphaComponent(0.22).cgColor
+        setAccessibilityValue(label.stringValue)
+    }
+
+    override func viewDidChangeEffectiveAppearance() { updateLook() }
+
+    override func isAccessibilityElement() -> Bool { true }
+    override func accessibilityRole() -> NSAccessibility.Role? { .button }
+    override func accessibilityPerformPress() -> Bool {
+        if isRecording { end(recorded: nil, keep: true) } else { start() }
+        return true
     }
 }

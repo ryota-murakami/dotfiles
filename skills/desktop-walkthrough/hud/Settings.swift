@@ -14,6 +14,8 @@ struct Setting {
         case slider(min: Double, max: Double, step: Double)
         /// A one-shot command; `button` is the verb on its control.
         case action(button: String, destructive: Bool)
+        /// A keyboard shortcut the user records, stored as one number ({@link Shortcut.packed}; 0 is none).
+        case shortcut
     }
     let id: String
     /// Id of the {@link SettingSection} it is listed under.
@@ -98,6 +100,8 @@ final class SettingsStore {
                 kind: .action(button: "リセット", destructive: false), short: "確認を初期位置へ"),
         Setting(id: "stop.hotkey", section: "general", title: "停止のショートカット ⌃⌥⌘.", symbol: "keyboard",
                 kind: .toggle, defaultValue: 1, short: "停止キー"),
+        Setting(id: "hud.toggleKey", section: "general", title: "HUD の表示／非表示", symbol: "eye.slash",
+                kind: .shortcut, defaultValue: Shortcut.toggleDefault.packed, short: "表示／非表示キー"),
         Setting(id: "hud.quit", section: "general", title: "HUD", symbol: "power",
                 kind: .action(button: "終了", destructive: true), short: "HUDを終了"),
     ]

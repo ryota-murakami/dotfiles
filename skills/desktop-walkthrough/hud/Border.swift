@@ -17,7 +17,7 @@ extension HUD {
     ///
     /// @param visible - True while the state is `.performing`.
     func updatePerformingBorder(visible: Bool) {
-        guard visible, settings.isOn("border.performing") else {
+        guard visible, !hudHidden, settings.isOn("border.performing") else {
             for window in performingBorders where window.isVisible { window.orderOut(nil) }
             return
         }

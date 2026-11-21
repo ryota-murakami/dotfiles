@@ -169,6 +169,9 @@ extension HUD {
         // The page is open on another desktop: the card waits there with it and this desktop stays
         // clear of the walkthrough, unless the user called the card here
         let waitsWithStage = !askSummoned && (stage?.isOnAnotherSpace ?? false)
+        // Out of sight while the user has hidden the HUD (the question stays open): concealed before
+        // the card is ordered in, so one that arrives meanwhile never shows
+        askPanel.setConcealed(false)
         if waitsWithStage {
             if askPanel.isVisible, askPanel.isOnActiveSpace { askPanel.orderOut(nil) }
         } else if !askPanel.isVisible {
