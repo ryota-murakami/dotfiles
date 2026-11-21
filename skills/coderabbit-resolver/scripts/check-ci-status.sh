@@ -14,11 +14,16 @@
 #            and none in `cancel`. gh keeps only the newest run of each check
 #            per workflow and event, so a run that a later run replaced is ignored.
 #          - at least one check besides CodeRabbit exists, so CI ran at all
-#          - every CodeRabbit check on HEAD is in the `pass` bucket
+#          - no CodeRabbit check on HEAD failed or was cancelled. A neutral or
+#            skipped one (bucket `skipping`) means the bot did not review this
+#            push, so the layers below decide instead of the check itself
 #          - CodeRabbit really reviewed HEAD, which three layers decide:
-#              a) the per-SHA commit status `.description` ("Review completed" /
-#                 "Review rate limited" / "Review in progress"), which cannot
-#                 carry over from an earlier commit;
+#              a) CodeRabbit's per-SHA verdict, which cannot carry over from an
+#                 earlier commit. Depending on the repository it comes as a
+#                 commit status `.description` ("Review completed" / "Review
+#                 rate limited" / "Review in progress"), or as the CodeRabbit
+#                 check run's `output.title` ("Finished", or "Review rate
+#                 limited" on a check run concluded `neutral`). Both are read;
 #              b) the latest CodeRabbit issue comment is not a rate-limit notice;
 #              c) a coderabbitai[bot] review exists on HEAD. The status alone
 #                 can read "Review completed" after a run that reviewed nothing
@@ -32,12 +37,12 @@
 #            PR's checkout: when the review ran on an ancestor of HEAD, --verify
 #            needs HEAD's commits there (the gate fetches pull/<n>/head if missing).
 #          Exit 1 when a check failed or was cancelled (the script lists them),
-#                 or a CodeRabbit check did not pass. CI is judged before the
+#                 CodeRabbit's included. CI is judged before the
 #                 review: fixing it moves HEAD, which needs a new review anyway.
 #          Exit 2 on timeout: a check still pending, or no check besides
 #                 CodeRabbit ever appeared
-#          Exit 3 when CodeRabbit's check says success but it did not review
-#                 HEAD: rate limited, no review on HEAD, or still reviewing.
+#          Exit 3 when CodeRabbit's check reads success or neutral but it did
+#                 not review HEAD: rate limited, no review on HEAD, or still reviewing.
 #                 Layer (b) alone is NOT sufficient: CodeRabbit EDITS its
 #                 walkthrough comment in place, so a stale walkthrough from an
 #                 earlier commit still reads as "a real review ran" (PR #184,
@@ -162,14 +167,6 @@ while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
       exit 1
     fi
 
-    # Even with no unresolved threads, we must not merge until every CodeRabbit
-    # check on current HEAD passed. CLI mode already dropped those rows.
-    if [ "${CR_CLI_MODE:-}" != 1 ] && [ "$CR_PASS" -lt "$CR_TOTAL" ]; then
-      echo ""
-      echo "CodeRabbit review is not in completed+success state yet."
-      exit 1
-    fi
-
     # CLI mode: the bot is disabled. Do not accept a leftover GitHub review.
     # Layers (a)–(c) stay for the default path only.
     echo ""
@@ -177,8 +174,16 @@ while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
       echo "CLI mode: a CodeRabbit CLI review must cover ${HEAD_SHA:0:7} (the GitHub bot is disabled)."
       NO_REVIEW="cli mode"
     else
-    # CodeRabbit's check reads success even when it did not review HEAD, so three
-    # layers decide whether it did.
+    # No CodeRabbit check is pending, failed or cancelled here, so one that did not
+    # pass is neutral or skipped: the bot did not review this push. CodeRabbit
+    # reports a rate-limited push as a neutral check run titled "Review rate
+    # limited" (laststance.io #1756, 2026-11-21). That is not a failure: the
+    # layers below decide, and a CLI review of HEAD can stand in (Step 6b).
+    if [ "$CR_PASS" -lt "$CR_TOTAL" ]; then
+      echo "CodeRabbit's check on ${HEAD_SHA:0:7} is neutral or skipped: it did not review this push."
+    fi
+    # CodeRabbit's check reads success (or neutral) even when it did not review
+    # HEAD, so three layers decide whether it did.
     #
     # IMPORTANT: real walkthrough comments include an informational footer
     #   <sub>Review rate limit: X/Y reviews remaining, refill in N minutes.</sub>
@@ -191,30 +196,38 @@ while [ "$ELAPSED" -lt "$MAX_WAIT" ]; do
     echo "Verifying that CodeRabbit really reviewed ${HEAD_SHA:0:7}..."
     NO_REVIEW=""
 
-    # Layer (a) — AUTHORITATIVE for rate limits. CodeRabbit stamps a per-SHA
-    # commit status whose .description carries the verdict while .state is
-    # `success` in every case (including a rate-limited run). Unlike the
-    # walkthrough comment — edited in place, so a stale one still matches layer
-    # (b)'s grep — this is per-SHA and cannot carry over from an earlier commit.
-    CR_DESC=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/statuses" \
-      --jq '[.[] | select(.context == "CodeRabbit")] | .[0].description' 2>/dev/null || true)
+    # Layer (a) — AUTHORITATIVE for rate limits: CodeRabbit's per-SHA verdict.
+    # Unlike the walkthrough comment — edited in place, so a stale one still
+    # matches layer (b)'s grep — it cannot carry over from an earlier commit.
+    # It comes in one of two places, depending on the repository:
+    #   - a commit status `CodeRabbit` whose .description carries the verdict
+    #     while .state is `success` in every case, a rate-limited run included;
+    #   - the `CodeRabbit` check run's output.title: "Finished" after a run, and
+    #     "Review rate limited" on a run concluded `neutral` (laststance.io #1756
+    #     posted no commit status at all).
+    # Read both and judge the joined text; the rate-limit pattern is tried first.
+    CR_STATUS_DESC=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/statuses" \
+      --jq '[.[] | select(.context == "CodeRabbit")] | .[0].description // empty' 2>/dev/null || true)
+    CR_RUN_TITLE=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+      --jq '[.check_runs[] | select(.name == "CodeRabbit")] | .[0].output.title // empty' 2>/dev/null || true)
+    CR_DESC="${CR_STATUS_DESC}${CR_STATUS_DESC:+${CR_RUN_TITLE:+ / }}${CR_RUN_TITLE}"
     case "$CR_DESC" in
       *"rate limited"*|*"Rate limited"*|*"rate-limited"*)
-        echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"$CR_DESC\" — no real review ran."
+        echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"$CR_DESC\" — no real review ran."
         NO_REVIEW="rate limited" ;;
       *"in progress"*|*"In progress"*|*"queued"*|*"Queued"*)
-        echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"$CR_DESC\" — review not finished."
+        echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"$CR_DESC\" — review not finished."
         echo "  Caller must wait for the review to complete and retry."
         exit 3 ;;
-      *"completed"*|*"Completed"*)
-        echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"$CR_DESC\" — checking that a review exists." ;;
+      *"completed"*|*"Completed"*|*"Finished"*)
+        echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"$CR_DESC\" — checking that a review exists." ;;
       # "Reviews paused — CodeRabbit will not run on this PR", "Review skipped: reviews are disabled
       # for this base branch": this push was not reviewed, but a review made before it still counts.
       *"paused"*|*"Paused"*|*"skipped"*|*"Skipped"*)
-        echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"$CR_DESC\" — it did not run on this push;"
+        echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"$CR_DESC\" — it did not run on this push;"
         echo "  only a review already made on this commit counts." ;;
       *)
-        echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"${CR_DESC:-<none>}\" — unrecognised;"
+        echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"${CR_DESC:-<none>}\" — unrecognised;"
         echo "  the layers below decide." ;;
     esac
 

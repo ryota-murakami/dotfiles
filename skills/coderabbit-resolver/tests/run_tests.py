@@ -1,4 +1,5 @@
-"""Tests for scripts/cli-review.sh and scripts/check-ci-status.sh (its CR_CLI_LOG branch, review layers and CI verdict).
+"""Tests for scripts/cli-review.sh, scripts/check-ci-status.sh (its CR_CLI_LOG branch, review layers and CI verdict),
+the rate-limit detection of scripts/wait-for-ratelimit.sh, and scripts/ensure-cli-ignore.sh.
 
 Run from anywhere: python3 tests/run_tests.py
 The fakes in tests/bin stand in for gh and the CodeRabbit CLI, and a throwaway git repo
@@ -91,7 +92,7 @@ def run(name, args, expect, env=None, contains=(), absent=(), cwd=REPO):
     e["CR_CLI_LOG_DIR"] = LOGS
     e["FAKE_HEAD"] = HEAD
     for k in ("CR_CLI_LOG", "CR_CLI_ACCEPT", "CR_CLI_MODE", "CR_CLI_BIN", "FAKE_BUILD", "FAKE_CHECKS", "FAKE_CR_DESC",
-              "FAKE_COMMENT", "FAKE_REVIEW_IDS", "FAKE_HEAD_FIRST", "FAKE_BODY"):
+              "FAKE_CR_RUN_TITLE", "FAKE_COMMENT", "FAKE_REVIEW_IDS", "FAKE_HEAD_FIRST", "FAKE_BODY"):
         e.pop(k, None)
     # The gate polls every second, and each run gets its own state for the fake gh.
     e["CR_CHECK_INTERVAL"] = "1"
@@ -218,6 +219,42 @@ run("gate: base branch with reviews disabled asks for a CLI review", C, 3,
     env={"FAKE_CR_DESC": "Review skipped: reviews are disabled for this base branch", "FAKE_COMMENT": WALKTHROUGH, "FAKE_REVIEW_IDS": ""},
     contains=["it did not run on this push", "review HEAD with cli-review.sh"])
 
+# check-ci-status.sh: CodeRabbit can report a rate-limited push through its check run alone: concluded
+# neutral (gh bucket `skipping`), titled "Review rate limited", no commit status, and its walkthrough
+# from an earlier commit still on the PR (laststance.io #1756, 2026-11-21). The gate used to stop at
+# exit 1 there, before the CLI log could stand in for the review.
+NEUTRAL = "build|pass|SUCCESS\nCodeRabbit|skipping|NEUTRAL"
+NEUTRAL_RATE_LIMITED = {"FAKE_CHECKS": NEUTRAL, "FAKE_CR_DESC": "", "FAKE_CR_RUN_TITLE": "Review rate limited",
+                        "FAKE_COMMENT": WALKTHROUGH, "FAKE_REVIEW_IDS": ""}
+run("gate: neutral rate-limited check run asks for a CLI review instead of failing", C, 3, env=NEUTRAL_RATE_LIMITED,
+    contains=["neutral or skipped", '"Review rate limited" — no real review ran', "review HEAD with cli-review.sh",
+              "Fall back to wait-for-ratelimit.sh"],
+    absent=["not in completed+success", "All checks passed."])
+run("gate: neutral rate-limited check run, clean CLI log on HEAD", C, 0, env={**NEUTRAL_RATE_LIMITED, "CR_CLI_LOG": OK0},
+    contains=["Accepted: the CLI review replaces", "All checks passed."])
+run("gate: neutral rate-limited check run, CLI findings accepted", C, 0,
+    env={**NEUTRAL_RATE_LIMITED, "CR_CLI_LOG": F2, "CR_CLI_ACCEPT": "2"}, contains=["All checks passed."])
+run("gate: neutral rate-limited check run, CLI log for another commit", C, 3,
+    env={**NEUTRAL_RATE_LIMITED, "CR_CLI_LOG": MISMATCH}, contains=["Not merge-ready"])
+run("gate: neutral rate-limited check run, failed CI still blocks first", C, 1,
+    env={**NEUTRAL_RATE_LIMITED, "CR_CLI_LOG": OK0, "FAKE_CHECKS": "build|fail|FAILURE\nCodeRabbit|skipping|NEUTRAL"},
+    contains=["- build: fail (FAILURE)"], absent=["review HEAD with cli-review.sh", "All checks passed."])
+run("gate: neutral check without a verdict still needs a review on HEAD", C, 3,
+    env={"FAKE_CHECKS": NEUTRAL, "FAKE_CR_DESC": "", "FAKE_COMMENT": WALKTHROUGH, "FAKE_REVIEW_IDS": ""},
+    contains=["neutral or skipped", '"<none>" — unrecognised', "No CodeRabbit review object"], absent=["All checks passed."])
+run("gate: neutral check without a verdict, review made on HEAD before it", C, 0,
+    env={"FAKE_CHECKS": NEUTRAL, "FAKE_CR_DESC": "", "FAKE_COMMENT": WALKTHROUGH},
+    contains=["left 1 review(s)", "All checks passed."])
+# A finished run is reported the same way: check run titled "Finished", no commit status.
+FINISHED = {"FAKE_CR_DESC": "", "FAKE_CR_RUN_TITLE": "Finished", "FAKE_COMMENT": WALKTHROUGH}
+run("gate: Finished check run and a review on HEAD let the PR merge", C, 0, env=FINISHED,
+    contains=['"Finished" — checking that a review exists', "left 1 review(s)", "All checks passed."])
+run("gate: Finished check run without a review on HEAD asks for a CLI review", C, 3, env={**FINISHED, "FAKE_REVIEW_IDS": ""},
+    contains=["No CodeRabbit review object", "review HEAD with cli-review.sh"], absent=["Fall back to wait-for-ratelimit.sh"])
+run("gate: a commit status and a check run are judged together", C, 3,
+    env={"FAKE_CR_DESC": "Review completed", "FAKE_CR_RUN_TITLE": "Review rate limited", "FAKE_COMMENT": WALKTHROUGH},
+    contains=['"Review completed / Review rate limited" — no real review ran'])
+
 # check-ci-status.sh: a CLI review of an ancestor needs the PR head in the checkout. A second
 # checkout lacks the newer head until the gate fetches pull/1/head from origin.
 CLONE = os.path.join(WORK, "clone")
@@ -289,6 +326,23 @@ run("gate: CLI mode pending CI still waits", C_SHORT, 2,
 run("gate: CLI log without a CodeRabbit check does not wait", C, 0,
     env={"CR_CLI_LOG": OK0, "FAKE_CHECKS": "build|pass|SUCCESS"},
     contains=["Accepted: the CLI review replaces", "All checks passed."], absent=["CodeRabbit not found"])
+
+# wait-for-ratelimit.sh: the fallback must recognise the same check-run-only rate limit, or the
+# stale walkthrough reads as "a real review ran" and the recovery dead-ends at exit 1. A fake `sleep`
+# skips the wait; the fake gh prints the `full review` comment instead of posting it.
+SLEEPLESS = os.path.join(WORK, "sleepless")
+os.makedirs(SLEEPLESS)
+with open(os.path.join(SLEEPLESS, "sleep"), "w") as f:
+    f.write("#!/bin/sh\nexit 0\n")
+os.chmod(os.path.join(SLEEPLESS, "sleep"), 0o755)
+NO_WAIT = {"PATH": os.pathsep.join([SLEEPLESS, os.path.join(T, "bin"), os.environ["PATH"]])}
+WR = [os.path.join(S, "wait-for-ratelimit.sh"), "o", "r", "1"]
+run("wait: neutral rate-limited check run is detected despite a stale walkthrough", WR, 0,
+    env={**NO_WAIT, "FAKE_CR_DESC": "", "FAKE_CR_RUN_TITLE": "Review rate limited", "FAKE_COMMENT": WALKTHROUGH},
+    contains=['"Review rate limited" — rate limited (authoritative)', "POSTED: pr comment 1", "full review"])
+run("wait: Finished check run with a walkthrough is not a rate limit", WR, 1,
+    env={**NO_WAIT, "FAKE_CR_DESC": "", "FAKE_CR_RUN_TITLE": "Finished", "FAKE_COMMENT": WALKTHROUGH},
+    absent=["POSTED"])
 
 # ensure-cli-ignore.sh: write `@coderabbitai ignore` into the PR description
 EI = [os.path.join(S, "ensure-cli-ignore.sh"), "o", "r", "1"]

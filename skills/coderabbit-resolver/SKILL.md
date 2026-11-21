@@ -48,11 +48,11 @@ Only merge when ALL conditions are met: CI green (no check pending, failed or ca
 
 ### Principle 5: No Review on HEAD, No Merge — Rate Limits Included
 
-CodeRabbit may hit API rate limits and post a rate-limit warning comment **instead of** running a real review. Critically, the GitHub Checks API still reports `completed/success` for that case — there's no API-only signal to distinguish a real review from a rate-limit response. **Trusting the Checks API alone leads to merging unreviewed PRs.**
+CodeRabbit may hit API rate limits and post a rate-limit warning comment **instead of** running a real review. Critically, the GitHub Checks API still reports `completed/success` for that case, or `neutral` (the check run titled "Review rate limited") — neither is a failure, and the check state alone does not distinguish a real review from a rate-limit response. **Trusting the Checks API alone leads to merging unreviewed PRs.**
 
 Therefore: every "CodeRabbit success" must be cross-validated against the latest CodeRabbit issue comment. If the latest comment matches a rate-limit pattern (e.g. "Rate limit exceeded", "wait X minutes before requesting another review"), the run is rate-limited regardless of API status. A "success" can also cover a push that CodeRabbit never read: the per-SHA status can read "Review completed" after a run that left no review, or "Reviews paused" / "Review skipped", and a later run can overwrite it. Only a CodeRabbit review whose `commit_id` is HEAD shows that HEAD was reviewed.
 
-`check-ci-status.sh` performs these checks internally: the per-SHA status text, the latest comment, and a review on HEAD. It returns **exit 3** when they show that no review covers HEAD. The workflow's Step 6a treats exit 3 as "go to Step 6b," and Step 8 (Final Verification) treats exit 3 as "do not merge." This makes the review gate impossible to skip.
+`check-ci-status.sh` performs these checks internally: CodeRabbit's per-SHA verdict (the commit status description or the check run title, whichever the repository gets), the latest comment, and a review on HEAD. It returns **exit 3** when they show that no review covers HEAD. The workflow's Step 6a treats exit 3 as "go to Step 6b," and Step 8 (Final Verification) treats exit 3 as "do not merge." This makes the review gate impossible to skip.
 
 When no review covers HEAD, don't wait out a rate-limit window. Review the PR locally with the CodeRabbit CLI (`scripts/cli-review.sh`, review-loop.md Step 6b), audit its findings like review comments, and pass the merge gate by rerunning `check-ci-status.sh` with `CR_CLI_LOG` (plus `CR_CLI_ACCEPT` for findings dispositioned by hand). The script accepts the log only if it is a completed CLI run with exactly that many findings, on HEAD (or, when findings were accepted, on an ancestor of HEAD whose newer commits fix them).
 
@@ -141,7 +141,7 @@ All in `workflows/`:
 | ensure-cli-ignore.sh | Put `@coderabbitai ignore` in the PR description so the GitHub bot does not auto-review (`cli` mode). Idempotent |
 | wait-for-ratelimit.sh | Fallback when the CLI cannot run: detect the rate limit, wait for expiry, trigger full review. Do not use this in `cli` mode |
 
-`tests/run_tests.py` tests `cli-review.sh`, `check-ci-status.sh` (the `CR_CLI_LOG` / `CR_CLI_MODE` branches, the review layers and the CI verdict), and `ensure-cli-ignore.sh` against a fake `gh` and a fake CLI (`python3 tests/run_tests.py`; no review is spent). Run it after changing those scripts.
+`tests/run_tests.py` tests `cli-review.sh`, `check-ci-status.sh` (the `CR_CLI_LOG` / `CR_CLI_MODE` branches, the review layers and the CI verdict), the rate-limit detection of `wait-for-ratelimit.sh`, and `ensure-cli-ignore.sh` against a fake `gh` and a fake CLI (`python3 tests/run_tests.py`; no review is spent). Run it after changing those scripts.
 </scripts_index>
 
 <success_criteria>

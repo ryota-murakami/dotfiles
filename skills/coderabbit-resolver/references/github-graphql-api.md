@@ -110,7 +110,7 @@ gh pr checks $PR_NUMBER --json name,bucket,state \
   --jq '.[] | select(.name | test("coderabbit"; "i"))'
 ```
 
-Judge each check by `bucket` (`pass`, `fail`, `pending`, `skipping`, `cancel`), never by the exit code: with `--json` it is 0 even when a check failed. gh keeps only the newest run of each check. CodeRabbit may report through a commit status rather than a check run, so the `check-runs` endpoint can miss it. `scripts/check-ci-status.sh` applies these rules.
+Judge each check by `bucket` (`pass`, `fail`, `pending`, `skipping`, `cancel`), never by the exit code: with `--json` it is 0 even when a check failed. gh keeps only the newest run of each check. CodeRabbit may report through a commit status rather than a check run, so the `check-runs` endpoint can miss it; elsewhere it posts only a check run, which is `neutral` (bucket `skipping`) when it did not review the push. `scripts/check-ci-status.sh` applies these rules.
 
 ## Check Merge Requirements
 

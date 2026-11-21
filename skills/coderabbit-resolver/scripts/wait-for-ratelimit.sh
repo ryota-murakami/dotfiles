@@ -35,17 +35,23 @@ echo "Checking for CodeRabbit rate limit on PR #$PR_NUMBER..."
 # exit 3 sends the caller here for. When the status says rate limited, trust it
 # and skip both comment short-circuits; the comment is still read below for the
 # wait duration (absent one, the 15-minute fallback applies).
+# Some repositories get no commit status at all: the verdict is the title of the
+# CodeRabbit check run, concluded `neutral` and titled "Review rate limited"
+# (laststance.io #1756, 2026-11-21). Read both, as check-ci-status.sh does.
 HEAD_SHA=$(gh pr view "$PR_NUMBER" --repo "$OWNER/$REPO" --json headRefOid -q .headRefOid 2>/dev/null || true)
 CR_DESC=""
 if [ -n "$HEAD_SHA" ]; then
-  CR_DESC=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/statuses" \
-    --jq '[.[] | select(.context == "CodeRabbit")] | .[0].description' 2>/dev/null || true)
+  CR_STATUS_DESC=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/statuses" \
+    --jq '[.[] | select(.context == "CodeRabbit")] | .[0].description // empty' 2>/dev/null || true)
+  CR_RUN_TITLE=$(gh api "repos/$OWNER/$REPO/commits/$HEAD_SHA/check-runs?per_page=100" \
+    --jq '[.check_runs[] | select(.name == "CodeRabbit")] | .[0].output.title // empty' 2>/dev/null || true)
+  CR_DESC="${CR_STATUS_DESC}${CR_STATUS_DESC:+${CR_RUN_TITLE:+ / }}${CR_RUN_TITLE}"
 fi
 STATUS_RATE_LIMITED=0
 case "$CR_DESC" in
   *"rate limited"*|*"Rate limited"*|*"rate-limited"*)
     STATUS_RATE_LIMITED=1
-    echo "  CodeRabbit per-SHA status on ${HEAD_SHA:0:7}: \"$CR_DESC\" — rate limited (authoritative)." ;;
+    echo "  CodeRabbit's verdict on ${HEAD_SHA:0:7}: \"$CR_DESC\" — rate limited (authoritative)." ;;
 esac
 
 # Fetch the most recent CodeRabbit comment body.

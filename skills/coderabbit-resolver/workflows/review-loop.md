@@ -187,14 +187,14 @@ EXIT_CODE=$?
 Treat this script as a hard merge gate. On exit 0, it has confirmed all of the following on `HEAD_SHA`:
 - CI is green. `gh pr checks` shows no check pending and none in its `fail` or `cancel` bucket, so a cancelled, timed-out or approval-waiting (`action_required`) check blocks like a failed one. `pass` and `skipping` (skipped, neutral) don't block. gh keeps only the newest run of each check, so a run that a rerun replaced no longer counts.
 - At least one check besides CodeRabbit exists, so CI ran at all
-- Every CodeRabbit check is in the `pass` bucket
-- CodeRabbit reviewed HEAD. Its per-SHA status is not "rate limited" or "in progress", the latest CodeRabbit comment is not a rate-limit notice, and a `coderabbitai[bot]` review exists on HEAD (`APPROVED`, or any review with a body)
+- No CodeRabbit check failed or was cancelled. A neutral one (`skipping` bucket, e.g. titled "Review rate limited") means the bot did not review this push, so the next item decides
+- CodeRabbit reviewed HEAD. Its per-SHA verdict (commit status description, or check run title when the repository gets no status) is not "rate limited" or "in progress", the latest CodeRabbit comment is not a rate-limit notice, and a `coderabbitai[bot]` review exists on HEAD (`APPROVED`, or any review with a body)
 
 With `CR_CLI_LOG` set (Step 6b), exit 0 can instead mean that no PR-side review covered HEAD and the CLI review in the log does. In CLI mode, pass `CR_CLI_MODE=1` as well: exit 0 then means CI is green and that log covers HEAD, even if the bot never posted a check.
 
 This script checks CI/CodeRabbit status and rate-limit comments; it does **not** fetch or assess outside-diff review bodies. Exit 0 still requires the complete finding audit in Steps 7 and 8.
 
-**Why the review checks matter:** the Checks API reports CodeRabbit as `success` even when it did not review HEAD. That happens when it was rate limited and only posted a warning comment, and when a run reviewed nothing: the per-SHA status can read "Review completed" with no review on that commit, or "Reviews paused" or "Review skipped", and a later run can overwrite it. The walkthrough comment is edited in place, so an old one still looks like a review. Only a review whose `commit_id` is HEAD shows that this commit was read. An empty-bodied `COMMENTED` review is a thread reply and doesn't count. **Never trust API success alone.**
+**Why the review checks matter:** the Checks API reports CodeRabbit as `success`, or `neutral`, even when it did not review HEAD. That happens when it was rate limited and only posted a warning comment (or only titled its neutral check run "Review rate limited"), and when a run reviewed nothing: the per-SHA status can read "Review completed" with no review on that commit, or "Reviews paused" or "Review skipped", and a later run can overwrite it. The walkthrough comment is edited in place, so an old one still looks like a review. Only a review whose `commit_id` is HEAD shows that this commit was read. An empty-bodied `COMMENTED` review is a thread reply and doesn't count. **Never trust API success alone.**
 
 **Why the script judges CI by bucket:** `gh pr checks` exits 0 with `--json` even when a check failed, and exits 0 without it when checks were only cancelled. A repository may require no checks at all, so GitHub can let a red PR merge. The script is the gate, not the exit code of `gh pr checks` and not the merge button.
 
@@ -202,9 +202,9 @@ This script checks CI/CodeRabbit status and rate-limit comments; it does **not**
 
 **Exit code handling:**
 - **Exit 0** — All conditions met. Continue to Step 6c.
-- **Exit 1** — A check failed or was cancelled (the script lists each one as `name: bucket (state)`), or a CodeRabbit check did not pass. Go to Step 6e. CI is judged before the review, and the fix moves HEAD, which needs a review of its own anyway.
+- **Exit 1** — A check failed or was cancelled (the script lists each one as `name: bucket (state)`), CodeRabbit's included. Go to Step 6e. CI is judged before the review, and the fix moves HEAD, which needs a review of its own anyway. A neutral CodeRabbit check is not exit 1: it leads to exit 3, or to the `CR_CLI_LOG` check.
 - **Exit 2** — Timeout: a check is still pending, or no check besides CodeRabbit has appeared (the workflows never started). Report to user.
-- **Exit 3** — CodeRabbit did not review HEAD, although the Checks API says success — or, in CLI mode, CI is green and no `CR_CLI_LOG` has been accepted yet. The script prints the reason:
+- **Exit 3** — CodeRabbit did not review HEAD, although the Checks API says success or neutral — or, in CLI mode, CI is green and no `CR_CLI_LOG` has been accepted yet. The script prints the reason:
   - "rate limited", "rate-limit notice", "No CodeRabbit review object", or "CLI mode": **go to Step 6b**.
   - "review not finished": wait (Step 6d) and rerun Step 6a. In CLI mode this reason does not appear (the bot check is ignored).
 
@@ -359,7 +359,7 @@ After every re-review, re-fetch unresolved inline threads (Step 1a) **and all Co
 - **A fetch failed or a known review is missing** → Recover the fetch before deciding the audit is clean
 - **CI still failing** → Go back to Step 6e (CI fix iteration)
 - **CodeRabbit has not reviewed HEAD, and no CLI review passed the Step 6b gate** → Go back to Step 6a (CLI mode: Step 6a with `CR_CLI_MODE=1`, then 6b)
-- **No unresolved threads AND every outside-diff and CLI finding is FIXED with evidence or SKIPPED with a reason AND all CI green AND (CodeRabbit completed+success on HEAD OR the Step 6b gate passed)** → Proceed to Step 8
+- **No unresolved threads AND every outside-diff and CLI finding is FIXED with evidence or SKIPPED with a reason AND all CI green AND (a CodeRabbit review on HEAD OR the Step 6b gate passed)** → Proceed to Step 8
 
 ## Step 8: Final Verification
 

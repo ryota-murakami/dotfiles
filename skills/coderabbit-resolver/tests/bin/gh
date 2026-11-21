@@ -35,8 +35,15 @@ case "$*" in
     fi ;;
   "pr checks"*)
     echo "fake checks" ;;
+  "pr comment "*)
+    # wait-for-ratelimit.sh posts `@coderabbitai full review`; print it instead.
+    echo "POSTED: $*" ;;
   "api repos/"*"/statuses"*)
-    printf '%s\n' "${FAKE_CR_DESC:-Review rate limited}" ;;
+    # CodeRabbit's commit status description; set FAKE_CR_DESC to an empty string for no status.
+    printf '%s\n' "${FAKE_CR_DESC-Review rate limited}" ;;
+  "api repos/"*"/check-runs"*)
+    # Title of the CodeRabbit check run on HEAD ("Finished", "Review rate limited"); none by default.
+    printf '%s\n' "${FAKE_CR_RUN_TITLE-}" ;;
   "api repos/"*"/comments"*)
     printf '%s' "${FAKE_COMMENT:-Rate limit exceeded. Please wait 12 minutes before requesting another review.}" | base64 ;;
   "api repos/"*"/reviews"*)

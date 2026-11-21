@@ -53,7 +53,11 @@ When CodeRabbit hits its API rate limit, it posts an **issue comment** on the PR
 - The phrase "rate limit" or "rate-limited"
 - A time estimate for when it will be available (e.g., "try again in 14 minutes", "available in approximately 20 minutes")
 
-A rate-limited push also sets the commit's `CodeRabbit` status to success with the description "Review rate limited", sometimes without any comment. `check-ci-status.sh` reads both signals.
+A rate-limited push also gets a per-SHA verdict, often without any comment. Depending on the repository it is one of:
+- a commit status `CodeRabbit` with state success and the description "Review rate limited";
+- the `CodeRabbit` check run concluded `neutral` (gh bucket `skipping`) with the title "Review rate limited", and no commit status at all. A finished run is titled "Finished".
+
+`check-ci-status.sh` and `wait-for-ratelimit.sh` read the comment, the status and the check run title.
 
 **Handling rate limits:**
 1. `check-ci-status.sh` exits 3 and names the rate limit.
@@ -121,4 +125,4 @@ gh pr checks $PR_NUMBER --json name,bucket,state \
   --jq '.[] | select(.name | test("coderabbit"; "i")) | .bucket'
 ```
 
-Expected buckets: `pending` → `pass`. A `pass` does not prove that HEAD was reviewed; `scripts/check-ci-status.sh` also checks the per-SHA status text, the latest comment, and for a review on HEAD.
+Expected buckets: `pending` → `pass`, or `skipping` (neutral) when the bot did not review the push, e.g. rate limited. Neither proves that HEAD was reviewed; `scripts/check-ci-status.sh` also checks the per-SHA verdict (status text or check run title), the latest comment, and for a review on HEAD.
