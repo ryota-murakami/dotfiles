@@ -9,5 +9,5 @@ case "$subject" in
   "Merge "* | "fixup! "* | "squash! "* | "amend! "* | *" :green_apple:") exit 0 ;;
 esac
 echo "commit-msg: end the subject with ' :green_apple:' (dotfiles rule), for example:" >&2
-echo "  [skills] update agentic-mac-os with checks and secret masking :green_apple:" >&2
+echo "  [skills] update desktop-walkthrough with checks and secret masking :green_apple:" >&2
 exit 1

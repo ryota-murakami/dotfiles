@@ -1,6 +1,6 @@
 # Records: resuming and repeating a walkthrough
 
-Every walkthrough is recorded in a folder of its own under `~/.config/agentic-mac-os/walkthroughs/` (this skill's folder; it is not committed anywhere).
+Every walkthrough is recorded in a folder of its own under `~/.config/desktop-walkthrough/walkthroughs/` (this skill's folder; it is not committed anywhere).
 
 | Command | What it does |
 | --- | --- |

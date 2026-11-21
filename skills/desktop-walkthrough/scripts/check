@@ -1,5 +1,5 @@
 #!/bin/bash
-# check — static checks for the agentic-mac-os skill; run before saving or committing it.
+# check — static checks for the desktop-walkthrough skill; run before saving or committing it.
 #
 # Why it exists: mechanical slips came back during real runs (bash 3.2 "unbound variable" after a
 # variable followed by a multibyte character, twice; the hooks module type-checked a different way

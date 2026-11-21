@@ -8,13 +8,13 @@
 # Usage: dw <command> [args]
 #   doctor                         check agent-desktop install, permissions, tools
 #   start [--name NAME]            build + launch the HUD, start an agent-desktop session, report the environment;
-#                                  the walkthrough is recorded under ~/.config/agentic-mac-os/walkthroughs/NAME
+#                                  the walkthrough is recorded under ~/.config/desktop-walkthrough/walkthroughs/NAME
 #   resume NAME                    take up a paused walkthrough: start, keep recording into NAME, and put its pages
 #                                  back in the explainer under their numbers (new pages continue the count)
 #   record [NAME]                  name the record of the running walkthrough (no NAME: print its folder)
 #   records                        list the recorded walkthroughs
 #   end                            quit the HUD, end the agent-desktop session, clear flags
-#   clear                          end + close every idle walkthrough terminal (what /agentic-mac-os clear runs)
+#   clear                          end + close every idle walkthrough terminal (what /desktop-walkthrough clear runs)
 #   step "<name>"                  set the step name shown as a prefix in the HUD
 #   say "<what and why>"           show the current action in the HUD (honors stop first; waits while the user types)
 #   explain <file.md|-> [--title "<title>"] [--replace]
@@ -55,14 +55,14 @@
 set -u
 
 SKILL_DIR="$(cd "$(dirname "$0")/.." && pwd)"
-DW_HOME="${DW_HOME:-$HOME/.local/state/agentic-mac-os}"
+DW_HOME="${DW_HOME:-$HOME/.local/state/desktop-walkthrough}"
 BRIDGE="$DW_HOME/bridge"
 HUD_BIN="$DW_HOME/bin/StatusHUD"
 # Explainer pages (pages/NNN.html + .md, index.json) and the libraries that render them (vendor/)
 EXPLAIN="$DW_HOME/explain"
 # Records: one folder per walkthrough under the skill's own config folder. A record outlives the
 # walkthrough: its pages, a journal of what was done and a handbook to share, enough to perform it again.
-DW_CONFIG="${DW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/agentic-mac-os}"
+DW_CONFIG="${DW_CONFIG:-${XDG_CONFIG_HOME:-$HOME/.config}/desktop-walkthrough}"
 RECORDS="$DW_CONFIG/walkthroughs"
 mkdir -p "$BRIDGE" "$DW_HOME/bin" "$DW_HOME/term"
 
@@ -160,7 +160,7 @@ record_init() {
   cat > "$dir/README.md" <<EOF
 # ${name}
 
-agentic-mac-os が記録したウォークスルーです（開始 $(date '+%Y-%m-%d %H:%M')）。
+desktop-walkthrough が記録したウォークスルーです（開始 $(date '+%Y-%m-%d %H:%M')）。
 
 | ファイル | 内容 |
 | --- | --- |
@@ -182,7 +182,7 @@ record_handbook() {
   local dir="$1" page
   {
     printf '# %s\n\n' "$(basename "$dir")"
-    printf '解説パネルに表示したページを、読む順にまとめたものです（agentic-mac-os の記録）。\n'
+    printf '解説パネルに表示したページを、読む順にまとめたものです（desktop-walkthrough の記録）。\n'
     for page in "$dir"/pages/*.md; do
       [ -f "$page" ] || continue
       printf '\n\n---\n\n'
@@ -921,7 +921,7 @@ cmd_start() {
   rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration"
   # A walkthrough closed from the HUD's settings left its session open: end it before the new one
   end_ad_session
-  session=$(agent-desktop session start --cursor --name agentic-mac-os 2>/dev/null | jq -r '.data.session_id // empty')
+  session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
   echo "$session" > "$DW_HOME/ad_session"
   # Claude Code exports its pid and session id to Bash; other agent CLIs fall back to the process tree
   owner="${CLAUDE_PID:-$(owner_pid)}"
