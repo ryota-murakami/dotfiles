@@ -7,8 +7,10 @@
  */
 import {
   liveDocumentSchema,
-  transcriptDocumentSchema,
+  rowSchema,
+  transcriptEnvelopeSchema,
   type LiveDocument,
+  type Row,
   type TranscriptDocument,
 } from '@dw/protocol'
 import { useSyncExternalStore } from 'react'
@@ -18,6 +20,8 @@ const state: { transcript: TranscriptDocument | undefined; live: LiveDocument | 
   live: undefined,
 }
 const listeners = new Set<() => void>()
+/** The Rows of the Transcript on show, each with the JSON it was read from. */
+let kept = new Map<string, { json: string; row: Row }>()
 
 function notify() {
   for (const listener of listeners) listener()
@@ -35,9 +39,36 @@ function subscribe(listener: () => void) {
  * @returns True when it was accepted.
  */
 export function receiveTranscript(input: unknown): boolean {
-  const parsed = transcriptDocumentSchema.safeParse(input)
-  if (!parsed.success) return false
-  state.transcript = parsed.data
+  const envelope = transcriptEnvelopeSchema.safeParse(input)
+  if (!envelope.success) return false
+  // A Row that reads the same as before stays the same object, so that only changed Rows are drawn again
+  const next = new Map<string, { json: string; row: Row }>()
+  const rows: Row[] = []
+  for (const raw of envelope.data.rows) {
+    const json = JSON.stringify(raw)
+    const id =
+      typeof raw === 'object' && raw !== null && 'id' in raw && typeof raw.id === 'string'
+        ? raw.id
+        : undefined
+    const before = id === undefined ? undefined : kept.get(id)
+    if (id !== undefined && before?.json === json) {
+      rows.push(before.row)
+      next.set(id, before)
+      continue
+    }
+    const parsed = rowSchema.safeParse(raw)
+    // One Row that does not fit refuses the document: the last good one stays
+    if (!parsed.success) return false
+    rows.push(parsed.data)
+    next.set(parsed.data.id, { json, row: parsed.data })
+  }
+  kept = next
+  state.transcript = {
+    v: envelope.data.v,
+    sessionId: envelope.data.sessionId,
+    dropped: envelope.data.dropped,
+    rows,
+  }
   notify()
   return true
 }
@@ -58,9 +89,15 @@ export function receiveLive(input: unknown): boolean {
 
 /** Forget everything received: a test starts from an empty Mirror. */
 export function resetStore() {
+  kept = new Map()
   state.transcript = undefined
   state.live = undefined
   notify()
+}
+
+/** The Transcript on show, read outside of a component (the specs of the store). */
+export function currentTranscript(): TranscriptDocument | undefined {
+  return state.transcript
 }
 
 /** The Transcript to draw, undefined until the HUD handed one over. */

@@ -189,6 +189,14 @@ export const transcriptDocumentSchema = z.object({
 })
 export type TranscriptDocument = z.infer<typeof transcriptDocumentSchema>
 
+/**
+ * The Transcript with its Rows left unchecked.
+ *
+ * Why it exists: a new Transcript arrives several times a second and differs from the one before in
+ * a Row or two; a reader that checks only the Rows that changed starts from this.
+ */
+export const transcriptEnvelopeSchema = transcriptDocumentSchema.extend({ rows: z.array(z.unknown()) })
+
 /** What changes while a turn runs: what the Spinner line and the footer under the Input box are drawn from. */
 export const liveDocumentSchema = z.object({
   v: z.literal(PROTOCOL_VERSION),

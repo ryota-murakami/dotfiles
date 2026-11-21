@@ -19,12 +19,14 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [RegExp, string]> = [
   [/-----BEGIN ([A-Z ]*)PRIVATE KEY-----[\s\S]*?-----END \1PRIVATE KEY-----/g, '-----BEGIN $1PRIVATE KEY-----•••-----END $1PRIVATE KEY-----'],
   // Signed links and tokens in a query string: the parameter name stays, its value goes
   [/([?&](?:signature|sig|token|access_token|refresh_token|id_token|api_key|apikey|key|secret|client_secret|password|code)=)[^&#\s'"`]{6,}/gi, '$1•••'],
+  // The same under a name of the service's own (`tavilyApiKey=`, `x-auth-token=`): any name that ends in one of these words
+  [/([?&][A-Za-z0-9_.-]*(?:api[_-]?key|token|secret|password|passwd|signature|credentials?)=)[^&#\s'"`]{6,}/gi, '$1•••'],
   // Authorization headers that carry the credential itself
   [/\b(Bearer|Authorization: *Basic) +(?![$`])[A-Za-z0-9._~+/=-]{12,}/g, '$1 •••'],
   // JSON Web Tokens: header and payload both start with base64 `{"`
   [/\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, 'eyJ•••'],
-  // API keys known by their prefix: OpenAI/Anthropic, GitHub, GitLab, Slack, Stripe, 1Password service accounts
-  [/\b(sk-(?:ant-|proj-)?|gh[pousr]_|github_pat_|glpat-|xox[abprs]-|(?:sk|rk)_(?:live|test)_|ops_eyJ)[A-Za-z0-9_-]{16,}/g, '$1•••'],
+  // API keys known by their prefix: OpenAI/Anthropic, GitHub, GitLab, Slack, Stripe, 1Password service accounts, Tavily
+  [/\b(sk-(?:ant-|proj-)?|gh[pousr]_|github_pat_|glpat-|xox[abprs]-|(?:sk|rk)_(?:live|test)_|ops_eyJ|tvly-(?:dev-)?)[A-Za-z0-9_-]{16,}/g, '$1•••'],
   // AWS access key ids, Google API keys, Resend keys
   [/\bAKIA[0-9A-Z]{16}\b/g, 'AKIA•••'],
   [/\bAIza[0-9A-Za-z_-]{35}/g, 'AIza•••'],

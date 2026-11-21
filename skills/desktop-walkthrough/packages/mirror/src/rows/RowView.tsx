@@ -1,4 +1,5 @@
 import type { Row } from '@dw/protocol'
+import { memo } from 'react'
 
 import { CommandOutputRow } from './CommandOutputRow'
 import { LogRow } from './LogRow'
@@ -16,9 +17,11 @@ import { TurnDurationRow } from './TurnDurationRow'
  * component in its own file; this is the one place that maps a kind to its component. Called by
  * {@link Transcript} for every Row.
  *
+ * It draws again only when its Row is another object: the store keeps a Row that did not change as it was.
+ *
  * @param props.row - The Row from the protocol.
  */
-export function RowView({ row }: { row: Row }) {
+export const RowView = memo(function RowView({ row }: { row: Row }) {
   switch (row.kind) {
     case 'prompt':
       return <PromptRow row={row} />
@@ -37,4 +40,4 @@ export function RowView({ row }: { row: Row }) {
     case 'log':
       return <LogRow row={row} />
   }
-}
+})
