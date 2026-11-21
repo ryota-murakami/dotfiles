@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 
 import { galleryFixtures, liveWhileToolRuns, turnInProgress } from './fixtures'
+import { liveFixtures } from './fixtures-live'
 import { liveDocumentSchema, rowSchema, transcriptDocumentSchema } from './index'
 
 test('the Mirror accepts the transcript of a turn in progress', () => {
@@ -45,4 +46,16 @@ test('the Mirror accepts every Row of its gallery', () => {
 
   // Assert
   expect(failures).toEqual([])
+})
+
+test('the Mirror accepts every live state of its live-area gallery', () => {
+  // Arrange
+  const documents = liveFixtures.flatMap((fixture) => fixture.timeline.map((step) => step.live))
+
+  // Act
+  const failures = documents.filter((document) => !liveDocumentSchema.safeParse(document).success)
+
+  // Assert
+  expect(failures).toEqual([])
+  expect(documents.length).toBeGreaterThan(0)
 })

@@ -3,6 +3,7 @@ import type { Row } from '@dw/protocol'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
+import { LiveGallery } from '../live/LiveGallery'
 import { Transcript } from '../rows/Transcript'
 import '../styles.css'
 import './gallery.css'
@@ -45,6 +46,7 @@ function Gallery() {
       {sections.map((section) => (
         <Section key={section.title} {...section} />
       ))}
+      <LiveGallery />
     </>
   )
 }

@@ -8,12 +8,18 @@
  */
 import type { PageMessage } from '@dw/protocol'
 
+import { focusInput } from './live/inputHandle'
 import { receiveLive, receiveTranscript } from './store'
 
 declare global {
   interface Window {
     /** Called by the HUD with what the Bridge wrote. */
-    dwMirror?: { receiveTranscript: typeof receiveTranscript; receiveLive: typeof receiveLive }
+    dwMirror?: {
+      receiveTranscript: typeof receiveTranscript
+      receiveLive: typeof receiveLive
+      /** Put the keyboard in the Input box. */
+      focusInput: typeof focusInput
+    }
     /** What the page said while no HUD was listening. */
     dwMirrorPosted?: PageMessage[]
     webkit?: { messageHandlers?: { dw?: { postMessage: (message: PageMessage) => void } } }
@@ -22,7 +28,7 @@ declare global {
 
 /** Open the door the HUD calls in through. Called once, when the page starts. */
 export function installHost() {
-  window.dwMirror = { receiveTranscript, receiveLive }
+  window.dwMirror = { receiveTranscript, receiveLive, focusInput }
   post({ type: 'ready' })
 }
 

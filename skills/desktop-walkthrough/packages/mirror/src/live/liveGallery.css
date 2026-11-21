@@ -1,0 +1,12 @@
+/* Chrome of the live gallery's own controls; the live area's look is in live.css */
+.gallery-time {
+  display: flex;
+  align-items: center;
+  gap: 1ch;
+  margin-bottom: 1lh;
+  color: var(--inactive);
+}
+
+.gallery-time input[type='range'] {
+  width: 40ch;
+}

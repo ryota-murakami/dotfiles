@@ -6,7 +6,8 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
-    "./fixtures": "./src/fixtures.ts"
+    "./fixtures": "./src/fixtures.ts",
+    "./fixtures-live": "./src/fixtures-live.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json",

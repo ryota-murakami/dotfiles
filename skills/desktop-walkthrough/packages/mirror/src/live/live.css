@@ -1,0 +1,120 @@
+/*
+ * The live area: the Spinner line, the Input box and the footer. Sizes are in cells (`ch`, `lh`) so
+ * that they line up with the transcript above like the terminal's rows.
+ */
+
+/* One blank row above the Spinner line's row or, with none, above the top rule; one below the Spinner line */
+.live-area {
+  position: relative;
+  padding-top: 1lh;
+}
+
+.spinner-line {
+  display: flex;
+  align-items: flex-start;
+  margin-bottom: 1lh;
+}
+
+/* The glyph box is two columns: the glyph and one cell */
+.spinner-glyph {
+  flex: none;
+  width: 2ch;
+  color: var(--claude);
+}
+
+.spinner-text {
+  flex: 1;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Reduced motion: a still dot that pulses between the base colour and its half-dark self, every two seconds */
+.spinner-pulse {
+  animation: spinner-pulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes spinner-pulse {
+  from {
+    color: color-mix(in srgb, var(--spinner-base) 50%, black);
+  }
+  to {
+    color: var(--spinner-base);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner-pulse {
+    animation-duration: 1s;
+  }
+}
+
+/* The two rules: a row of ─ clipped to the width, like the terminal's full-width rows */
+.input-rule {
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--promptBorder);
+  user-select: none;
+}
+
+.input-row {
+  display: flex;
+  align-items: flex-start;
+}
+
+.input-marker {
+  flex: none;
+  width: 2ch;
+  color: var(--inactive);
+  user-select: none;
+}
+
+/* A real textarea in the terminal's clothes: no chrome, the transcript's font, as tall as its text */
+.input-text {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  resize: none;
+  overflow: hidden;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  line-height: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  /* The terminal's cursor is a white block over the character; where the engine can draw a block it does */
+  caret-color: var(--text);
+  caret-shape: block;
+}
+
+.input-text::placeholder {
+  color: var(--inactive);
+  opacity: 1;
+}
+
+.input-text::selection {
+  background: var(--selectionBg);
+}
+
+/* The footer: hint row at the left, mode labels at the right, two columns in */
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: 2ch;
+  min-height: 1lh;
+}
+
+.footer-hint {
+  min-width: 0;
+  padding-left: 2ch;
+}
+
+.footer-modes {
+  margin-left: auto;
+  text-align: right;
+}
