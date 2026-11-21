@@ -154,8 +154,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     lazy var explainButton = IconButton(symbol: "book", label: "解説パネルを表示／隠す", target: self, action: #selector(toggleExplainer))
     lazy var mirrorButton = IconButton(symbol: "bubble.left.and.text.bubble.right", label: "ミラーを表示／隠す", target: self, action: #selector(toggleMirror))
     lazy var settingsButton = IconButton(symbol: "slider.horizontal.3", label: "設定", target: self, action: #selector(toggleSettings))
-    /// Shown only while a question is open: brings the prompt card in front (see {@link HUD.showAsk}).
-    lazy var askButton = IconButton(symbol: "hand.raised", label: "確認の枠を前に出す", target: self, action: #selector(showAsk))
+    /// Shown only while a question is open: shows or hides the prompt card (see {@link HUD.showAsk}).
+    lazy var askButton = IconButton(symbol: "hand.raised", label: "確認の枠を表示／隠す", target: self, action: #selector(showAsk))
     /// Width of {@link HUD.askButton} and its gap to the next button: both zero while no question is open.
     var askButtonWidth: NSLayoutConstraint?
     var askButtonGap: NSLayoutConstraint?
@@ -264,6 +264,9 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// True while the card is on a desktop the user called it to with the hand button, away from the
     /// page it asks about (see {@link HUD.showAsk}).
     var askSummoned = false
+    /// True while the user has put the card away with the hand button: it stays off every desktop
+    /// until the button is pressed again or another question arrives (see {@link HUD.showAsk}).
+    var askPutAway = false
 
     /// Control-Option-Command-Period stops the agent: while the agent moves the pointer, aiming at a
     /// button is hard; a key works wherever the pointer is.

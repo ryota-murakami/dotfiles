@@ -159,9 +159,8 @@ extension HUD {
         divider.wantsLayer = true
         divider.layer?.backgroundColor = NSColor.white.withAlphaComponent(0.35).cgColor
 
-        // The prompt's button is orange like the card it brings back
-        // Each toggle wears the colour of the surface it stands for; the hand keeps an orange plate,
-        // because lit it means "an unanswered question is out of sight"
+        // Each toggle wears the colour of the surface it stands for and is lit while that surface is
+        // before the user; the hand, orange like its card, also gets an orange plate
         explainButton.activeSymbol = "book.fill"
         explainButton.activeTint = explainAccent
         mirrorButton.activeSymbol = "bubble.left.and.text.bubble.right.fill"
@@ -375,7 +374,10 @@ extension HUD {
         askButton.isHidden = !shown
         askButtonWidth?.constant = shown ? 38 : 0
         askButtonGap?.constant = shown ? -6 : 0
-        if !shown { askButton.isActive = false }
+        if !shown {
+            askButton.isActive = false
+            askButton.badgeColor = nil
+        }
     }
 
     /// Accept mouse events only over the controls and the handles; everything else clicks through.

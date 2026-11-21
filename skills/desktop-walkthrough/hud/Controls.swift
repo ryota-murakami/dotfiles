@@ -18,6 +18,16 @@ final class IconButton: NSButton {
     var activeTint: NSColor? { didSet { updateLook() } }
     /// Background while `isActive`.
     var activeFill = NSColor.white.withAlphaComponent(0.18) { didSet { updateLook() } }
+    /// Colour of a dot at the button's corner, nil for none: what the button stands for waits out of
+    /// sight (the hand button while an open question is not before the user).
+    var badgeColor: NSColor? {
+        didSet {
+            guard oldValue != badgeColor else { return }
+            badge.isHidden = badgeColor == nil
+            badge.layer?.backgroundColor = badgeColor?.hudCG
+        }
+    }
+    private let badge = BadgeDot()
     private let symbol: String
     private let help: String
     private let pointSize: CGFloat
@@ -47,6 +57,15 @@ final class IconButton: NSButton {
         self.target = target
         self.action = action
         translatesAutoresizingMaskIntoConstraints = false
+        // At the top trailing corner, clear of the symbol
+        badge.isHidden = true
+        addSubview(badge)
+        NSLayoutConstraint.activate([
+            badge.widthAnchor.constraint(equalToConstant: BadgeDot.diameter),
+            badge.heightAnchor.constraint(equalToConstant: BadgeDot.diameter),
+            badge.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            badge.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -4),
+        ])
         updateLook()
     }
 
@@ -92,6 +111,22 @@ final class IconButton: NSButton {
             .withSymbolConfiguration(.init(pointSize: pointSize, weight: .semibold))
         contentTintColor = !isEnabled ? .tertiaryLabelColor : (isActive ? (activeTint ?? .labelColor) : .labelColor)
     }
+}
+
+/// The dot of {@link IconButton.badgeColor}. It takes no clicks: the button under it does.
+final class BadgeDot: NSView {
+    static let diameter: CGFloat = 8
+
+    init() {
+        super.init(frame: .zero)
+        wantsLayer = true
+        layer?.cornerRadius = Self.diameter / 2
+        translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    required init?(coder: NSCoder) { fatalError("not used") }
+
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }
 
 /// A capsule push button drawn by its layer: the main answer of a question (filled with the

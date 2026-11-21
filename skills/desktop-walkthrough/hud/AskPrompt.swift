@@ -2,7 +2,8 @@
 // with optional feedback buttons that tell the agent something without answering.
 // It appears by the bar, never on the explainer, and can be dragged anywhere; the place is remembered.
 // It stays above every window, except that a click in the explainer sends it behind the explainer.
-// It shows on the desktop of the note or page it asks about; the hand button on the bar calls it elsewhere.
+// It shows on the desktop of the note or page it asks about; the hand button on the bar, lit while the
+// card is before the user, calls it elsewhere and puts it away.
 // Methods of the HUD class; its stored views are in HUD.swift.
 import AppKit
 
@@ -101,6 +102,7 @@ extension HUD {
             if askPanel.isVisible { askPanel.orderOut(nil) }
             askID = ""; askStamp = nil
             askSummoned = false
+            askPutAway = false
             raiseAsk()
             setAskButton(shown: false)
             return
@@ -111,10 +113,11 @@ extension HUD {
             guard let data = FileManager.default.contents(atPath: askPath),
                   let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                   let id = obj["id"] as? String, let text = obj["text"] as? String else { return }
-            // A new question is on top again, whatever the last one was sent behind, and no longer
-            // on the desktop the last one was called to
+            // A new question is on top again, whatever the last one was sent behind or put away, and
+            // no longer on the desktop the last one was called to
             if id != askID {
                 raiseAsk()
+                askPutAway = false
                 if askSummoned {
                     askSummoned = false
                     if askPanel.isVisible { askPanel.orderOut(nil) }
@@ -172,7 +175,10 @@ extension HUD {
         // Out of sight while the user has hidden the HUD (the question stays open): concealed before
         // the card is ordered in, so one that arrives meanwhile never shows
         askPanel.setConcealed(false)
-        if waitsWithStage {
+        if askPutAway {
+            // Put away with the hand button: off every desktop until it is pressed again
+            if askPanel.isVisible { askPanel.orderOut(nil) }
+        } else if waitsWithStage {
             if askPanel.isVisible, askPanel.isOnActiveSpace { askPanel.orderOut(nil) }
         } else if !askPanel.isVisible {
             askPanel.orderFrontRegardless()
@@ -182,11 +188,20 @@ extension HUD {
         if askTucked, !explainer.panel.isVisible || explainer.isOnAnotherSpace || explainer.isCovered
             || !askPanel.frame.intersects(explainer.panel.frame) { raiseAsk() }
         setAskButton(shown: true)
-        // Lit while the card is out of sight: behind the explainer, or on another desktop (with its
-        // page, or left there)
-        askButton.isActive = askTucked || !askPanel.isVisible || askPanel.isOnAnotherSpace
+        // Lit while the card is before the user, like the book and chat buttons. A dot instead while
+        // the question waits out of sight: put away, behind the explainer, or on another desktop
+        askButton.isActive = askInSight
+        askButton.badgeColor = askInSight ? nil : .systemOrange
         updateAskBreathing()
     }
+
+    /// True while the card of the open question is before the user: on the desktop they are looking
+    /// at and above the explainer. A card parked at a screen edge counts: its strip shows.
+    ///
+    /// Why it exists: the hand button was lit while the card was out of sight, the opposite of the
+    /// book and chat buttons beside it, and read as a wrong state. Read by {@link HUD.updateAsk}
+    /// for the button's look and by {@link HUD.showAsk} for what a press does.
+    var askInSight: Bool { !askID.isEmpty && askPanel.isVisible && askPanel.isOnActiveSpace && !askTucked }
 
     /// Send the card behind the explainer, the way a click on a window puts it over its neighbours.
     ///
@@ -212,21 +227,24 @@ extension HUD {
         if askPanel.isVisible { askPanel.orderFrontRegardless() }
     }
 
-    /// The hand button on the bar: bring the open question in front, on the desktop the user is
-    /// looking at (it may be behind the explainer, or with its page on another desktop). Pressed
-    /// again on a desktop the card was called to, it sends the card back to its page.
+    /// The hand button on the bar, a toggle like the book and chat buttons. Not lit (the question
+    /// waits out of sight: put away, behind the explainer, or with its page on another desktop), a
+    /// press brings the card in front on the desktop the user is looking at. Lit, a press takes the
+    /// card out of sight: one that was called here goes back to its page, any other is put away.
     @objc func showAsk() {
         guard !askID.isEmpty else { return }
         let stageElsewhere = askStage?.isOnAnotherSpace ?? false
-        if askSummoned, stageElsewhere, askPanel.isVisible, askPanel.isOnActiveSpace {
-            askSummoned = false
+        if askInSight {
+            if askSummoned, stageElsewhere { askSummoned = false } else { askPutAway = true }
             updateAsk()
             return
         }
+        askPutAway = false
         // Away from its page it stays here until the user reaches the page's desktop or presses again
         askSummoned = stageElsewhere
         raiseAsk()
         askPanel.orderFrontOnActiveSpace()
+        updateAsk()
     }
 
     /// Lay the card out for the current question: one row when everything fits in
