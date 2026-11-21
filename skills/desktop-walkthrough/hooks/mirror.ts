@@ -160,7 +160,7 @@ export function place(placement: Placement, id: string, now: number) {
 type Captured =
   | { component: 'UserMessage'; props: RenderPropsOf['UserMessage'] }
   | { component: 'AssistantMessage'; props: RenderPropsOf['AssistantMessage'] }
-  | { component: 'ToolUse'; props: RenderPropsOf['ToolUse']; result?: RenderPropsOf['ToolResult'] }
+  | { component: 'ToolUse'; props: RenderPropsOf['ToolUse']; result?: RenderPropsOf['ToolResult']; runningSince?: number; ranMs?: number }
   | { component: 'ToolGroup'; props: RenderPropsOf['ToolGroup']; thoughtMs?: number }
   | { component: 'Log'; plugin: string; text: string }
   | { component: 'CommandOutput'; props: RenderPropsOf['CommandOutput'] }
@@ -212,6 +212,7 @@ function toolCall(call: {
   isErrored: boolean
   isInterrupted: boolean
   output?: unknown
+  ranMs?: number | undefined
 }): ToolCall {
   return {
     tool: call.tool,
@@ -220,6 +221,7 @@ function toolCall(call: {
     isErrored: call.isErrored,
     isInterrupted: call.isInterrupted,
     ...(call.output === undefined ? {} : { output: clipValue(call.output) }),
+    ...(call.ranMs === undefined ? {} : { ranMs: call.ranMs }),
   }
 }
 
@@ -258,14 +260,18 @@ export function buildRow(id: string, captured: Captured): Row | undefined {
       return { kind: 'reply', id, text: rowText(text), isFirstOfReply, ...(isSummary ? { isSummary: true } : {}) }
     }
     case 'ToolUse': {
-      const { props, result } = captured
+      const { props, result, ranMs } = captured
       return {
         kind: 'tool',
         id,
         ...toolCall({
-          ...props,
+          tool: props.tool,
+          input: props.input,
+          isRunning: props.isRunning,
+          isInterrupted: props.isInterrupted,
           isErrored: props.isErrored || (result?.isErrored ?? false),
           output: props.output ?? result?.output,
+          ranMs,
         }),
       }
     }
@@ -344,8 +350,7 @@ function dropEarlierDrawing(props: RenderPropsOf['UserMessage']) {
  * Called by every drawing hook of {@link registerMirror}. It only stores references: cutting and
  * masking wait for {@link flushMirror}, so a Session without a HUD pays next to nothing.
  */
-function capture(id: string, captured: Captured) {
-  const now = Date.now()
+function capture(id: string, captured: Captured, now = Date.now()) {
   const known = M.captured.get(id)
   if (known === undefined && captured.component === 'UserMessage') dropEarlierDrawing(captured.props)
   if (captured.component === 'TurnDuration') {
@@ -353,8 +358,15 @@ function capture(id: string, captured: Captured) {
     const finishedAt = known?.component === 'TurnDuration' ? known.finishedAt : now - M.turnEndedAt < 3000 ? M.turnEndedAt : undefined
     if (finishedAt !== undefined) captured.finishedAt = finishedAt
   }
-  // A tool row's result block is drawn apart from the row: a redraw of the row keeps it
-  if (captured.component === 'ToolUse' && known?.component === 'ToolUse' && known.result && !captured.result) captured.result = known.result
+  if (captured.component === 'ToolUse') {
+    const before = known?.component === 'ToolUse' ? known : undefined
+    // A tool row's result block is drawn apart from the row: a redraw of the row keeps it
+    if (before?.result && !captured.result) captured.result = before.result
+    // How long the row was drawn running: from its first running drawing to the first one after
+    if (before?.ranMs !== undefined) captured.ranMs = before.ranMs
+    else if (captured.props.isRunning) captured.runningSince = before?.runningSince ?? now
+    else if (before?.runningSince !== undefined) captured.ranMs = now - before.runningSince
+  }
   M.captured.set(id, captured)
   place(M.placement, id, now)
   M.stale.add(id)
@@ -486,15 +498,16 @@ export function captureGroup(id: string, props: RenderPropsOf['ToolGroup']) {
  *
  * @param id - The call's id, which is its row's id.
  * @param props - What the terminal handed the row.
+ * @param now - When it was drawn, in milliseconds since 1970.
  */
-export function captureTool(id: string, props: RenderPropsOf['ToolUse']) {
+export function captureTool(id: string, props: RenderPropsOf['ToolUse'], now = Date.now()) {
   if (M.foldedInto.has(id)) {
     // Drawn in full by the ctrl+o view: the Mirror keeps the main view's fold
     if (props.isExpanded) return
     // Drawn as a row of its own in the main view: it left its run
     M.foldedInto.delete(id)
   }
-  capture(id, { component: 'ToolUse', props })
+  capture(id, { component: 'ToolUse', props }, now)
 }
 
 /**

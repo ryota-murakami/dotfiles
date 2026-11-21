@@ -28,7 +28,10 @@ body {
 .mirror {
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   height: 100vh;
+  /* The terminal has no margin; the panel has rounded corners, so the rows keep clear of its edge */
+  padding: 0 var(--mirror-inset, 10px);
 }
 
 .mirror-scroll {

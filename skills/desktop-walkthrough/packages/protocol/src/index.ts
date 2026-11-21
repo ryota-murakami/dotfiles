@@ -86,6 +86,11 @@ export const toolCallSchema = z.object({
   isInterrupted: z.boolean(),
   /** The tool's own result object once the call resolved, cut down the same way as `input`. */
   output: z.unknown().optional(),
+  /**
+   * How long the terminal showed the call running, in milliseconds, once it has resolved. A shell
+   * command that ran for seconds keeps a note of its timeout under its output.
+   */
+  ranMs: z.number().optional(),
 })
 export type ToolCall = z.infer<typeof toolCallSchema>
 

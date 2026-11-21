@@ -440,7 +440,8 @@ extension HUD {
     func updateTypingFlag() {
         let editing = mirror.isKeyWindow && mirror.firstResponder is NSTextView && (mirror.firstResponder as? NSTextView)?.delegate === input
         // The page's Input box counts the same way: focused in the key Mirror, or holding a draft
-        let paging = !mirrorPage.webView.isHidden && ((mirror.isKeyWindow && mirrorPage.isFocused) || mirrorPage.hasDraft)
+        // A draft in a Mirror that is not on screen is not being typed: it holds nothing back
+        let paging = mirror.isVisible && !mirrorPage.webView.isHidden && ((mirror.isKeyWindow && mirrorPage.isFocused) || mirrorPage.hasDraft)
         // Not while the HUD is hidden: the user cannot see that a draft keeps the agent waiting
         let typing = (editing || !input.stringValue.isEmpty || paging) && !hudHidden
         if typing && !exists(typingPath) {

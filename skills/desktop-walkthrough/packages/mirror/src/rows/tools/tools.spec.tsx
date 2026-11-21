@@ -317,3 +317,47 @@ test('shows a run that only held thinking as the time the model thought', () => 
   // Assert
   expect(text).toBe(' Thought for 8s (ctrl+o to expand)')
 })
+
+test("hangs the shell's cwd note under the output as a dim row of its own", () => {
+  // Arrange
+  const row = tool(
+    'bash-cwd',
+    'Bash',
+    { command: 'cd /tmp && ls' },
+    { stdout: 'a.txt', stderr: '\nShell cwd was reset to /home/user/project', interrupted: false },
+  )
+
+  // Act
+  const { container, text } = draw(row)
+
+  // Assert
+  expect(text).toBe('⏺Bash(cd /tmp && ls)  ⎿  a.txt  ⎿  Shell cwd was reset to /home/user/project')
+  expect(container.querySelector('.tool-error')).toBeNull()
+})
+
+test('keeps the timeout note only under a command that ran for seconds', () => {
+  // Arrange
+  const quick = tool(
+    'bash-quick',
+    'Bash',
+    { command: 'pnpm test', timeout: 300_000 },
+    { stdout: 'ok', stderr: '' },
+  )
+  const slow = tool(
+    'bash-slow',
+    'Bash',
+    { command: 'pnpm build', timeout: 300_000 },
+    { stdout: 'ok', stderr: '' },
+    {
+      ranMs: 41_000,
+    },
+  )
+
+  // Act
+  const quickText = draw(quick).text
+  const slowText = draw(slow).text
+
+  // Assert
+  expect(quickText).toBe('⏺Bash(pnpm test)  ⎿  ok')
+  expect(slowText).toBe('⏺Bash(pnpm build)  ⎿  ok  ⎿  (timeout 5m)')
+})

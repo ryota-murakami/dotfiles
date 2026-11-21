@@ -13,6 +13,40 @@ export function isAtBottom(element: HTMLElement): boolean {
   return element.scrollHeight - element.scrollTop - element.clientHeight <= BOTTOM_TOLERANCE_PX
 }
 
+/** The part of a scroll container the pin reads and moves. */
+export type Scrollable = Pick<HTMLElement, 'scrollTop' | 'scrollHeight' | 'clientHeight'>
+
+/**
+ * The rule that keeps a scroll container at its bottom: it follows the end until the reader moves away.
+ *
+ * Why it exists: the container tells every scroll with the same event, the reader's and the pin's own,
+ * and the pin's own arrives a frame late, when a new Row may already have made the content taller. Taken
+ * for the reader's, that event would unpin the Mirror while nobody scrolled. So the pin remembers
+ * where it put the container and ignores the event that reports that place. Used by
+ * {@link useStickToBottom}.
+ *
+ * @param container - The scroll container.
+ * @returns `follow` to call when the content or the container changed size, `onScroll` for its scroll event.
+ */
+export function createPin(container: Scrollable): { follow: () => void; onScroll: () => void } {
+  let isPinned = true
+  // Where the pin's own last scroll put the container
+  let ownTop = -1
+  return {
+    follow() {
+      if (!isPinned) return
+      container.scrollTop = container.scrollHeight
+      ownTop = container.scrollTop
+    },
+    onScroll() {
+      // While pinned, the report of the place the pin itself chose is not the reader's doing
+      if (isPinned && Math.abs(container.scrollTop - ownTop) <= 1) return
+      // The reader scrolled: at the bottom pins, anywhere else unpins
+      isPinned = container.scrollHeight - container.scrollTop - container.clientHeight <= BOTTOM_TOLERANCE_PX
+    },
+  }
+}
+
 /**
  * Keeps a scroll container pinned to its bottom while its content grows, until the reader scrolls up.
  *
@@ -32,15 +66,8 @@ export function useStickToBottom(): RefCallback<HTMLElement> {
     cleanupRef.current = undefined
     if (!container) return
 
-    let isPinned = true
-    // A scroll the user made decides: at the bottom pins, anywhere else unpins
-    const onScroll = () => {
-      isPinned = isAtBottom(container)
-    }
-    // Content or container changed size: follow the end while pinned
-    const follow = () => {
-      if (isPinned) container.scrollTop = container.scrollHeight
-    }
+    // Content or container changed size: follow the end while pinned; a scroll the reader made decides
+    const { follow, onScroll } = createPin(container)
     container.addEventListener('scroll', onScroll, { passive: true })
     const observer = new ResizeObserver(follow)
     // The content element can be replaced (the empty notice gives way to the transcript): watch the new one

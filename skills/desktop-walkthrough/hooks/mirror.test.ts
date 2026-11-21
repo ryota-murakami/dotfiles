@@ -236,3 +236,27 @@ test('a folded call that the ctrl+o view draws in full stays folded', () => {
   // Assert
   expect(currentRows().map(row => `${row.kind} ${row.id}`)).toEqual(['tool-group run-1'])
 })
+
+test('a call that ran says how long the terminal showed it running', () => {
+  // Arrange
+  resetMirror()
+  captureTool('call-1', { ...call('call-1', 'Bash', { command: 'pnpm build' }), isRunning: true, isExpanded: false }, 10_000)
+
+  // Act
+  captureTool('call-1', { ...call('call-1', 'Bash', { command: 'pnpm build' }), isExpanded: false, output: { stdout: 'ok' } }, 51_000)
+
+  // Assert
+  expect(currentRows()).toEqual([
+    {
+      kind: 'tool',
+      id: 'call-1',
+      tool: 'Bash',
+      input: { command: 'pnpm build' },
+      isRunning: false,
+      isErrored: false,
+      isInterrupted: false,
+      output: { stdout: 'ok' },
+      ranMs: 41_000,
+    },
+  ])
+})

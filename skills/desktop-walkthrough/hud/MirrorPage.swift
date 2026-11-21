@@ -140,6 +140,13 @@ final class MirrorPage: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
             transcriptStamp = nil
             liveStamp = nil
             zoomSent = 0
+            // A page that just loaded has an empty Input box without the keyboard: what the page
+            // before it said no longer holds
+            hasDraft = false
+            if isFocused {
+                isFocused = false
+                onFocus?(false)
+            }
         case "submit":
             if let text = body["text"] as? String, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { onSubmit?(text) }
         case "interrupt": onInterrupt?()

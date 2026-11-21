@@ -20,6 +20,9 @@ const FRAME_COLUMNS = 10
 /** Rows of each stream shown before the hint. */
 const OUTPUT_ROWS = 3
 
+/** A shell command reports progress once it has run this long; only then does its timeout note stay. */
+const PROGRESS_AFTER_MS = 2000
+
 /** The line the shell tool appends when the shell ended outside the project. */
 const CWD_RESET = /(?:^|\n)(Shell cwd was reset to [^\n]+)\s*$/
 
@@ -70,21 +73,26 @@ export function BashResult({ call }: { call: ToolCall }) {
   const width = Math.max(columns - FRAME_COLUMNS, 10)
   const output = call.output
   let stdout: ReadText | undefined = readText(field(output, 'stdout'))
-  const stderr = readText(field(output, 'stderr'))
-  // The shell's own cwd note is a row of its own, under the output
+  let stderr: ReadText | undefined = readText(field(output, 'stderr'))
+  // The shell's own cwd note is a row of its own, under the output: the tool appends it to stderr
+  // (to stdout in some builds)
   let cwdNote: string | undefined
-  if (stdout && !stdout.isClipped) {
-    const match = CWD_RESET.exec(stdout.text)
-    if (match) {
-      cwdNote = match[1]
-      stdout = { ...stdout, text: stdout.text.slice(0, match.index) }
-    }
+  for (const stream of ['stderr', 'stdout'] as const) {
+    const text = stream === 'stderr' ? stderr : stdout
+    const match = text && !text.isClipped ? CWD_RESET.exec(text.text) : null
+    if (!text || !match) continue
+    cwdNote = match[1]
+    const rest = { ...text, text: text.text.slice(0, match.index) }
+    if (stream === 'stderr') stderr = rest
+    else stdout = rest
+    break
   }
   const hasStdout = stdout !== undefined && cleanOutput(stdout.text) !== ''
   const hasStderr = stderr !== undefined && cleanOutput(stderr.text) !== ''
   const isBackground = textField(output, 'backgroundTaskId') !== undefined
   const interpretation = textField(output, 'returnCodeInterpretation')
-  const timeout = callTimeout(call)
+  // The note of the timeout stays only under a command that ran long enough to report progress
+  const timeout = (call.ranMs ?? 0) >= PROGRESS_AFTER_MS ? callTimeout(call) : undefined
   const status = isBackground
     ? 'Running in the background (↓ to manage)'
     : hasStdout || hasStderr

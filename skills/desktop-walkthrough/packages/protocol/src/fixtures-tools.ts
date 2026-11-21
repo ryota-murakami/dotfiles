@@ -133,7 +133,7 @@ const bashFixture: GalleryFixture = {
       'bash-cwd',
       'Bash',
       { command: 'cd /tmp/build && ls' },
-      { stdout: 'out\nlog.txt\nShell cwd was reset to /home/user/project', stderr: '', interrupted: false },
+      { stdout: 'out\nlog.txt', stderr: '\nShell cwd was reset to /home/user/project', interrupted: false },
     ),
     done(
       'bash-stderr',
