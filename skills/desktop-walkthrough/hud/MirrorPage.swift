@@ -14,6 +14,8 @@ let mirrorPagePath = "\(mirrorPageDir)/index.html"
 let mirrorTranscriptPath = "\(bridgeDir)/mirror-transcript.json"
 /// What changes while a turn runs (spinner, figures, hint), by the Bridge.
 let mirrorLivePath = "\(bridgeDir)/mirror-live.json"
+/// The id of the Session the walkthrough belongs to, by `dw`: only that Session's Bridge writes.
+let mirrorOwnerPath = "\(bridgeDir)/owner"
 
 /// Web view of the Mirror: its first click acts even when the Mirror is not the key window.
 final class MirrorWebView: WKWebView {
@@ -38,6 +40,9 @@ final class MirrorPage: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
     private var liveStamp: Date?
     /// The zoom last given to the page.
     private var zoomSent: CGFloat = 0
+    /// The Session of the Transcript on file, read again when the file changes.
+    private var transcriptSession: String?
+    private var transcriptSessionStamp: Date?
     /// True while the page's Input box has the keyboard, and while it holds a draft.
     private(set) var isFocused = false
     private(set) var hasDraft = false
@@ -61,8 +66,28 @@ final class MirrorPage: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         super.init()
     }
 
-    /// True when the page and a Transcript are both there: the Mirror then shows the page, not the feed.
-    var isAvailable: Bool { exists(mirrorPagePath) && exists(mirrorTranscriptPath) }
+    /// True when the page is there and the Transcript on file is the owning Session's: the Mirror then
+    /// shows the page, not the feed. A Transcript that a Session before it left behind is not shown.
+    var isAvailable: Bool {
+        guard exists(mirrorPagePath), exists(mirrorTranscriptPath) else { return false }
+        let modified = mtime(mirrorTranscriptPath)
+        if modified != transcriptSessionStamp {
+            transcriptSessionStamp = modified
+            transcriptSession = Self.sessionOfTranscript()
+        }
+        let owner = (try? String(contentsOfFile: mirrorOwnerPath, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return transcriptSession != nil && transcriptSession == owner
+    }
+
+    /// The `sessionId` the Transcript on file opens with. The Bridge writes it before the rows, so the
+    /// start of the file is enough: the rows may be hundreds of kilobytes.
+    private static func sessionOfTranscript() -> String? {
+        guard let handle = FileHandle(forReadingAtPath: mirrorTranscriptPath) else { return nil }
+        defer { try? handle.close() }
+        guard let head = String(data: handle.readData(ofLength: 512), encoding: .utf8),
+              let match = head.range(of: #""sessionId":"[^"]+""#, options: .regularExpression) else { return nil }
+        return String(head[match].dropFirst(13).dropLast())
+    }
 
     /// Wire the web view. Called once by the HUD while it builds the Mirror.
     func attach() {

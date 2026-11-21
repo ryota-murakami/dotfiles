@@ -46,3 +46,6 @@ Gemfile.lock
 
 # Type declarations Claude Code writes beside a plugin it loads from here (linked skill installs)
 skills/*/.claude-plugin/types/
+
+# Turborepo's cache: one for every worktree, kept at the repository's root (skills/desktop-walkthrough)
+/.turbo/
