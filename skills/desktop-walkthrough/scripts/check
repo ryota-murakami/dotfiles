@@ -19,9 +19,9 @@ run() {
   - $name"
 }
 
-# Both scripts parse under macOS /bin/bash 3.2
+# The scripts parse under macOS /bin/bash 3.2
 bash_syntax() {
-  /bin/bash -n scripts/dw && /bin/bash -n scripts/check
+  /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks
 }
 
 # bash 3.2 reads "$name（" as a longer variable name and stops with "unbound variable": brace it
@@ -38,35 +38,10 @@ validate_plugin() {
   return $status
 }
 
-# The hooks module and its tests against this Claude Code build's declarations: laid beside the
-# plugin when the engine loads it, or written to the temp folder when the plugin-authoring skill loads
-typecheck_hooks() {
-  local types tmp status
-  if [ -d .claude-plugin/types ]; then
-    types="$PWD/.claude-plugin/types"
-  else
-    types=$(ls -t /private/tmp/claude-"$(id -u)"/bundled-skills/*/*/plugin-authoring/types/claude-code.d.ts 2>/dev/null | head -1)
-  fi
-  if [ -z "$types" ]; then
-    echo "skipped: no Claude Code type declarations found (load the plugin-authoring skill once, then rerun)"
-    return 0
-  fi
-  tmp=$(mktemp -d)
-  cat > "$tmp/tsconfig.json" <<JSON
-{
-  "compilerOptions": {
-    "target": "es2023", "lib": ["es2023"], "types": [],
-    "module": "esnext", "moduleResolution": "bundler",
-    "strict": true, "noUncheckedIndexedAccess": true,
-    "noEmit": true, "skipLibCheck": true
-  },
-  "include": ["$types", "$PWD/hooks"]
-}
-JSON
-  npx --yes -p typescript@5 tsc -p "$tmp/tsconfig.json"
-  status=$?
-  rm -rf "$tmp"
-  return $status
+# The workspace's own checks: lint, formatting, and each package's types, tests and build. The
+# bridge is left out here: its tests and types run below without Node dependencies
+workspace() {
+  pnpm lint && pnpm format:check && pnpm exec turbo run typecheck test build --filter='!@dw/bridge'
 }
 
 # The inline scripts of the page templates parse (a template is only run inside the HUD's web views)
@@ -94,7 +69,7 @@ PY
 
 run "bash syntax (/bin/bash 3.2)" bash_syntax
 if command -v shellcheck >/dev/null 2>&1; then
-  run "shellcheck" shellcheck -S warning scripts/dw scripts/check
+  run "shellcheck" shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks
 else
   echo "== shellcheck: skipped (brew install shellcheck)"
 fi
@@ -116,7 +91,12 @@ if command -v claude >/dev/null 2>&1; then
 else
   echo "== claude CLI not found: plugin validate and tests skipped"
 fi
-run "hooks types: tsc" typecheck_hooks
+run "hooks types: tsc" scripts/typecheck-hooks
+if [ -d node_modules ] && command -v pnpm >/dev/null 2>&1; then
+  run "workspace: lint, formatting, types, tests, build" workspace
+else
+  echo "== workspace: skipped (run 'pnpm install' in this folder first)"
+fi
 
 if [ -n "$failed" ]; then
   printf '✗ failed:%s\n' "$failed"

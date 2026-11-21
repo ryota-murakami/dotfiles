@@ -1,0 +1,72 @@
+name: desktop-walkthrough
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - skills/desktop-walkthrough/**
+      - .github/workflows/desktop-walkthrough.yml
+      - .github/actions/prepare-desktop-walkthrough/**
+  pull_request:
+    branches: [master]
+    paths:
+      - skills/desktop-walkthrough/**
+      - .github/workflows/desktop-walkthrough.yml
+      - .github/actions/prepare-desktop-walkthrough/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: desktop-walkthrough-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: skills/desktop-walkthrough
+
+jobs:
+  verify:
+    name: Lint, types, tests, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Prepare environment
+        uses: ./.github/actions/prepare-desktop-walkthrough
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Formatting
+        run: pnpm format:check
+
+      - name: Types, tests and build
+        run: pnpm exec turbo run typecheck test build
+
+      # The Mirror's page is committed, so the skill runs on a Mac without Node: it must be the
+      # build of the sources beside it
+      - name: The committed Mirror page is the build of its sources
+        run: git diff --exit-code -- packages/mirror/dist
+
+  shell:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: shellcheck
+        run: shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks
+
+  hud:
+    name: HUD (Swift) and bash 3.2
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: The HUD type-checks
+        run: swiftc -typecheck hud/*.swift
+
+      # macOS ships bash 3.2: the scripts must parse there
+      - name: The scripts parse under /bin/bash
+        run: /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks

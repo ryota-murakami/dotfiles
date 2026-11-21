@@ -1,0 +1,23 @@
+:root {
+  color-scheme: dark;
+  font-family: Menlo, ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+body {
+  margin: 0;
+  background: transparent;
+  color: rgb(218 218 218);
+}
+
+.transcript {
+  padding: 0.5lh 1ch;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  padding: 0.5lh 1ch;
+  color: rgb(153 153 153);
+}

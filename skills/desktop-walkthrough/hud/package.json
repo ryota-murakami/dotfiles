@@ -1,0 +1,9 @@
+{
+  "name": "@dw/hud",
+  "version": "0.0.0",
+  "private": true,
+  "description": "The HUD: a Swift/AppKit app that `scripts/dw` builds on the user's Mac from these sources",
+  "scripts": {
+    "typecheck": "sh -c 'if [ \"$(uname)\" = Darwin ] && command -v swiftc >/dev/null 2>&1; then swiftc -typecheck *.swift; else echo \"skipped: swiftc with AppKit is macOS only\"; fi'"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "desktop-walkthrough",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace of the desktop-walkthrough skill: the bridge, the mirror, their shared protocol, the HUD and the checks",
+  "type": "module",
+  "packageManager": "pnpm@12.21.0+sha512.66fd8278ee28935ce951792d34367ff3af5c432a2756445823029533835b8da529bbe0be5130afd56ed0713fb8789e47bad82d93bd5ae2fe54b15562d6276ef0",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "lint": "oxlint",
+    "format": "prettier --write packages docs GLOSSARY.md",
+    "format:check": "prettier --check packages",
+    "verify": "pnpm lint && pnpm format:check && turbo run typecheck test build",
+    "check": "scripts/check"
+  },
+  "devDependencies": {
+    "oxlint": "^1.94.0",
+    "prettier": "^3.6.0",
+    "turbo": "^2.11.13",
+    "typescript": "^7.0.2"
+  }
+}

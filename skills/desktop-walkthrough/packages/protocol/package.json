@@ -1,0 +1,22 @@
+{
+  "name": "@dw/protocol",
+  "version": "0.0.0",
+  "private": true,
+  "description": "What the bridge and the HUD say to each other about a session: the types, their schemas and sample data",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./fixtures": "./src/fixtures.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.1"
+  }
+}
