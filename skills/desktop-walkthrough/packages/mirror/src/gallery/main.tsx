@@ -1,4 +1,5 @@
 import { galleryFixtures, turnInProgress } from '@dw/protocol/fixtures'
+import { toolGalleryFixtures } from '@dw/protocol/fixtures-tools'
 import type { Row } from '@dw/protocol'
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
@@ -40,6 +41,7 @@ function Gallery() {
   const sections = [
     { title: 'A turn in progress', note: 'Tool rows are placeholders for now.', rows: turnInProgress.rows },
     ...galleryFixtures,
+    ...toolGalleryFixtures,
   ]
   return (
     <>

@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest'
 
+import { toolGalleryFixtures } from './fixtures-tools'
 import { galleryFixtures, liveWhileToolRuns, turnInProgress } from './fixtures'
 import { liveFixtures } from './fixtures-live'
 import { liveDocumentSchema, rowSchema, transcriptDocumentSchema } from './index'
@@ -58,4 +59,15 @@ test('the Mirror accepts every live state of its live-area gallery', () => {
   // Assert
   expect(failures).toEqual([])
   expect(documents.length).toBeGreaterThan(0)
+})
+
+test('the Mirror accepts every tool Row of its gallery', () => {
+  // Arrange
+  const rows = toolGalleryFixtures.flatMap((fixture) => fixture.rows)
+
+  // Act
+  const failures = rows.filter((row) => !rowSchema.safeParse(row).success)
+
+  // Assert
+  expect(failures).toEqual([])
 })
