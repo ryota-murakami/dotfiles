@@ -916,26 +916,146 @@ final class HotKey {
     }
 }
 
-/// A key with its modifiers, as the user chose it for a hot key.
+/// The modifier keys with left and right told apart, as bits: the device-dependent part of an
+/// event's modifier flags (`NX_DEVICE…KEYMASK`), which says which physical keys are down.
+enum ModifierKeys {
+    static let leftControl = 0x1, leftShift = 0x2, rightShift = 0x4, leftCommand = 0x8
+    static let rightCommand = 0x10, leftOption = 0x20, rightOption = 0x40, rightControl = 0x2000
+    static let all = 0x207F
+
+    /// The modifier keys that are down according to an event's flags.
+    static func held(_ flags: NSEvent.ModifierFlags) -> Int { Int(flags.rawValue) & all }
+
+    static func count(_ keys: Int) -> Int { (keys & all).nonzeroBitCount }
+
+    /// The keys with their sides, in the order menus list modifiers: "右⌥右⌘".
+    static func display(_ keys: Int) -> String {
+        let names: [(Int, String)] = [(leftControl, "左⌃"), (rightControl, "右⌃"), (leftOption, "左⌥"), (rightOption, "右⌥"),
+                                      (leftShift, "左⇧"), (rightShift, "右⇧"), (leftCommand, "左⌘"), (rightCommand, "右⌘")]
+        return names.filter { keys & $0.0 != 0 }.map { $0.1 }.joined()
+    }
+}
+
+/// A shortcut of modifier keys alone (right Command with right Option), pressed together and let go.
+///
+/// Why it exists: a hot key needs a key that is not a modifier and cannot tell left from right.
+/// Changes of the modifiers reach an app in the background through an event monitor (no typed key is
+/// read). The chord acts when it is let go, and only if nothing else was pressed meanwhile: held
+/// down, the same keys are the modifiers of other shortcuts (Option-Command-Left) and of clicks.
+/// Owned by {@link HUD} for the shortcut that hides the HUD ({@link HUD.applyToggleKey}).
+final class ModifierChord {
+    /// Called on the main thread when the keys were pressed together and let go.
+    var onPress: (() -> Void)?
+    /// The keys of the chord ({@link ModifierKeys} bits).
+    private var keys = 0
+    private var globalMonitor: Any?
+    private var localMonitor: Any?
+    /// When exactly the chord's keys came to be down (event time, seconds since startup); nil while they are not.
+    private var completedAt: TimeInterval?
+    /// False once a key outside the chord was down or the chord was let go, until every modifier is
+    /// up again: one press per hold, and never as a part of a larger shortcut.
+    private var fresh = true
+
+    /// True while the chord is watched for.
+    var isEnabled: Bool { globalMonitor != nil }
+
+    func setKeys(_ keys: Int) {
+        guard keys != self.keys else { return }
+        self.keys = keys
+        completedAt = nil
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        if enabled, globalMonitor == nil {
+            // Other apps' modifier changes come through the global monitor, the HUD's own (its
+            // message box has the keyboard) through the local one
+            globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                self?.modifiersChanged(event.modifierFlags, at: event.timestamp)
+            }
+            localMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+                self?.modifiersChanged(event.modifierFlags, at: event.timestamp)
+                return event
+            }
+        } else if !enabled {
+            if let globalMonitor { NSEvent.removeMonitor(globalMonitor) }
+            if let localMonitor { NSEvent.removeMonitor(localMonitor) }
+            globalMonitor = nil
+            localMonitor = nil
+            completedAt = nil
+        }
+    }
+
+    /// Follow the modifier keys: the chord is complete while exactly its keys are down, and pressed
+    /// once a key of it is let go with nothing else done meanwhile.
+    ///
+    /// @param flags - Modifier flags of a flags-changed event.
+    /// @param time - When that event happened (`NSEvent.timestamp`).
+    func modifiersChanged(_ flags: NSEvent.ModifierFlags, at time: TimeInterval) {
+        let held = ModifierKeys.held(flags)
+        let since = completedAt
+        if held == 0 {
+            // Every modifier is up: the next hold starts fresh (both keys may have gone in one event)
+            completedAt = nil
+            fresh = true
+        } else if held & ~keys != 0 {
+            // A key outside the chord is down: this hold is another shortcut, whatever follows
+            completedAt = nil
+            fresh = false
+            return
+        } else if held == keys {
+            // The first moment counts: a later event with the same keys (Caps Lock) must not hide a key press before it
+            if fresh, completedAt == nil { completedAt = time }
+            return
+        } else {
+            // One key of the chord is down: before the chord, or after one of its keys was let go
+            completedAt = nil
+            if since != nil { fresh = false }
+        }
+        // The chord was let go: it counts unless a key, a click or a scroll came while it was held
+        // (the keys were then its modifiers)
+        if let since, !Self.inputHappened(from: since, to: time) { onPress?() }
+    }
+
+    /// True when a key press, a click or a scroll happened between two event times.
+    private static func inputHappened(from start: TimeInterval, to end: TimeInterval) -> Bool {
+        let now = ProcessInfo.processInfo.systemUptime
+        let kinds: [CGEventType] = [.keyDown, .leftMouseDown, .rightMouseDown, .otherMouseDown, .scrollWheel]
+        return kinds.contains { kind in
+            let at = now - CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: kind)
+            // Two clocks read a moment apart: a little slack at both ends
+            return at >= start - 0.002 && at <= end + 0.002
+        }
+    }
+}
+
+/// A shortcut as the user chose it: a key with its modifiers, or modifier keys alone.
 ///
 /// Why it exists: a shortcut the user can change has to be stored (one number in `settings.json`),
-/// shown ("⌃⌥⌘H") and read from a key press. Used by the "hud.toggleKey" setting:
-/// {@link HUD.applyToggleKey} registers it and {@link ShortcutRecorder} records a new one.
+/// shown ("⌃⌥⌘H", "右⌥右⌘") and read from what they press. Used by the "hud.toggleKey" setting:
+/// {@link HUD.applyToggleKey} puts it to work ({@link HotKey} for a key, {@link ModifierChord} for
+/// modifier keys alone) and {@link ShortcutRecorder} records a new one.
 struct Shortcut: Equatable {
-    /// Virtual key code (`kVK_…`).
+    /// Stands in for the key code of a shortcut made of modifier keys alone (no key has this code).
+    static let modifiersOnly = 999
+
+    /// Virtual key code (`kVK_…`), or {@link Shortcut.modifiersOnly}.
     let keyCode: Int
-    /// Carbon modifier flags (`cmdKey | optionKey …`).
+    /// With a key: Carbon modifier flags (`cmdKey | optionKey …`), left and right alike.
+    /// Modifier keys alone: which keys, as {@link ModifierKeys} bits.
     let modifiers: Int
 
-    /// Hides and shows the HUD until the user records other keys: the modifiers of the stop shortcut
-    /// with H, which macOS does not use.
-    static let toggleDefault = Shortcut(keyCode: kVK_ANSI_H, modifiers: controlKey | optionKey | cmdKey)
+    var isModifiersOnly: Bool { keyCode == Shortcut.modifiersOnly }
+
+    /// Hides and shows the HUD until the user records other keys: right Command with right Option,
+    /// two neighbours under the right thumb that no shortcut uses by themselves.
+    static let toggleDefault = Shortcut(keyCode: modifiersOnly, modifiers: ModifierKeys.rightCommand | ModifierKeys.rightOption)
     /// Stops the agent ({@link HUD.stopHotKey}).
     static let stop = Shortcut(keyCode: kVK_ANSI_Period, modifiers: controlKey | optionKey | cmdKey)
     /// Copies a selection in a page or note ({@link HUD.copyHotKey}).
     static let copy = Shortcut(keyCode: kVK_ANSI_C, modifiers: cmdKey)
 
-    /// The shortcut as one number for the settings file: modifiers × 1000 + key code. 0 is "no shortcut".
+    /// The shortcut as one number for the settings file: modifiers × 1000 + key code (999 for
+    /// modifier keys alone). 0 is "no shortcut".
     var packed: Double { Double(modifiers * 1000 + keyCode) }
 
     init(keyCode: Int, modifiers: Int) {
@@ -971,8 +1091,10 @@ struct Shortcut: Equatable {
     /// and a hot key would take it from every app.
     var hasCommandModifier: Bool { modifiers & (cmdKey | controlKey | optionKey) != 0 }
 
-    /// The shortcut as menus write it: "⌃⌥⌘H".
-    var display: String { Shortcut.symbols(modifiers) + Shortcut.keyName(keyCode) }
+    /// The shortcut as menus write it: "⌃⌥⌘H", or the modifier keys with their sides ("右⌥右⌘").
+    var display: String {
+        isModifiersOnly ? ModifierKeys.display(modifiers) : Shortcut.symbols(modifiers) + Shortcut.keyName(keyCode)
+    }
 
     /// Modifier symbols in the order menus use.
     static func symbols(_ modifiers: Int) -> String {
@@ -1022,7 +1144,9 @@ struct Shortcut: Equatable {
 /// Why it exists: the shortcut that hides the HUD must be the user's to choose (the default may be
 /// taken by one of their tools). The HUD's panels never take the keyboard, so the recorder asks its
 /// panel to become key for the moment of recording; {@link SettingsCard} gives the keyboard back to
-/// the app in front when it ends. Esc leaves the shortcut as it was, Delete removes it.
+/// the app in front when it ends. A key with Command, Control or Option is a shortcut, and so are two
+/// or more modifier keys pressed and let go by themselves (left and right are told apart). Esc
+/// leaves the shortcut as it was, Delete removes it.
 /// Created by {@link SettingRow} for a `.shortcut` setting.
 final class ShortcutRecorder: NSView {
     /// Posted when a recording starts or ends; `userInfo["recording"]` is a Bool. Meanwhile the HUD
@@ -1036,8 +1160,15 @@ final class ShortcutRecorder: NSView {
     private(set) var isRecording = false
     /// Why the last key press was not taken, shown until the next one.
     private var hint: String?
-    /// Modifiers held right now, shown while recording so the user sees the keys arrive.
-    private var heldModifiers = 0
+    /// Modifier keys held right now ({@link ModifierKeys} bits), shown while recording so the user
+    /// sees the keys arrive.
+    private var heldKeys = 0
+    /// Every modifier key held since all of them were last up: the shortcut, if they are let go
+    /// without a key.
+    private var chordKeys = 0
+    /// True after a key was pressed until every modifier is up again: those modifiers belonged to
+    /// that key press and are not a shortcut of their own.
+    private var chordSpent = false
     private let label = NSTextField(labelWithString: "")
     private var resignObserver: NSObjectProtocol?
 
@@ -1076,7 +1207,9 @@ final class ShortcutRecorder: NSView {
         guard !isRecording, let window else { return }
         isRecording = true
         hint = nil
-        heldModifiers = 0
+        heldKeys = 0
+        chordKeys = 0
+        chordSpent = false
         window.makeKey()
         window.makeFirstResponder(self)
         // The card closed, or the user clicked into another window: the shortcut stays as it was
@@ -1106,6 +1239,7 @@ final class ShortcutRecorder: NSView {
     /// Take a key press while recording: the new shortcut, or the reason it cannot be one.
     private func take(_ event: NSEvent) {
         let pressed = Shortcut(event: event)
+        chordSpent = true
         // Esc and Delete by themselves are commands to the recorder, not shortcuts
         if pressed.modifiers == 0, pressed.keyCode == kVK_Escape { end(recorded: nil, keep: true); return }
         if pressed.modifiers == 0, pressed.keyCode == kVK_Delete || pressed.keyCode == kVK_ForwardDelete { end(recorded: nil, keep: false); return }
@@ -1136,15 +1270,29 @@ final class ShortcutRecorder: NSView {
 
     override func flagsChanged(with event: NSEvent) {
         guard isRecording else { super.flagsChanged(with: event); return }
-        heldModifiers = Shortcut.carbonModifiers(event.modifierFlags)
-        if heldModifiers != 0 { hint = nil }
+        heldKeys = ModifierKeys.held(event.modifierFlags)
+        if heldKeys != 0 {
+            if !chordSpent {
+                hint = nil
+                chordKeys |= heldKeys
+            }
+        } else {
+            // Every modifier is up again with no key pressed: two or more of them are a shortcut
+            let chord = chordSpent ? 0 : chordKeys
+            chordKeys = 0
+            chordSpent = false
+            if ModifierKeys.count(chord) >= 2 {
+                end(recorded: Shortcut(keyCode: Shortcut.modifiersOnly, modifiers: chord), keep: false)
+                return
+            }
+        }
         updateLook()
     }
 
     /// Text and outline for the state: the shortcut, or what the recorder waits for.
     private func updateLook() {
         if isRecording {
-            label.stringValue = hint ?? (heldModifiers != 0 ? Shortcut.symbols(heldModifiers) + "…" : "キーを押す…")
+            label.stringValue = hint ?? (heldKeys != 0 ? ModifierKeys.display(heldKeys) + "…" : "キーを押す…")
         } else {
             label.stringValue = shortcut?.display ?? "なし"
         }

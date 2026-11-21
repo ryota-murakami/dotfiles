@@ -8,8 +8,9 @@
 //   drag the header to move, any edge to resize.
 // - Settings: one registry (Settings.swift) shown as a card above the bar (SettingsCard.swift).
 // - Stop: the red button on the bar, or Control-Option-Command-Period from anywhere.
-// - Hide: Control-Option-Command-H (the user can record other keys in the settings) takes every
-//   surface off the screen and brings it back; the HUD keeps running meanwhile.
+// - Hide: right Command with right Option, pressed together and let go (the user can record other
+//   keys in the settings), takes every surface off the screen and brings it back; the HUD keeps
+//   running meanwhile.
 //
 // The status bar never takes focus. Clicking the mirror makes the HUD the frontmost app so dictation
 // tools can reach its message box; Enter or Esc gives focus back to the app that had it.
@@ -92,7 +93,7 @@ let adSessionPath = "\(stateDir)/ad_session"
 let alivePath = "\(stateDir)/hud.alive"
 let pidPath = "\(stateDir)/hud.pid"
 /// Present while the user has hidden the HUD with its shortcut ({@link HUD.toggleHidden}); it holds
-/// the keys that bring the HUD back ("⌃⌥⌘H"). Read by `dw`, which tells the agent that what it
+/// the keys that bring the HUD back ("右⌥右⌘"). Read by `dw`, which tells the agent that what it
 /// shows is out of sight.
 let hiddenPath = "\(stateDir)/hud-hidden"
 
@@ -272,8 +273,10 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let copyHotKey = HotKey(id: 2, keyCode: kVK_ANSI_C, modifiers: cmdKey)
     /// Sees clicks in other apps: a selection left behind in a page is no longer what Command-C means.
     let copyClickWatcher = OutsideClickWatcher()
-    /// Hides and shows the whole HUD; its keys are the "hud.toggleKey" setting (see {@link HUD.applyToggleKey}).
-    let toggleHotKey = HotKey(id: 3, keyCode: Shortcut.toggleDefault.keyCode, modifiers: Shortcut.toggleDefault.modifiers)
+    /// Hide and show the whole HUD with the keys of the "hud.toggleKey" setting: the chord while the
+    /// setting is modifier keys alone, the hot key while it is a key with modifiers (see {@link HUD.applyToggleKey}).
+    let toggleChord = ModifierChord()
+    let toggleHotKey = HotKey(id: 3, keyCode: kVK_ANSI_H, modifiers: controlKey | optionKey | cmdKey)
 
     /// When the owning agent process was first seen missing (nil while it is alive).
     var ownerGoneSince: Date?
@@ -308,10 +311,17 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         // A HUD starts in sight, whatever the last one was
         try? FileManager.default.removeItem(atPath: hiddenPath)
         toggleHotKey.onPress = { [weak self] in self?.toggleHidden() }
+        toggleChord.onPress = { [weak self] in self?.toggleHidden() }
         applyToggleKey()
         // While the user records new keys the current ones must reach the recorder, not hide the HUD
         NotificationCenter.default.addObserver(forName: ShortcutRecorder.recordingChanged, object: nil, queue: .main) { [weak self] note in
-            if (note.userInfo?["recording"] as? Bool) == true { self?.toggleHotKey.setEnabled(false) } else { self?.applyToggleKey() }
+            guard let self else { return }
+            if (note.userInfo?["recording"] as? Bool) == true {
+                self.toggleHotKey.setEnabled(false)
+                self.toggleChord.setEnabled(false)
+            } else {
+                self.applyToggleKey()
+            }
         }
         settingsCard.attach(to: self)
         // Contrast, transparency and motion are the user's system-wide choices: follow them as they change
@@ -377,18 +387,20 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
 
     // MARK: hide and show
 
-    /// Register the shortcut that hides and shows the HUD with the keys of the "hud.toggleKey" setting.
-    /// Called at launch, when the setting changes and when a recording of new keys ends.
+    /// Put the shortcut that hides and shows the HUD to work with the keys of the "hud.toggleKey"
+    /// setting: modifier keys alone are watched as a chord, a key with modifiers is a hot key, and
+    /// "なし" (no shortcut) is neither. Called at launch, when the setting changes and when a
+    /// recording of new keys ends.
     func applyToggleKey() {
-        // "なし": the user removed the shortcut
-        guard let shortcut = Shortcut(packed: settings.value("hud.toggleKey")) else {
-            toggleHotKey.setEnabled(false)
-            return
-        }
-        toggleHotKey.setKeys(keyCode: shortcut.keyCode, modifiers: shortcut.modifiers)
-        toggleHotKey.setEnabled(true)
+        let shortcut = Shortcut(packed: settings.value("hud.toggleKey"))
+        let chord = shortcut.flatMap { $0.isModifiersOnly ? $0 : nil }
+        let key = shortcut.flatMap { $0.isModifiersOnly ? nil : $0 }
+        toggleChord.setKeys(chord?.modifiers ?? 0)
+        toggleChord.setEnabled(chord != nil)
+        if let key { toggleHotKey.setKeys(keyCode: key.keyCode, modifiers: key.modifiers) }
+        toggleHotKey.setEnabled(key != nil)
         // Keys the system refuses are not kept: the setting then says what is true, no shortcut
-        if !toggleHotKey.isEnabled { settings.set("hud.toggleKey", 0) }
+        if key != nil, !toggleHotKey.isEnabled { settings.set("hud.toggleKey", 0) }
     }
 
     /// Hide every surface of the HUD, or bring them back as they were.
@@ -398,7 +410,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     /// not closed ({@link NSWindow.setConcealed}): each keeps its desktop, its place and what it
     /// showed, the agent's commands keep working and the stop shortcut still stops. Only the same
     /// keys bring a hidden HUD back; `dw` tells the agent that it is hidden ({@link hiddenPath}).
-    /// Called by {@link HUD.toggleHotKey}.
+    /// Called by {@link HUD.toggleChord} and {@link HUD.toggleHotKey}.
     func toggleHidden() {
         hudHidden.toggle()
         if hudHidden {

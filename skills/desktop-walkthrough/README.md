@@ -42,4 +42,4 @@ ln -s ~/dotfiles/skills/desktop-walkthrough ~/.agents/skills/desktop-walkthrough
 
 ## Use
 
-Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Hide the whole HUD and bring it back with Control-Option-Command-H (click the shortcut in the settings to record other keys). Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.
+Ask Claude Code to demonstrate something ("このチュートリアルを実演して"), or invoke `/desktop-walkthrough`. Stop the agent with the red button on the bar or Control-Option-Command-Period. Hide the whole HUD and bring it back by pressing right Command and right Option together and letting go (click the shortcut in the settings to record other keys: a key with modifiers, or two or more modifier keys by themselves). Close the HUD from its settings (the slider icon on the bar), with `scripts/dw end`, or by ending the session.
