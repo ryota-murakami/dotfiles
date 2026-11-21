@@ -565,6 +565,11 @@ final class Explainer: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
     /// True when a window of another app lies over part of the panel.
     var isCovered: Bool { !overlappingWindows(aboveOnly: true).isEmpty }
 
+    /// True while the reader has the panel before them: open on the desktop they are looking at,
+    /// with no window of another app over it. The book button on the bar shows this, not the switch:
+    /// a panel that an app has come in front of is not "shown" to the person looking for it.
+    var isInSight: Bool { panel.isVisible && panel.isOnActiveSpace && !isCovered }
+
     /// Step behind the app the reader should look at: just below the frontmost window of another app
     /// that overlaps the panel. Where nothing overlaps there is nothing to step behind, and a panel
     /// on another desktop is out of the way already.

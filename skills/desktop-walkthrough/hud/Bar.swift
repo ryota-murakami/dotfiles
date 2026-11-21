@@ -475,7 +475,7 @@ extension HUD {
     }
 
     /// The book button: bring the explainer forward when it is open on another desktop or another
-    /// window covers it, otherwise show or hide it.
+    /// window covers it (the button is then not lit, see {@link Explainer.isInSight}), otherwise show or hide it.
     @objc func toggleExplainer() {
         if settings.isOn("explain.visible"), explainer.isOnAnotherSpace || explainer.isCovered {
             explainer.bringToFront()

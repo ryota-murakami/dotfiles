@@ -45,6 +45,13 @@ The skill is used on one machine by one person, so what was learned about that m
 - The IDE does not reopen the last project at startup (`reopenLastProject` is false in `options/ide.general.xml`): after a restart it shows `PhpStorm Home`, the project's window is gone and every window id is new. `phpstorm <project folder>` opens the project again in a window of its own, with its tabs, on the desktop that is active at that moment; the home window closes.
 - With lines selected the IDE shows a floating toolbar (Ask AI, Extract, Surround) under the last selected line for a while: a note placed right under the selection has its title covered. Make the anchor about 46 points taller than the selection.
 
+**HTTP Client** (`.http` files; worked on 2026-11-21)
+
+1. Open the file with `phpstorm --line N --column 0 <path>`. The environment is chosen in the editor's own toolbar: click `Run with: No Environment`, then the environment's name in the list that opens.
+2. Run a request with the green triangle in the gutter beside its method line. A menu opens (`Run with '<env>' environment` / `PHP Debug with …`): click the first item. The response appears in the Services tool window at the bottom (status line, folded headers, body); its `Request` tab shows the request headers, the token among them, so leave it closed.
+3. The list and the menu are windows of their own (layer 101), not part of the project window: `agent-desktop screenshot --window-id` does not show them, and while one is open `dw click-xy --in` refuses (`focused: none`). Find them with `CGWindowListCopyWindowInfo` (owner `PhpStorm`: id, layer, bounds), capture one with `screencapture -x -o -l <id>`, and click in it with `dw ad mouse-click --xy X,Y --headed` chained with `&&` to two checks: PhpStorm is the front app (`lsappinfo front`) and the popup's window is still there.
+4. Read click positions from `screencapture -x -o -l <CGWindowID>` of the project window (no shadow: half the pixel position is the point inside the window; add the window's origin). `agent-desktop screenshot --window-id` includes the window's shadow, whose margins are not the same from one capture to the next.
+
 **Committing in the IDE** (worked on 2026-11-19)
 
 1. Open the commit view with the toolbar button `Commit…` (click by ref). Here it is the `Local Changes` tab of the Git tool window at the bottom left.

@@ -567,13 +567,15 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             if modeChanged { announce(status.text) }
         }
         label.hole = notchHole()
-        explainButton.isActive = settings.isOn("explain.visible")
-        mirrorButton.isActive = settings.isOn("mirror.visible")
         settingsButton.isActive = settingsCard.isOpen
         explainer.refresh()
         notePopup.refresh()
         applyActivity(currentActivity())
         updateMirrorVisibility()
+        // Lit while the surface is before the user on this desktop. One that is switched on but lies
+        // behind another app's window, or is open on another desktop, is not lit: a press brings it forward
+        explainButton.isActive = explainer.isInSight
+        mirrorButton.isActive = settings.isOn("mirror.visible") && !mirror.isOnAnotherSpace
         updateAsk()
         settingsCard.follow()
         panel.orderFrontRegardless()
