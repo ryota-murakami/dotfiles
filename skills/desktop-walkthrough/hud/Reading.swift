@@ -201,7 +201,7 @@ extension HUD {
         effects.play("burst", ["x": at.x, "y": at.y, "count": 10, "colors": ["#5ccc9e", "#ffffff", "#a6e6c9"], "speed": 150, "life": 600, "size": 3.5], on: screen)
     }
 
-    /// "理解した" was pressed on the note: once per note, a sound, a light on the note, the count.
+    /// "理解した" was pressed on the note: once per note, a sound, a light on the note, the count, then the note goes.
     func noteUnderstood(id: String, title: String) {
         guard settings.isOn("reading.marks"), reading.understand(id) else { return }
         sounds.play("note")
@@ -214,6 +214,8 @@ extension HUD {
             effects.play("ring", ["x": at.x, "y": at.y, "color": "#ffc74d", "to": 60, "ms": 520], on: screen)
             effects.play("burst", ["x": at.x, "y": at.y, "count": 8, "colors": ["#ffc74d", "#fff3c4"], "speed": 140, "life": 550, "size": 3.5], on: screen)
         }
+        // The note has done its job: it goes once its light has played, out of the way of the code
+        notePopup.dismissUnderstood(after: 0.8)
         let count = reading.notes
         if count == 1 {
             unlock("first-note", title: "なるほど", desc: "はじめてメモを理解した", points: 15)

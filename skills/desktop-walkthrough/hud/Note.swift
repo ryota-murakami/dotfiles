@@ -270,6 +270,34 @@ final class NotePopup: NSObject, WKNavigationDelegate, WKScriptMessageHandler, N
         layer.add(swell, forKey: "understood")
     }
 
+    /// Put the note away once it was understood: it fades out after its light has played and stays
+    /// closed, like a note the user closed.
+    ///
+    /// Why it exists: an understood note has done its job, and left open it covers the code the next
+    /// note explains. Called by {@link HUD.noteUnderstood} (Reading.swift). A note replaced by
+    /// `dw note` meanwhile is left alone.
+    ///
+    /// @param delay - Seconds to wait first, so that the swell of the outline and the ring are seen.
+    func dismissUnderstood(after delay: TimeInterval) {
+        let id = noteID
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
+            guard let self, self.noteID == id, !self.dismissed else { return }
+            self.dismissed = true
+            guard self.panel.isVisible, !DisplayOptions.reduceMotion else {
+                self.panel.orderOut(nil)
+                return
+            }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.22
+                self.panel.animator().alphaValue = 0
+            }, completionHandler: {
+                // A new note may have loaded during the fade: only a note still dismissed goes
+                if self.dismissed { self.panel.orderOut(nil) }
+                self.panel.alphaValue = 1
+            })
+        }
+    }
+
     /// Ask the page for its height now that it is on screen; a note that was replaced meanwhile is left alone.
     private func remeasure(_ id: String) {
         guard id == noteID else { return }

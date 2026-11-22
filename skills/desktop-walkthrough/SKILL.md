@@ -24,7 +24,7 @@ Each surface has one job. Put each thing on the surface that fits it.
 | Status bar | what you are doing right now, in one line | `$DW step`, `$DW say`; un-narrated tool calls show their description | drag it, resize it |
 | End of the bar and screen border | whose turn the Mac is (see below) | nothing: it is derived from what you do | press stop |
 | Explainer panel | the reasoning: numbered pages of Markdown, code and diagrams | `$DW explain` | page back, zoom, copy a selection (Command-C), mark each block as read, bring it forward with the book button |
-| Note popup | a few sentences beside the thing they explain | `$DW note` | drag it, copy from it, press 理解した, close it |
+| Note popup | a few sentences beside the thing they explain | `$DW note` | drag it, copy from it, press 理解した (the note then goes), close it |
 | Prompt card | a question, its two answers and feedback buttons | `$DW ask`, `$DW wait-user` | answer, give feedback, park it at a screen edge, send it behind the explainer with a click in the explainer, show or hide it and call it to another desktop with the hand button |
 | Delivery line | that a press is on its way, then that it arrived | nothing: your first action after a press completes it | |
 | Mirror | the conversation, drawn the way Claude Code's terminal draws it, with its input box | nothing: the bridge fills it | write to you; Esc in the empty box stops your turn |
@@ -37,7 +37,7 @@ Each surface has one job. Put each thing on the surface that fits it.
 - Perform in tight stretches: announce, act, check, with the thinking done before the stretch starts.
 - After any stretch that was the user's, assume they are in another app. Begin with `$DW say` (the border comes up), then bring the window forward with `$DW front <window>` as an announced step. A `dw press` or `dw click-xy` that refuses because focus is elsewhere means the user took the Mac back: bring the window forward once more, and if that is refused too, ask on the HUD.
 
-**How far the reader is.** Every block of a page (a paragraph, a list, a table, a code block, a diagram) has a mark, and a frame rests on the block being read: its button 読んだ ▼ marks the block and moves the frame on. A note has 理解した. The HUD answers by itself: a sound, the count in the explainer's header (✓ 4/9), an achievement under the bar at a milestone, and, when the user presses the first answer of a `wait-user`, a banner across the page it was about (a smaller one across a note). What you get from it:
+**How far the reader is.** Every block of a page (a paragraph, a list, a table, a code block, a diagram) has a mark, and a frame rests on the block being read: its button 読んだ ▼ marks the block and moves the frame on. A note has 理解した, which puts the note away. The HUD answers by itself: a sound, the count in the explainer's header (✓ 4/9), an achievement under the bar at a milestone, and, when the user presses the first answer of a `wait-user`, a banner across the page it was about (a smaller one across a note). What you get from it:
 
 - `$DW explain --progress` lists what was marked on every page, the notes understood and the achievements. The line `wait-user` prints on the first answer carries the count of the page on screen (`📖 page 13: 7/9 blocks marked as read`).
 - Read that before asking whether something was read, and when 質問・中断 arrives: the frame tells which block the question is about.
