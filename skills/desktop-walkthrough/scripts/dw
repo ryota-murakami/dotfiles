@@ -508,8 +508,9 @@ term_shell_pid() { cat "$(term_dir)/shell_pid" 2>/dev/null; }
 term_busy() { local pid; pid=$(term_shell_pid); [ -n "$pid" ] && pgrep -P "$pid" >/dev/null 2>&1; }
 # True while the terminal's window is still open. Asked only of a running Terminal: the question
 # itself would start the app.
+# -a: macOS pgrep skips its own ancestors, and the agent itself runs inside Terminal
 term_exists() {
-  pgrep -xq Terminal && osascript -e "tell application \"Terminal\" to return id of window id $(term_id)" >/dev/null 2>&1
+  pgrep -axq Terminal && osascript -e "tell application \"Terminal\" to return id of window id $(term_id)" >/dev/null 2>&1
 }
 # The window may have been closed by the user: say so instead of reporting a confusing empty result
 term_require() {

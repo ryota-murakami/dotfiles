@@ -22,7 +22,7 @@ Every walkthrough is recorded in a folder of its own under `~/.config/desktop-wa
 
 ## The README you write
 
-Write it while the reasons are fresh, before finishing or pausing:
+`dw start` creates it with a header (what the folder holds, how to repeat) that ends in a marker comment: append below the marker, never replace the file. Write it while the reasons are fresh, before finishing or pausing:
 
 - the starting state (branch, data, running services) and how to get there
 - the chapters in order, with what each one proves

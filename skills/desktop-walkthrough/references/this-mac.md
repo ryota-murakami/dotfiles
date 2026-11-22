@@ -59,6 +59,13 @@ The skill is used on one machine by one person, so what was learned about that m
 3. Set the message with `set-value` on the text field `Commit Message` and read it back.
 4. Click the button `Commit` by ref, then check `git log -1`.
 
+## Obsidian (1.15) and Grok Bot (1.2.3)
+
+- Obsidian CLI is registered as `/usr/local/bin/obsidian -> /Applications/Obsidian.app/Contents/MacOS/obsidian-cli` (2026-11-22). The toggle is Settings → General → Advanced → `Command line interface`; turning it on shows `Set up CLI to work in the terminal` → `Register`, then a macOS administrator password dialog that the user answers. `obsidian vault` is a read-only check that the running app answers.
+- Obsidian's settings toggles are `checkbox` elements whose value reads `0` in either state: judge from a screenshot or from `"cli"` in `~/Library/Application Support/obsidian/obsidian.json`.
+- Grok Bot (`com.anysphere.sand`, URL schemes `grokbot://`, `sand://`) is Electron. Its composer is `textfield 'Prompt'`: `type` by ref fails, `set-value` works (read it back), then the button `Send message`. A plugin link (`cursor.com/grok-bot/link/v1/plugin/add?id=…`) opens Chrome, asks `Open Grok Bot.app?`, then shows the plugin page in the app with `Connect` (it turns into `Uninstall` once added).
+- While the HUD is the front app, `agent-desktop screenshot --window-id` can time out (`global_window_inventory_unstable`): `screencapture -x` works.
+
 ## How the user arranges a walkthrough
 
 - PhpStorm maximized, the explainer panel over its right side and widened to about two thirds of the screen while reading. The panel must not sit on top of the code: it stacks like a window (asked for on 2026-11-20).

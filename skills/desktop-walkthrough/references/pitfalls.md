@@ -72,6 +72,7 @@ Each row is something that actually went wrong, why, and the rule or helper that
 | --- | --- | --- |
 | The agent-desktop cursor overlay drew nothing while reporting success; clipboard commands failed | npm install without its postinstall leaves a launcher that spawns a platform-named binary (upstream issue 385) | `dw doctor` detects it and prints the fix; repair before building a replacement |
 | The built-in cursor label truncated explanations | It is one line, 360 pt, at most 12 words (upstream issue 407) | Narration lives in the HUD, not in the cursor label |
+| `dw term run` refused with "terminal no longer exists" while its window was open and answering AppleScript | `term_exists` asked `pgrep -xq Terminal`; macOS `pgrep` skips its own ancestors, and the agent runs inside Terminal | `pgrep -a` wherever the process looked for can be an ancestor of the agent (Terminal, the IDE) |
 | A window at screen-saver level, a non-activating text panel | Suspected of blocking desktop switching; dictation tools could not reach the field | HUD windows stay at status-bar/floating level; the mirror activates on click and returns focus on Enter or Esc |
 
 ## Per-app notes
