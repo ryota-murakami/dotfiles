@@ -36,7 +36,9 @@ fish_add_path ~/.cargo/bin
 
 # try CLI (Homebrew)
 fish_add_path /opt/homebrew/opt/ruby/bin
-eval (try init ~/src/tries | string collect)
+# try picks the init language from $SHELL: pin it to fish, or a fish started from zsh/bash
+# (Claude Code, scripts) gets bash code and errors on every start
+eval (SHELL=(status fish-path) try init ~/src/tries | string collect)
 
 # Added by Devin
 fish_add_path /Users/ryotamurakami/.codeium/windsurf/bin
