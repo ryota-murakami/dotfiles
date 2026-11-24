@@ -162,8 +162,6 @@ brew "lsd"
 brew "magika"
 # Easily convert Marp Markdown files into static HTML/CSS, PDF, PPT and images
 brew "marp-cli"
-# Polyglot runtime manager (asdf rust clone)
-brew "mise"
 # Simple tool to make locally trusted development certificates
 brew "mkcert"
 # Deep clean and optimize your Mac
