@@ -166,3 +166,6 @@ export PATH="/Users/ryotamurakami/.local/share/sentry-devenv/bin:$PATH"
 
 # 1Password Shell Plugins: doctl reads its DigitalOcean token from 1Password (Touch ID) instead of a saved config
 [ -f ~/.config/op/plugins.sh ] && source ~/.config/op/plugins.sh
+
+# Load the local 21st MCP credential.
+[[ ! -r "$HOME/.config/21st/credentials.zsh" ]] || source "$HOME/.config/21st/credentials.zsh"
