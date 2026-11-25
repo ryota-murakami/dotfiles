@@ -88,6 +88,8 @@ One selection and one note per idea: move both as the explanation moves. A new n
 
 Nothing secret goes on a page or in a note.
 
+Avoid forced analogies and rewordings of your own, on the bar, on a page and in a note (calling the point where two call paths reach one function a 「合流」, a "merge"). A word the user cannot find in the code or in the official documentation explains nothing. Use the names the code and the documentation use, and say what the thing takes, what it returns and what it does.
+
 ## Wait and ask
 
 Reading takes longer than acting, and the user answers where they are looking: on the HUD.
