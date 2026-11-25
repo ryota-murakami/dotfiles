@@ -100,6 +100,8 @@ final class SettingsStore {
                 kind: .action(button: "リセット", destructive: false), short: "確認を初期位置へ"),
         Setting(id: "stop.hotkey", section: "general", title: "停止のショートカット ⌃⌥⌘.", symbol: "keyboard",
                 kind: .toggle, defaultValue: 1, short: "停止キー"),
+        Setting(id: "keycast.show", section: "general", title: "エージェントが送ったキーを画面の左下に大きく表示", symbol: "command",
+                kind: .toggle, defaultValue: 1, short: "キー表示"),
         Setting(id: "hud.toggleKey", section: "general", title: "HUD の表示／非表示", symbol: "eye.slash",
                 kind: .shortcut, defaultValue: Shortcut.toggleDefault.packed, short: "表示／非表示キー"),
         Setting(id: "hud.quit", section: "general", title: "HUD", symbol: "power",

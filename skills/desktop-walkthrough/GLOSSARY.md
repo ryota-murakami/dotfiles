@@ -41,6 +41,10 @@ _Avoid_: dialog, prompt (alone: that word is the user's message, below)
 The surface that redraws the Session's conversation the way Claude Code's terminal draws it, and takes the user's Prompts.
 _Avoid_: copy, clone, chat window
 
+**Key display**:
+The keys the agent sends, drawn large in a corner of the screen for a few seconds.
+_Avoid_: keycast (that is the command and the file), key logger (it never reads the user's keyboard)
+
 ### Inside the Mirror
 
 **Transcript**:

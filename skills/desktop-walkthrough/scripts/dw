@@ -43,7 +43,10 @@
 #   ad <agent-desktop args>        agent-desktop bound to the walkthrough session, after the gate
 #   windows [App]                  list windows: id, app, focused, visible, title
 #   front <w-ID|App> [App]         bring a window/app to the front (Dock click across desktops) and verify
-#   press <combo> --in <w-ID|App>  press keys only if that window/app is focused
+#   press <combo> --in <w-ID|App>  press keys only if that window/app is focused; the HUD shows the keys large at the
+#                                  bottom-left of the screen (DW_KEYCAST=0 dw press … sends them unshown)
+#   keycast "<combo>"              show a combination on that key display without pressing anything (for keys sent
+#                                  by another route)
 #   click-xy <X,Y> --in <w-ID|App> physical click only if focused; hides the mirror and the explainer for the click
 #   layout <left w-ID> <right w-ID>  tile two windows side by side
 #   stage <w-ID> [PERCENT]         app window left, explainer right (PERCENT of the screen, default 42), bar under the app
@@ -445,9 +448,25 @@ require_focus() {
   is_focused "$2" || die "refused: $2 is not focused (focused: $(focused_brief)). Run: dw front $2"
 }
 
+# Tell the HUD which keys the walkthrough sends: it draws them large at the bottom-left of the screen,
+# as a screencast does. Why: a key leaves no trace on screen, so the user could not tell a shortcut
+# from a click. One line per combination, "<unix seconds>\t<combo>"; the HUD only reads the file.
+keycast() {
+  [ "${DW_KEYCAST:-1}" = 0 ] && return 0
+  printf '%s\t%s\n' "$(date +%s)" "$1" >> "$DW_HOME/keycast"
+}
+
+cmd_keycast() {
+  local combo="${1:?usage: dw keycast \"<combo>\" (cmd+v, shift+down, escape)}"
+  gate; note_owner; ensure_hud; mark_action
+  keycast "$combo"
+}
+
 cmd_press() {
   local combo="${1:?usage: dw press <combo> --in <w-ID|App>}"; shift
   gate; require_focus "$@"; mark_action
+  # Shown as the key goes out: the focus check has passed, so the key is about to be delivered
+  keycast "$combo"
   if [[ "$2" == w-* ]]; then ad press "$combo" --window-id "$2"; else ad press "$combo" --app "$2"; fi | jq -c '{ok, error: .error.code}'
 }
 
@@ -946,7 +965,7 @@ cmd_start() {
   # A resumed walkthrough gets its pages back before the HUD starts: the HUD takes pages that are there
   # at launch as already read, so the panel stays open or closed as the user left it
   [ -z "$restore" ] || explain_restore "$restore"
-  rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration"
+  rm -f "$DW_HOME/activity-action" "$DW_HOME/activity-narration" "$DW_HOME/keycast"
   # A walkthrough closed from the HUD's settings left its session open: end it before the new one
   end_ad_session
   session=$(agent-desktop session start --cursor --name desktop-walkthrough 2>/dev/null | jq -r '.data.session_id // empty')
@@ -1093,11 +1112,15 @@ case "${1:-}" in
   wait-user) shift; DW_ASK_KIND=wait-user DW_ASK_OK="${DW_ASK_OK:-完了しました}" DW_ASK_NO="${DW_ASK_NO:-できない・中断}" \
                DW_ASK_ICON="${DW_ASK_ICON:-🙋}" DW_ASK_WAIT="${DW_ASK_WAIT:-100}" cmd_ask "$@" ;;
   focus-chat) cmd_focus_chat ;;
-  ad)       shift; gate; note_owner; ensure_hud; mark_action; ad "$@" ;;
+  ad)       shift; gate; note_owner; ensure_hud; mark_action
+            # A key sent through agent-desktop directly is shown like one sent with `dw press`
+            if [ "${1:-}" = press ] && [ -n "${2:-}" ] && [[ "$2" != -* ]]; then keycast "$2"; fi
+            ad "$@" ;;
   note)     shift; cmd_note "$@" ;;
   windows)  shift; cmd_windows "${1:-}" ;;
   front)    shift; cmd_front "$@" ;;
   press)    shift; cmd_press "$@" ;;
+  keycast)  shift; cmd_keycast "$@" ;;
   click-xy) shift; cmd_click_xy "$@" ;;
   layout)   shift; cmd_layout "$@" ;;
   stage)    shift; cmd_stage "$@" ;;

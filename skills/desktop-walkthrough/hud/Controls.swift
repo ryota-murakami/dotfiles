@@ -971,7 +971,8 @@ enum ModifierKeys {
     }
 }
 
-/// A shortcut of modifier keys alone (right Command with right Option), pressed together and let go.
+/// A shortcut of modifier keys alone, pressed and let go: one key (right Option) or several together
+/// (right Command with right Option).
 ///
 /// Why it exists: a hot key needs a key that is not a modifier and cannot tell left from right.
 /// Changes of the modifiers reach an app in the background through an event monitor (no typed key is
@@ -1179,9 +1180,9 @@ struct Shortcut: Equatable {
 /// Why it exists: the shortcut that hides the HUD must be the user's to choose (the default may be
 /// taken by one of their tools). The HUD's panels never take the keyboard, so the recorder asks its
 /// panel to become key for the moment of recording; {@link SettingsCard} gives the keyboard back to
-/// the app in front when it ends. A key with Command, Control or Option is a shortcut, and so are two
-/// or more modifier keys pressed and let go by themselves (left and right are told apart). Esc
-/// leaves the shortcut as it was, Delete removes it.
+/// the app in front when it ends. A key with Command, Control or Option is a shortcut, and so are
+/// modifier keys pressed and let go by themselves: one key (right Option) or several together (left
+/// and right are told apart). Esc leaves the shortcut as it was, Delete removes it.
 /// Created by {@link SettingRow} for a `.shortcut` setting.
 final class ShortcutRecorder: NSView {
     /// Posted when a recording starts or ends; `userInfo["recording"]` is a Bool. Meanwhile the HUD
@@ -1312,11 +1313,12 @@ final class ShortcutRecorder: NSView {
                 chordKeys |= heldKeys
             }
         } else {
-            // Every modifier is up again with no key pressed: two or more of them are a shortcut
+            // Every modifier is up again with no key pressed: the keys that were held are a shortcut,
+            // also a single one (right Option by itself)
             let chord = chordSpent ? 0 : chordKeys
             chordKeys = 0
             chordSpent = false
-            if ModifierKeys.count(chord) >= 2 {
+            if ModifierKeys.count(chord) >= 1 {
                 end(recorded: Shortcut(keyCode: Shortcut.modifiersOnly, modifiers: chord), keep: false)
                 return
             }

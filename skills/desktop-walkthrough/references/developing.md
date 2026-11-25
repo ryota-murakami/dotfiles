@@ -23,6 +23,7 @@ Judge a change by that. The HUD is with the user all day, over any app, like a p
 | `hud/Effects.swift`, `explainer/effects.html` | the effects layer: a see-through window over the screen and the page that draws in it (banner, achievement, sparks, ring) |
 | `hud/AskPrompt.swift` | the prompt card: answers, feedback buttons, parking, stepping behind the explainer, staying on the desktop of its page |
 | `hud/Pending.swift` | the delivery progress of a press |
+| `hud/KeyCast.swift` | the key display: the keys `dw press` and `dw keycast` report (one line each in the state file `keycast`), drawn large at the bottom-left corner; from a combination to its glyphs |
 | `hud/Mirror.swift` | the mirror's panel (header, zoom, the earlier plain feed and its message box); the shared edge resize handle |
 | `hud/MirrorPage.swift` | the web view of the mirror's page: handing it the bridge's two documents, taking its messages |
 | `packages/mirror` | the mirror's page (React, built into `dist/index.html`): `src/rows` one component per kind of row, `src/live` the spinner line, input box and footer, `src/terminal` the cell layout and the theme, `src/gallery` every row and state from sample data |

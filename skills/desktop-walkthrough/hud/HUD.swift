@@ -22,6 +22,7 @@
 // (one-click answers), SettingsCard.swift (settings UI over Settings.swift), Controls.swift
 // (shared controls and the stop shortcut). Reading.swift holds the reading feedback (what was read,
 // achievements, the cleared page), with Sound.swift and Effects.swift for what answers it.
+// KeyCast.swift draws the keys the walkthrough sends.
 import AppKit
 import Carbon.HIToolbox
 import QuartzCore
@@ -237,6 +238,8 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
     let reading = ReadingStore()
     let sounds = SoundPlayer()
     let effects = Effects()
+    // Key display (dw press, dw keycast): the keys the walkthrough sends, see KeyCast.swift
+    let keyCast = KeyCast()
 
     // Approval prompt (dw ask)
     let askPanel = AskPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -341,6 +344,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             self?.updateClickThrough()
             self?.updatePending()
             self?.updateCopyHotKey()
+            self?.updateKeyCast()
         }
         Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in self?.reloadFeed(force: false) }
         Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in self?.updateTypingFlag() }
@@ -371,6 +375,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         case "stop.hotkey": stopHotKey.setEnabled(settings.isOn(id))
         case "hud.toggleKey": applyToggleKey()
         case "reading.marks", "reading.dim": applyReadingOptions()
+        case "keycast.show": if !settings.isOn(id) { keyCast.hide() }
         default: break
         }
     }
@@ -387,6 +392,12 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         notePopup.applyLook()
         settingsCard.applyLook()
         updatePerformingBorder(visible: lastActivity == .performing)
+    }
+
+    /// Hand the key display what `dw` wrote since the last tick, with the bar's place so that its
+    /// lines never cover the status line. Called by the fast timer.
+    func updateKeyCast() {
+        keyCast.poll(avoiding: panel.isVisible && panel.alphaValue > 0 ? panel.frame : nil)
     }
 
     @objc func toggleSettings() {
@@ -427,6 +438,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
             try? keys.write(toFile: hiddenPath, atomically: true, encoding: .utf8)
             settingsCard.dismiss()
             effects.hide()
+            keyCast.hide()
             // A message box left focused would take the user's typing unseen
             if mirror.isKeyWindow {
                 // Whichever input had the keyboard gives it back: the message box, or the page's Input box
