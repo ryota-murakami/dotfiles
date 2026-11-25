@@ -230,10 +230,6 @@ brew "tlrc"
 brew "tmux"
 # Vulnerability scanner for container images, file systems, and Git repos
 brew "trivy"
-# Quickly manage and navigate project directories for experiments
-brew "try"
-# Temporary workspace manager for fast experimentation in the terminal
-brew "try-rs"
 # Markup-based typesetting system
 brew "typst"
 # ODBC 3 connectivity for UNIX
