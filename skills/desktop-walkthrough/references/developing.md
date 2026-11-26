@@ -30,7 +30,7 @@ Judge a change by that. The HUD is with the user all day, over any app, like a p
 | `packages/protocol` | the documents the bridge writes (`mirror-transcript.json`, `mirror-live.json`) and the messages the page posts, as zod schemas; sample data for specs and the gallery |
 | `hooks/mirror.ts`, `hooks/mirror.test.ts` | what the bridge reports for the mirror: it watches the terminal's drawing events and keeps the rows in the terminal's order |
 | `docs/claude-code-tui/` | how Claude Code draws its terminal UI: the rules the page follows, with where each was read |
-| `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting) and the card that shows them |
+| `hud/Settings.swift`, `hud/SettingsCard.swift` | the options (add one line to the registry to add a setting; a slider shows a percentage unless its line names a `unit`) and the card that shows them |
 | `hud/Controls.swift` | shared controls: buttons, the state badge, tooltip-style placement (`popupFrame`), cursors, hot keys (`HotKey`), a shortcut of modifier keys alone (`ModifierChord`), a shortcut the user records (`Shortcut`, `ShortcutRecorder`), and the switch that hides every surface (`hudHidden`, applied by `NSWindow.setConcealed`) |
 | `hud/Appearance.swift` | the look every surface shares: the dark appearance, each surface's colour, the material behind translucent surfaces, the accessibility display settings |
 | `hooks/register.ts`, `hooks/register.test.ts` | the session bridge (the plugin's hooks module) and its tests |

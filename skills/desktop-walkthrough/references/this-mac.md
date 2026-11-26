@@ -7,6 +7,7 @@ The skill is used on one machine by one person, so what was learned about that m
 - One display, 1728 × 1117 points (Retina 2x). The Dock hides itself.
 - The display has a notch (built-in Liquid Retina XDR, 3456 × 2234): x 771.5–956.5 points, 32 points high (`NSScreen.safeAreaInsets.top`, `auxiliaryTopLeftArea`, `auxiliaryTopRightArea`). The user keeps the status bar up there, beside the menu bar; a screenshot does not show the notch, so judge by coordinates.
 - Terminal.app opens `fish`. `dw term` installs its exit-status hook for it.
+- The chat can run inside herdr (a terminal multiplexer) in a Terminal.app tab (seen on 2026-11-26). The agent's tty is then herdr's, so `dw focus-chat` finds no tab with it and answers `the chat is not in Terminal.app`: say in the chat that a reply is wanted there, and keep everything a button can answer on the HUD.
 - The Bash tool runs `zsh`: `local path=…` empties `PATH` inside a function (`path` is tied to it). Write helper scripts for `/bin/bash` and run them as files.
 - `agent-desktop list-windows` does not list the HUD's own panels (bar, mirror, explainer, prompt). Look at them with `screencapture -x -R x,y,w,h file.png`; their frames are in the state folder (`hud-position`, `explain-frame`, `ask-position`, bottom-left origin).
 

@@ -66,6 +66,9 @@ Each row is something that actually went wrong, why, and the rule or helper that
 | A line number in a table of a note was split over two lines (`10` over `5`) | Pages and notes break words anywhere so that long identifiers fit; in a table that lets a column shrink to two characters | Table cells break a word only when it overflows by itself (`overflow-wrap: break-word` on `th, td` in `explainer/page.html` and `explainer/note.html`) |
 | The first page appeared half an hour after the walkthrough started | Tools were built and the environment explored before anything was shown | Show a roadmap page first, prepare while the user reads |
 | The HUD stayed after the work ended | Nothing closed it | `dw end`, the quit button in the HUD's settings, and the HUD exits with the owning session |
+| The user looked for the 次へ card and it was not on the HUD | After 質問・中断 the agent answered in the chat and asked for a typed reply to go on: no question was open | Once the user's question is answered, open the next `dw wait-user` card. Ask for a typed reply only when the answer needs words |
+| Keys were refused in the middle of a selection, and the selection had to be made again | A page had been added behind the app in the same stretch; the user opened it with the book button and read it, so the app was no longer in front | A page the notes build on (a diagram of the whole flow) is read first: show it, wait for 次へ, then select the code. `dw explain --progress` tells that a page is being read |
+| The prompt card dropped in the middle of the screen went back to the left edge | A card that covered the explainer stepped aside to the explainer's free side on every refresh, the one the user had just placed included | Only a card that follows the bar steps aside (`askFrame`). The place the user dropped it is kept, over the explainer too: a click in the page sends the card behind it |
 
 ## Tools
 

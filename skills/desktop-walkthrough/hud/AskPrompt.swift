@@ -308,8 +308,9 @@ extension HUD {
     /// below when there is no room).
     ///
     /// The user may park it mostly off-screen, out of the way: a strip stays visible, and the card
-    /// slides back in while the pointer is on it. A card that is fully on screen steps aside when it
-    /// would cover the explainer.
+    /// slides back in while the pointer is on it. A card by the bar (never dragged) steps aside when
+    /// it would cover the explainer; a card the user dropped stays where they put it, over the
+    /// explainer too (a click in the page sends it behind: {@link HUD.tuckAsk}).
     func askFrame() -> NSRect {
         let bar = panel.frame
         let w = ceil(askSize.width), h = ceil(askSize.height)
@@ -317,9 +318,14 @@ extension HUD {
         guard let display = panel.screen ?? NSScreen.main else { return NSRect(x: origin.x.rounded(), y: origin.y.rounded(), width: w, height: h) }
         let screen = display.frame, visible = display.visibleFrame
         if origin.y + h > visible.maxY { origin.y = bar.minY - h - 8 }
+        // True when the place is the user's own: they dragged the card there
+        var userPlaced = false
         if let saved = try? String(contentsOfFile: askPositionPath, encoding: .utf8) {
             let parts = saved.split(separator: ",").compactMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
-            if parts.count == 2 { origin = NSPoint(x: parts[0], y: parts[1]) }
+            if parts.count == 2 {
+                origin = NSPoint(x: parts[0], y: parts[1])
+                userPlaced = true
+            }
         }
         // However far it was pushed out, this much of the card stays on screen to bring it back
         let strip: CGFloat = 44
@@ -343,9 +349,10 @@ extension HUD {
             if askRevealed { frame = inside }
         } else {
             askRevealed = false
-            // The user reads in the explainer: step aside to the nearest side that has room
+            // The user reads in the explainer: step aside to the nearest side that has room. Only a
+            // card that follows the bar does: moving one the user just dropped would undo their drag
             let reading = explainer.panel.frame
-            if explainer.panel.isVisible, frame.intersects(reading) {
+            if !userPlaced, explainer.panel.isVisible, frame.intersects(reading) {
                 if reading.minX - w - 8 >= visible.minX { frame.origin.x = reading.minX - w - 8 }
                 else if reading.maxX + 8 + w <= visible.maxX { frame.origin.x = reading.maxX + 8 }
                 else if reading.minY - h - 8 >= visible.minY { frame.origin.y = reading.minY - h - 8 }
