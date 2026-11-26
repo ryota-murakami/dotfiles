@@ -10,7 +10,7 @@ struct Setting {
     enum Kind {
         /// On/off, stored as 1 or 0.
         case toggle
-        /// A continuous value shown as a percentage, snapped to `step`.
+        /// A continuous value snapped to `step`, shown as a percentage, or with the setting's `unit` when it has one.
         case slider(min: Double, max: Double, step: Double)
         /// A one-shot command; `button` is the verb on its control.
         case action(button: String, destructive: Bool)
@@ -29,6 +29,8 @@ struct Setting {
     var short: String? = nil
     /// True when the bar or the mirror header already carries a dedicated control for it.
     var hasDirectControl = false
+    /// Unit written after a slider's value, e.g. "px" (nil: the value is shown as a percentage).
+    var unit: String? = nil
 }
 
 /// A group of settings with a heading.
@@ -92,6 +94,8 @@ final class SettingsStore {
                 kind: .slider(min: 0.2, max: 1, step: 0.05), defaultValue: 0.42, short: "バーの不透明度"),
         Setting(id: "border.performing", section: "bar", title: "実演中は画面の端を緑の線で囲む", symbol: "rectangle.dashed",
                 kind: .toggle, defaultValue: 1, short: "実演中の枠"),
+        Setting(id: "border.width", section: "bar", title: "緑の線の太さ", symbol: "lineweight",
+                kind: .slider(min: 0.5, max: 8, step: 0.5), defaultValue: 2, short: "枠の太さ", unit: "px"),
         Setting(id: "bar.reset", section: "bar", title: "位置と幅", symbol: "arrow.counterclockwise",
                 kind: .action(button: "リセット", destructive: false), short: "バーを初期位置へ"),
         Setting(id: "ask.sound", section: "ask", title: "確認時にサウンドを鳴らす", symbol: "speaker.wave.2",

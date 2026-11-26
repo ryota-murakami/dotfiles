@@ -369,6 +369,17 @@ final class HUDSwitch: NSControl {
 /// Text of a percentage value, e.g. "95%".
 func percentText(_ value: Double) -> String { "\(Int((value * 100).rounded()))%" }
 
+/// Text of a slider's value as its row shows it.
+///
+/// @param value - The stored value of the setting.
+/// @param setting - The setting the value belongs to; its `unit` chooses the form.
+/// @returns The number with the unit ("2 px", "0.5 px"), or a percentage ("95%") for a setting without a unit.
+func sliderValueText(_ value: Double, of setting: Setting) -> String {
+    guard let unit = setting.unit else { return percentText(value) }
+    let number = value == value.rounded() ? String(Int(value)) : String(format: "%g", value)
+    return "\(number) \(unit)"
+}
+
 /// Small secondary heading used above a group of rows.
 func sectionHeading(_ title: String) -> NSTextField {
     let label = NSTextField(labelWithString: title)
@@ -498,7 +509,7 @@ final class SettingRow: NSView {
         if let slider, abs(slider.doubleValue - store.value(setting.id)) > 0.0001 { slider.doubleValue = store.value(setting.id) }
         // "Reduce transparency" makes every surface opaque: the see-through sliders then do nothing
         slider?.isEnabled = !(DisplayOptions.reduceTransparency && setting.id.hasSuffix(".opacity"))
-        valueLabel?.stringValue = percentText(store.value(setting.id))
+        valueLabel?.stringValue = sliderValueText(store.value(setting.id), of: setting)
         recorder?.shortcut = Shortcut(packed: store.value(setting.id))
     }
 

@@ -363,7 +363,7 @@ final class HUD: NSObject, NSWindowDelegate, NSTextViewDelegate {
         switch id {
         case "explain.visible": explainer.updateVisibility()
         case "explain.floating": explainer.applyLevel()
-        case "border.performing": updatePerformingBorder(visible: lastActivity == .performing)
+        case "border.performing", "border.width": updatePerformingBorder(visible: lastActivity == .performing)
         case "explain.zoom": explainer.applyZoom()
         case "mirror.visible": updateMirrorVisibility()
         case "mirror.fold": reloadFeed(force: true, keepScroll: true)

@@ -1,4 +1,4 @@
-// Screen border of the HUD: a thin green line around the screen while the walkthrough itself is
+// Screen border of the HUD: a green line around the screen while the walkthrough itself is
 // acting, the way screen recorders mark a screen that is being captured. It says "the agent is
 // driving this Mac now: using it yourself would collide". Methods of the HUD class.
 import AppKit
@@ -31,11 +31,25 @@ extension HUD {
             }
             let screen = screens[index]
             if window.frame != screen.frame { window.setFrame(screen.frame, display: true) }
-            // One physical pixel, whatever the display's scale; a line of two points with "Increase contrast"
-            window.contentView?.layer?.borderWidth = DisplayOptions.increaseContrast ? 2 : 1 / max(1, screen.backingScaleFactor)
+            window.contentView?.layer?.borderWidth = performingBorderWidth(on: screen)
             window.contentView?.layer?.borderColor = performingBorderColor.hudCG
             if !window.isVisible { window.orderFrontRegardless() }
         }
+    }
+
+    /// Width of the line on one screen, in points.
+    ///
+    /// Why it exists: the width is the user's choice (the setting `border.width`, two points unless
+    /// changed), and two rules of the display bound it. Called by {@link HUD.updatePerformingBorder}
+    /// for every screen, on every refresh tick and when the setting changes.
+    ///
+    /// @param screen - The screen the line surrounds; its scale gives the size of one physical pixel.
+    /// @returns The chosen width, at least one physical pixel, and at least two points with "Increase contrast".
+    private func performingBorderWidth(on screen: NSScreen) -> CGFloat {
+        let chosen = CGFloat(settings.value("border.width"))
+        // Thinner than one physical pixel is drawn as a faint blur
+        let visible = max(chosen, 1 / max(1, screen.backingScaleFactor))
+        return DisplayOptions.increaseContrast ? max(2, visible) : visible
     }
 
     /// A transparent window that only draws its outline and lets every click through.
