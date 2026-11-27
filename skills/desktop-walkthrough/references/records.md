@@ -8,13 +8,17 @@ Every walkthrough is recorded in a folder of its own under `~/.config/desktop-wa
 | `$DW record <name>` | names or renames the record later and takes the pages already shown |
 | `$DW records` | lists the records |
 | `$DW resume <name>` | takes a paused walkthrough up again, in the same record |
+| `$DW handout [<name>]` | writes the record's pages as one HTML file to share, `handout.html` (SKILL.md, Handout). Without a name: the running walkthrough's record, else the last one started, resumed or named (`dw end` keeps that), else the one whose journal changed last |
 
 ## What a record holds
 
 | In the record | Written by | For |
 | --- | --- | --- |
 | `journal.md` | `dw`, as you work: sections (`step`), narration (`say`), commands and their results (`term run` / `term check`), questions with their answers, feedback buttons | repeating the walkthrough step by step |
-| `pages/NN-title.md`, `handbook.md` | `dw explain`: each page, and all of them in reading order | reading again, sharing with other people |
+| `pages/NN-title.md`, `handbook.md` | `dw explain`: each page as written (both audiences' blocks), and all of them in reading order | reading again; `handbook.md` is the raw text, not the file to share |
+| `pages/sections.tsv` | `dw explain`: per page its number, its section and the title given with `--title` (tab-separated) | listing the pages the same way on resume and in a Handout |
+| `pages/cleared-<time>/` | `dw explain --clear`: the pages shown before the clear, with their sections | keeping them; resume, the handbook and a Handout hold only the pages shown since |
+| `handout.html` | `dw handout`: every page as one checked, self-contained file | sharing with people who did not watch |
 | `notes/NNN-title.md` | `dw note`: each note, in the order shown | showing the same notes beside the same code in a repeat |
 | `progress.json` | the HUD, as the reader marks blocks | what was marked as read on each page, the notes understood, the achievements. `dw resume` gives it back to the HUD, so the marks are there again; `dw explain --progress` prints it |
 | `README.md` | you | starting a repeat or a resume without the old conversation |

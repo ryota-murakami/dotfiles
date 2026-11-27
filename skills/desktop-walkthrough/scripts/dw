@@ -228,7 +228,8 @@ desktop-walkthrough が記録したウォークスルーです（開始 $(date '
 
 | ファイル | 内容 |
 | --- | --- |
-| \`handbook.md\` | 解説パネルに出した全ページを、読む順に 1 本にまとめたもの（共有用） |
+| \`handout.html\` | 共有用：全ページを解説パネルと同じ見た目で 1 ファイルにまとめたもの（\`dw handout\` で作る） |
+| \`handbook.md\` | 解説パネルに出した全ページの Markdown を、読む順に 1 本につないだもの（原文のまま） |
 | \`pages/\` | 解説ページ 1 枚ずつの Markdown |
 | \`journal.md\` | 時系列の記録：章、操作の説明、実行したコマンドと結果、確認とその答え |
 
@@ -241,7 +242,7 @@ desktop-walkthrough が記録したウォークスルーです（開始 $(date '
 EOF
 }
 
-# Rebuild handbook.md: every recorded page in reading order, one document to share
+# Rebuild handbook.md: every recorded page in reading order, as written (`dw handout` makes the file to share)
 record_handbook() {
   local dir="$1" n page
   {

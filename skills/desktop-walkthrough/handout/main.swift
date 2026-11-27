@@ -401,11 +401,86 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     }
 }
 
+// MARK: HUD mode (the HUD golden of scripts/check)
+
+/// Renders built explainer pages the way the HUD's explainer panel does (no DOMPurify, the `dw`
+/// channel only) and prints, per page, its render report, its `#content` and its number of reading
+/// blocks: scripts/check compares the baseline pages with fresh builds (eng D5).
+final class HUDRenderer: NSObject, WKScriptMessageHandler, WKNavigationDelegate {
+    let explainDir: URL
+    var pages: [String]
+    let window: NSWindow
+    let pageView: WKWebView
+    var timer: DispatchWorkItem?
+    var current = ""
+
+    init(explainDir: URL, pages: [String]) {
+        self.explainDir = explainDir
+        self.pages = pages
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 1000),
+                          styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.alphaValue = 0
+        window.ignoresMouseEvents = true
+        let configuration = WKWebViewConfiguration()
+        pageView = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 1000), configuration: configuration)
+        super.init()
+        configuration.userContentController.add(self, name: "dw")
+        pageView.navigationDelegate = self
+        window.contentView = pageView
+        window.orderFrontRegardless()
+    }
+
+    func next() {
+        guard !pages.isEmpty else { exit(0) }
+        current = pages.removeFirst()
+        let page = current
+        let item = DispatchWorkItem {
+            FileHandle.standardError.write(Data("\(page) did not report within 30 s\n".utf8))
+            exit(1)
+        }
+        timer = item
+        DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: item)
+        pageView.loadFileURL(explainDir.appendingPathComponent(page), allowingReadAccessTo: explainDir)
+    }
+
+    func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard let report = message.body as? [String: Any], report["type"] as? String == "rendered" else { return }
+        let probe = "return { content: document.getElementById('content').innerHTML, blocks: document.querySelectorAll('.rd-block').length }"
+        pageView.callAsyncJavaScript(probe, arguments: [:], in: nil, in: .page) { result in
+            self.timer?.cancel()
+            guard case .success(let value) = result, let dom = value as? [String: Any] else {
+                FileHandle.standardError.write(Data("\(self.current): the page could not be read\n".utf8))
+                exit(1)
+            }
+            let line: [String: Any] = ["page": self.current, "report": report, "content": dom["content"] ?? "", "blocks": dom["blocks"] ?? 0]
+            if let data = try? JSONSerialization.data(withJSONObject: line, options: [.sortedKeys]) {
+                print(String(decoding: data, as: UTF8.self))
+                fflush(stdout)
+            }
+            self.next()
+        }
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        FileHandle.standardError.write(Data("\(current): the web content process ended\n".utf8))
+        exit(1)
+    }
+}
+
 // MARK: main
 
 let arguments = CommandLine.arguments
+// HandoutRenderer --hud <explain dir> <page.html relative to it>…
+if arguments.count >= 4, arguments[1] == "--hud" {
+    let hudApp = NSApplication.shared
+    hudApp.setActivationPolicy(.accessory)
+    let hud = HUDRenderer(explainDir: URL(fileURLWithPath: arguments[2], isDirectory: true), pages: Array(arguments[3...]))
+    hud.next()
+    withExtendedLifetime(hud) { hudApp.run() }
+}
 guard arguments.count == 3 else {
-    FileHandle.standardError.write(Data("usage: HandoutRenderer <input.json> <dist folder>\n".utf8))
+    FileHandle.standardError.write(Data("usage: HandoutRenderer <input.json> <dist folder> | HandoutRenderer --hud <explain dir> <page.html>…\n".utf8))
     exit(2)
 }
 guard let inputData = FileManager.default.contents(atPath: arguments[1]),

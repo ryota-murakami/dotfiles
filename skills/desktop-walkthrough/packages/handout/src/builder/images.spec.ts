@@ -120,3 +120,15 @@ test('a page without images goes on exactly as rendered', async () => {
   // Assert
   expect(result).toEqual({ html, diagnostics: [] })
 })
+
+test('an image with a short name is located at the line that writes it as an image, not at any line with its letters', async () => {
+  // Arrange
+  const host = hostWithFiles({})
+  const html = '<p><img src="x"></p>'
+
+  // Act
+  const result = await embedImages(page('# 画面\n\nexport const x = 1\n\n<img src="x">\n'), html, '/r', host)
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.line)).toEqual([5])
+})

@@ -78,7 +78,7 @@ export async function embedImages(
     if (classified.kind === 'embedded') continue
     const reason = await embedOne(image, classified, host)
     if (reason === null) continue
-    const index = sourceLines.findIndex((text) => source !== '' && text.includes(source))
+    const index = imageLine(sourceLines, source)
     const where = index < 0 ? maskSecrets(page.source) : `${maskSecrets(page.source)}:${index + 1}`
     diagnostics.push({
       code: 'HANDOUT_IMAGE',
@@ -88,6 +88,26 @@ export async function embedImages(
     })
   }
   return { html: holder.innerHTML, diagnostics }
+}
+
+/**
+ * The line of a page's source that names an image, from 0: where it is written as an image
+ * (`](src`, `src="src"`), else any line holding the text. A short source (`x`) would otherwise point
+ * at the first line that happens to contain its letters.
+ *
+ * @param lines - The page's original source, split into lines.
+ * @param source - The image's `src` as rendered.
+ * @returns The index of the line, or -1 when no line names it.
+ *
+ * @example
+ * imageLine(['export x', '<img src="x">'], 'x') // 1
+ * imageLine(['![画面](shot.png)'], 'shot.png')  // 0
+ */
+function imageLine(lines: readonly string[], source: string): number {
+  if (source === '') return -1
+  const written = [`](${source}`, `src="${source}"`, `src='${source}'`, `src=${source}`]
+  const asImage = lines.findIndex((text) => written.some((form) => text.includes(form)))
+  return asImage >= 0 ? asImage : lines.findIndex((text) => text.includes(source))
 }
 
 /**

@@ -44,10 +44,10 @@ jobs:
       - name: Types, tests and build
         run: pnpm exec turbo run typecheck test build
 
-      # The Mirror's page is committed, so the skill runs on a Mac without Node: it must be the
-      # build of the sources beside it
-      - name: The committed Mirror page is the build of its sources
-        run: git diff --exit-code -- packages/mirror/dist
+      # The Mirror's page and the Handout's builder are committed, so the skill runs on a Mac without
+      # Node: they must be the build of the sources beside them
+      - name: The committed builds are the build of their sources
+        run: git diff --exit-code -- packages/mirror/dist packages/handout/dist && test -z "$(git status --porcelain -- packages/*/dist)"
 
   shell:
     name: Shell scripts
@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: shellcheck
-        run: shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks
+        run: shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks scripts/hud-golden scripts/handout-check
 
   hud:
     name: HUD (Swift) and bash 3.2
@@ -67,6 +67,9 @@ jobs:
       - name: The HUD type-checks
         run: swiftc -typecheck hud/*.swift
 
+      - name: The Handout renderer type-checks
+        run: swiftc -typecheck handout/*.swift
+
       # macOS ships bash 3.2: the scripts must parse there
       - name: The scripts parse under /bin/bash
-        run: /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks
+        run: for script in dw check typecheck-hooks hud-golden handout-check; do /bin/bash -n "scripts/$script" || exit 1; done

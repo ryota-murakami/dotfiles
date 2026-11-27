@@ -1,0 +1,368 @@
+#!/bin/bash
+# handout-check — the renderer-level checks of `dw handout` and the HUD golden (eng review Test Plan,
+# eng D5). Every case runs the real renderer (handout/main.swift) and builder (packages/handout/dist)
+# on synthetic Records under a scratch DW_HOME and DW_CONFIG; nothing touches the user's walkthroughs.
+#
+# Why it exists: the specs of packages/handout run in a DOM without layout. Whether diagrams lay out
+# in the concealed window, whether a page script is stopped, whether a non-Handout file survives and
+# whether the HUD still renders as before can only be seen through WebKit itself. WebKit lays out only
+# on screen: scripts/check runs this file in a logged-in macOS session and skips it elsewhere.
+#
+# Usage: scripts/handout-check   exit 0 when every case passed
+set -u
+cd "$(dirname "$0")/.." || exit 1
+SKILL_DIR=$(pwd)
+failures=0
+pass() { printf '  ✓ %s\n' "$1"; }
+fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
+
+scratch=$(mktemp -d)
+trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+export DW_HOME="$scratch/state" DW_CONFIG="$scratch/config"
+RECORDS="$DW_CONFIG/walkthroughs"
+mkdir -p "$DW_HOME/explain/vendor" "$DW_HOME/bin" "$RECORDS"
+# The libraries: the user's verified copy when there is one (dw checks their digests), else dw fetches them
+if [ -d "$HOME/.local/state/desktop-walkthrough/explain/vendor" ]; then
+  cp "$HOME/.local/state/desktop-walkthrough/explain/vendor/"* "$DW_HOME/explain/vendor/" 2>/dev/null
+fi
+BIN="$DW_HOME/bin/HandoutRenderer"
+DIST="$SKILL_DIR/packages/handout/dist"
+swiftc -O -swift-version 5 handout/*.swift -o "$BIN" 2> "$scratch/build.log" || { cat "$scratch/build.log"; exit 1; }
+# dw's own functions (everything but its dispatch), for the cases that call the renderer directly
+sed '/^case "\${1:-}" in$/,$d' scripts/dw > "$scratch/dwlib"
+
+# Fake credentials are assembled at run time so secret scanners do not flag this public file
+SIGNATURE=$(printf '0f3a%.0s' 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16)
+# A 1×1 PNG
+PNG_BASE64='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+
+# A copy of the synthetic Record of fixtures/hud-golden under NAME, with a journal
+new_record() {
+  cp -R fixtures/hud-golden/record "$RECORDS/$1"
+  printf '# 記録：%s\n' "$1" > "$RECORDS/$1/journal.md"
+}
+
+# Run dw handout with ARGS; its output in $out, its exit status in $code
+export_record() {
+  out=$(scripts/dw handout "$@" 2>&1)
+  code=$?
+}
+
+# Write input.json for the renderer: the Record in DIR built for the Handout into EXPLAIN, published to OUT
+handout_input() {
+  local dir="$1" target="$2" explain="$3" input="$4" page_ms="${5:-30000}" run_ms="${6:-600000}"
+  (
+    # shellcheck source=/dev/null
+    source "$scratch/dwlib"
+    EXPLAIN="$explain"
+    mkdir -p "$EXPLAIN/pages"
+    cp -R "$DW_HOME/explain/vendor" "$EXPLAIN/vendor"
+    printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+    : > "$EXPLAIN/pages.jsonl"
+    while IFS=$'\t' read -r n page; do
+      title=$(record_title "$dir" "$n" "$page" handout)
+      section=$(record_section "$dir" "$n")
+      explain_build "$n" "$title" "$section" "$page" "$n" handout
+      jq -cn --argjson n "$n" --arg title "$title" --arg section "$section" --arg source "pages/$(basename "$page")" \
+        --rawfile markdown "$page" --arg built "$(printf 'pages/%03d.html' "$n")" \
+        '{n: $n, title: $title, section: $section, source: $source, markdown: $markdown, built: $built}' >> "$EXPLAIN/pages.jsonl"
+    done < <(record_pages "$dir")
+    jq -n --slurpfile pages "$EXPLAIN/pages.jsonl" --arg dir "$dir" --arg explain "$EXPLAIN" \
+      --arg template "$SKILL_DIR/explainer/page.html" --arg out "$target" --arg log "$explain/host.log" \
+      --argjson pageMs "$page_ms" --argjson runMs "$run_ms" \
+      '{v: 1, record: {name: "fixture", dir: $dir}, explainDir: $explain, template: $template, out: $out,
+        log: $log, limits: {pageMs: $pageMs, runMs: $runMs}, pages: $pages}' > "$input"
+  )
+}
+
+echo "== HUD golden: marker-free pages render as they did before the Handout work (eng D5)"
+golden="$scratch/golden"
+mkdir -p "$golden/baseline/pages" "$golden/fresh/pages"
+cp -R "$DW_HOME/explain/vendor" "$golden/baseline/vendor"
+cp -R "$DW_HOME/explain/vendor" "$golden/fresh/vendor"
+cp fixtures/hud-golden/baseline/pages/*.html "$golden/baseline/pages/"
+(
+  # shellcheck source=/dev/null
+  source "$scratch/dwlib"
+  EXPLAIN="$golden/fresh"
+  printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+  while IFS=$'\t' read -r n page; do
+    explain_build "$n" "$(record_title fixtures/hud-golden/record "$n" "$page" hud)" \
+      "$(record_section fixtures/hud-golden/record "$n")" "$page" "$n"
+  done < <(record_pages fixtures/hud-golden/record)
+)
+golden_pages=()
+for page in "$golden"/baseline/pages/*.html; do golden_pages+=("pages/$(basename "$page")"); done
+"$BIN" --hud "$golden/baseline" "${golden_pages[@]}" > "$golden/baseline.jsonl" 2> "$golden/baseline.err"
+"$BIN" --hud "$golden/fresh" "${golden_pages[@]}" > "$golden/fresh.jsonl" 2> "$golden/fresh.err"
+if [ -s "$golden/baseline.jsonl" ] && cmp -s "$golden/baseline.jsonl" "$golden/fresh.jsonl"; then
+  pass "${#golden_pages[@]} pages: the same #content, reading blocks and render report"
+else
+  fail "the HUD renders the fixture pages differently from the baseline (fixtures/hud-golden)"
+  diff <(jq -c '{page, blocks, report}' "$golden/baseline.jsonl") <(jq -c '{page, blocks, report}' "$golden/fresh.jsonl") | head -10
+fi
+
+echo "== audience markers"
+new_record markers
+printf '\n<!-- hud-only -->\nHUD だけの段落\n<!-- /hud-only -->\n<!-- handout-only -->\n配布物だけの段落\n<!-- /handout-only -->\n' \
+  >> "$RECORDS/markers/pages/01-書き出しの流れ.md"
+(
+  # shellcheck source=/dev/null
+  source "$scratch/dwlib"
+  EXPLAIN="$scratch/markers-hud"
+  mkdir -p "$EXPLAIN/pages"
+  cp -R "$DW_HOME/explain/vendor" "$EXPLAIN/vendor"
+  printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+  explain_build 1 "書き出しの流れ" "準備" "$RECORDS/markers/pages/01-書き出しの流れ.md" 1
+)
+"$BIN" --hud "$scratch/markers-hud" pages/001.html > "$scratch/markers-hud.jsonl" 2>/dev/null
+export_record markers
+if jq -e '.content | contains("HUD だけの段落") and (contains("配布物だけの段落") | not)' "$scratch/markers-hud.jsonl" >/dev/null \
+  && grep -q '配布物だけの段落' "$RECORDS/markers/handout.html" && ! grep -q 'HUD だけの段落' "$RECORDS/markers/handout.html"; then
+  pass "the HUD shows hud-only and leaves out handout-only; the Handout does the opposite"
+else
+  fail "audience markers: $out"
+fi
+
+echo "== exports"
+new_record golden
+started=$(date +%s)
+export_record golden
+elapsed=$(( $(date +%s) - started ))
+if [ "$code" = 0 ] && grep -q '(3 pages, 2 diagrams, 0 warnings)' <<< "$out" && grep -q 'name="dw-handout"' "$RECORDS/golden/handout.html" \
+  && grep -q '📤 Handout' "$RECORDS/golden/journal.md"; then
+  pass "a Record becomes one verified Handout with a summary line and a journal line (${elapsed} s)"
+else
+  fail "export: $out"
+fi
+export_record golden
+if [ "$code" = 0 ]; then pass "exporting again replaces the earlier Handout"; else fail "re-export: $out"; fi
+
+new_record order
+rm "$RECORDS/order/pages/"0*.md
+printf '本文 9\n' > "$RECORDS/order/pages/09-p9.md"
+printf '本文 10（見出しなし）\n' > "$RECORDS/order/pages/10-p10.md"
+printf '# 百\n本文 100\n' > "$RECORDS/order/pages/100-p100.md"
+printf '9\t章\n10\t章\t指定 したタイトル\n100\t章\n' > "$RECORDS/order/pages/sections.tsv"
+export_record order
+toc=$(sed -n 's/.*<script type="application\/json" id="handout-toc">\(.*\)<\/script>.*/\1/p' "$RECORDS/order/handout.html")
+if [ "$code" = 0 ] && [ "$(jq -c '[.[] | .n]' <<< "$toc")" = '[9,10,100]' ] && [ "$(jq -r '.[1].title' <<< "$toc")" = '指定 したタイトル' ]; then
+  pass "pages 9, 10 and 100 export in numeric order; a title given with --title is kept"
+else
+  fail "order and titles: $out / $toc"
+fi
+
+mkdir -p "$RECORDS/empty/pages"
+printf '# 記録：empty\n' > "$RECORDS/empty/journal.md"
+export_record empty
+if [ "$code" = 1 ] && grep -q 'HANDOUT_EMPTY' <<< "$out" && [ ! -e "$RECORDS/empty/handout.html" ]; then
+  pass "a Record without pages stops with HANDOUT_EMPTY and writes nothing"
+else
+  fail "empty: $out"
+fi
+
+new_record marker-error
+printf '\n<!-- hud-only -->\n閉じ忘れ\n' >> "$RECORDS/marker-error/pages/02-判定の仕組み.md"
+export_record marker-error
+if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER pages/02-判定の仕組み.md:23: <!-- hud-only --> is never closed' <<< "$out"; then
+  pass "an unmatched marker stops with HANDOUT_MARKER and its source line"
+else
+  fail "marker error: $out"
+fi
+
+new_record worded
+printf '\nHUD の読んだ ▼ を押してください\n' >> "$RECORDS/worded/pages/03-実装と確認.md"
+export_record worded
+if [ "$code" = 0 ] && grep -q '2 warnings)' <<< "$out" && grep -q 'warning: pages/03-実装と確認.md:28: HUD wording outside a hud-only block: 「HUD」' <<< "$out"; then
+  pass "HUD wording outside a hud-only block gives a warning with its line, and the export goes on"
+else
+  fail "HUD wording: $out"
+fi
+
+new_record secret
+printf '\n[設定](https://docs.test/a?signature=%s)\n' "$SIGNATURE" >> "$RECORDS/secret/pages/01-書き出しの流れ.md"
+export_record secret
+if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET pages/01-書き出しの流れ.md:16: a secret shape (signed-url-parameter)' <<< "$out" \
+  && ! grep -q "$SIGNATURE" <<< "$out" && [ ! -e "$RECORDS/secret/handout.html" ]; then
+  pass "a signed link stops with HANDOUT_SECRET (page, line, shape) and the value is never printed"
+else
+  fail "secret: $out"
+fi
+
+new_record bad-diagram
+printf '\n```mermaid\nflowchart LR\n  A --> \n```\n' >> "$RECORDS/bad-diagram/pages/02-判定の仕組み.md"
+export_record bad-diagram
+if [ "$code" = 1 ] && grep -q 'HANDOUT_DIAGRAM pages/02-判定の仕組み.md:23: diagram 3 did not render' <<< "$out"; then
+  pass "a broken diagram stops with HANDOUT_DIAGRAM (page, diagram, line)"
+else
+  fail "bad diagram: $out"
+fi
+
+new_record overflow
+printf '\n```mermaid\nflowchart LR\n  A[ExportPolicyRepositoryFactoryProviderConfigurationResolverInterface] --> B[短い]\n```\n' \
+  >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
+export_record overflow
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:23: diagram 3: the label' <<< "$out"; then
+  pass "a label wider than its node stops with HANDOUT_OVERFLOW (so the concealed window lays out)"
+else
+  fail "overflow: $out"
+fi
+
+new_record images
+printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/images/pages/shot.png"
+printf '\n![画面](shot.png)\n' >> "$RECORDS/images/pages/01-書き出しの流れ.md"
+export_record images
+if [ "$code" = 0 ] && grep -q "src=\"data:image/png;base64,$PNG_BASE64\"" "$RECORDS/images/handout.html"; then
+  pass "a local image is embedded as a data: URI"
+else
+  fail "image: $out"
+fi
+printf '\n![消えた画面](/tmp/dw-handout-check-missing.png)\n' >> "$RECORDS/images/pages/03-実装と確認.md"
+export_record images
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/03-実装と確認.md:28: the image /tmp/dw-handout-check-missing.png could not be read' <<< "$out"; then
+  pass "a missing image stops with HANDOUT_IMAGE and its line"
+else
+  fail "missing image: $out"
+fi
+
+new_record script
+printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/script/pages/shot.png"
+# shot.png is not beside the page the renderer loads: without DOMPurify its onerror would run during the export
+printf '\n<img src="shot.png" onerror="this.insertAdjacentHTML(%safterend%s, %s<b>forged</b>%s)">\n<a href="javascript:alert(1)">押す</a>\n' "'" "'" "'" "'" \
+  >> "$RECORDS/script/pages/01-書き出しの流れ.md"
+export_record script
+if [ "$code" = 0 ] && ! grep -q 'forged\|onerror\|javascript:' "$RECORDS/script/handout.html"; then
+  pass "a page script runs neither during the export nor in the Handout (eng D6, DX D14)"
+else
+  fail "script in a page: $out"
+fi
+
+new_record guard
+printf 'my own notes\n' > "$RECORDS/guard/handout.html"
+printf 'other notes\n' > "$scratch/notes.html"
+export_record guard
+first=$code
+export_record guard --out "$scratch/notes.html"
+if [ "$first" = 1 ] && [ "$code" = 1 ] && [ "$(cat "$RECORDS/guard/handout.html")" = 'my own notes' ] \
+  && [ "$(cat "$scratch/notes.html")" = 'other notes' ]; then
+  pass "a file that is not a Handout is left untouched, at handout.html and at --out (HANDOUT_OUT_EXISTS)"
+else
+  fail "non-Handout targets: $out"
+fi
+export_record guard --out "$scratch"
+if [ "$code" = 1 ] && grep -q "HANDOUT_OUT_EXISTS $scratch is a folder" <<< "$out"; then
+  pass "--out naming a folder is refused"
+else
+  fail "--out folder: $out"
+fi
+
+new_record readonly-journal
+chmod 444 "$RECORDS/readonly-journal/journal.md"
+export_record readonly-journal
+if [ "$code" = 0 ] && grep -q '1 warnings)' <<< "$out" && grep -q 'journal.md could not be written' <<< "$out"; then
+  pass "a journal that cannot be written is a warning: the Handout is still published"
+else
+  fail "read-only journal: $out"
+fi
+
+echo "== explain --clear (eng D8)"
+new_record cleared
+printf '%s' "$RECORDS/cleared" > "$DW_HOME/record_dir"
+clear_out=$(scripts/dw explain --clear 2>&1)
+rm -f "$DW_HOME/record_dir"
+printf '# 新しい 1 ページ目\n' > "$RECORDS/cleared/pages/01-新しい.md"
+export_record cleared
+if [ "$code" = 0 ] && grep -q '(1 pages,' <<< "$out" && [ "$(find "$RECORDS/cleared/pages" -path '*/cleared-*/*.md' | wc -l | tr -d ' ')" = 3 ] \
+  && [ ! -s "$RECORDS/cleared/pages/sections.tsv" ]; then
+  pass "the record's pages move to pages/cleared-<time>/: the Handout holds only the page shown since"
+else
+  fail "explain --clear: $clear_out / $out"
+fi
+
+echo "== the renderer"
+new_record direct
+printf 'someone else wrote this\n' > "$scratch/other.html"
+cp "$scratch/other.html" "$scratch/other.copy"
+handout_input "$RECORDS/direct" "$scratch/other.html" "$scratch/direct" "$scratch/direct.json"
+result=$("$BIN" "$scratch/direct.json" "$DIST")
+if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/other.html" "$scratch/other.copy" \
+  && [ -z "$(find "$scratch" -maxdepth 1 -name '.handout-*.tmp')" ]; then
+  pass "a non-Handout file found at write time is swapped back byte-identical (eng D7)"
+else
+  fail "swap back: $result"
+fi
+
+# Pages that report late or never: the renderer's limits (eng D3)
+limits="$scratch/limits"
+mkdir -p "$limits/pages"
+late_page() { # N DELAY_MS (none: never reports)
+  {
+    printf '<!doctype html><meta charset="utf-8"><body><main id="content"><p>%s</p></main>\n' "$1"
+    [ "$2" = none ] || printf '<script>setTimeout(() => window.webkit.messageHandlers.dw.postMessage({type: "rendered", page: %s, diagrams: 0, errors: [], libs: ["marked", "highlight", "highlight-http", "mermaid", "purify"]}), %s)</script>\n' "$1" "$2"
+  } > "$limits/pages/$(printf '%03d' "$1").html"
+}
+limits_input() { # PAGE_MS RUN_MS N...
+  local page_ms="$1" run_ms="$2"
+  shift 2
+  printf '%s\n' "$@" | jq -R 'tonumber | {n: ., title: "p", section: "", source: "pages/0\(.)-p.md", markdown: "p", built: ("pages/" + ("00" + tostring)[-3:] + ".html")}' \
+    | jq -s --arg explain "$limits" --arg template "$SKILL_DIR/explainer/page.html" --arg out "$scratch/limits.html" \
+      --argjson pageMs "$page_ms" --argjson runMs "$run_ms" \
+      '{v: 1, record: {name: "limits", dir: $explain}, explainDir: $explain, template: $template, out: $out,
+        log: ($explain + "/host.log"), limits: {pageMs: $pageMs, runMs: $runMs}, pages: .}' > "$scratch/limits.json"
+}
+cp -R "$DW_HOME/explain/vendor" "$limits/vendor"
+late_page 1 none
+limits_input 1500 60000 1
+result=$("$BIN" "$scratch/limits.json" "$DIST")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and .page == 1 and (.message | test("within 1 s"))' <<< "$result" >/dev/null \
+  && jq -e '.log | length > 0' <<< "$result" >/dev/null; then
+  pass "a page that never reports stops with HANDOUT_RENDERER, its number and the log"
+else
+  fail "per-page limit: $result"
+fi
+late_page 1 900
+late_page 2 900
+limits_input 5000 1500 1 2
+result=$("$BIN" "$scratch/limits.json" "$DIST")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("took longer than 1 s"))' <<< "$result" >/dev/null; then
+  pass "a whole export past its limit stops with HANDOUT_RENDERER"
+else
+  fail "whole-run limit: $result"
+fi
+
+# Broken builds of the builder (eng D10) and a missing DOMPurify (eng C9)
+broken="$scratch/broken-dist"
+mkdir -p "$broken"
+cp "$DIST/builder.html" "$DIST/purify.js" "$broken/"
+handout_input "$RECORDS/direct" "$scratch/broken.html" "$scratch/broken-explain" "$scratch/broken.json"
+sha=$(shasum -a 256 "$DIST/controller.js" | cut -d' ' -f1 | xxd -r -p | base64)
+perl -pi -e "s/\Q$sha\E/AAAA$sha/" "$broken/builder.html"
+result=$("$BIN" "$scratch/broken.json" "$broken")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("controller did not run"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/broken.html" ]; then
+  pass "a CSP that blocks the controller fails HANDOUT_VERIFY and nothing is published"
+else
+  fail "VERIFY (CSP): $result"
+fi
+cp "$DIST/builder.html" "$broken/"
+perl -pi -e 's/HTML_INTEGRATION_POINTS:\{foreignobject:!0\}/HTML_INTEGRATION_POINTS:{}/' "$broken/builder.html"
+result=$("$BIN" "$scratch/broken.json" "$broken")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("lost labels"))' <<< "$result" >/dev/null; then
+  pass "a sanitizer setting that drops diagram labels fails HANDOUT_VERIFY"
+else
+  fail "VERIFY (labels): $result"
+fi
+cp "$DIST/builder.html" "$broken/"
+rm "$broken/purify.js"
+result=$("$BIN" "$scratch/broken.json" "$broken")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_VENDOR" and (.message | test("purify"))' <<< "$result" >/dev/null; then
+  pass "pages rendered without DOMPurify stop with HANDOUT_VENDOR"
+else
+  fail "VENDOR: $result"
+fi
+
+if [ "$failures" -gt 0 ]; then
+  echo "✗ handout-check: $failures case(s) failed"
+  exit 1
+fi
+echo "✓ handout-check: every case passed"
