@@ -562,6 +562,59 @@ else
   fail "parent gone during the export: $result"
 fi
 
+# dw ends while the Handout is being written: the worker notices between two writes, removes its file
+# and reports dw's end; nothing is published, nothing is left beside the target. limits.writePauseMs
+# (test only) stands in for a slow volume
+handout_input "$RECORDS/direct" "$scratch/mid-write.html" "$scratch/mid-write-explain" "$scratch/mid-write.json"
+sleep 60 &
+parent=$!
+jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 2000' \
+  "$scratch/mid-write.json" > "$scratch/mid-write-parent.json"
+"$BIN" "$scratch/mid-write-parent.json" "$DIST" > "$scratch/mid-write.out" &
+writer=$!
+waited=0
+until [ -n "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp' 2>/dev/null)" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+seen=$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp' | head -1)
+kill "$parent"; wait "$parent" 2>/dev/null
+wait "$writer"
+result=$(cat "$scratch/mid-write.out")
+if [ -n "$seen" ] && jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished: nothing was published$"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/mid-write.html" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp')" ]; then
+  pass "dw ending while the Handout is written: the worker removes its file, says dw ended, publishes nothing"
+else
+  fail "dw gone mid-write (file seen: ${seen:-none}): $result"
+fi
+
+# A volume that stops answering mid-write: the worker cannot notice (limits.writePauseMs holds it 30 s
+# after its first write), so 5 s after dw ends the renderer ends the run itself, naming the file left
+handout_input "$RECORDS/direct" "$scratch/stalled.html" "$scratch/stalled-explain" "$scratch/stalled.json"
+sleep 60 &
+parent=$!
+jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 30000' \
+  "$scratch/stalled.json" > "$scratch/stalled-parent.json"
+"$BIN" "$scratch/stalled-parent.json" "$DIST" > "$scratch/stalled.out" &
+writer=$!
+waited=0
+# Its first write done: the file holds bytes
+until [ -s "$(find "$scratch" -maxdepth 1 -name '.stalled.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+left=$(find "$scratch" -maxdepth 1 -name '.stalled.html.dw-handout-*.tmp' | head -1)
+started=$(date +%s)
+kill "$parent"; wait "$parent" 2>/dev/null
+wait "$writer"
+took=$(( $(date +%s) - started ))
+result=$(cat "$scratch/stalled.out")
+if [ -n "$left" ] && [ -f "$left" ] && [ ! -e "$scratch/stalled.html" ] && [ "$took" -lt 20 ] \
+  && jq -e --arg left "$left" '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | contains($left)) and (.message | test("may remain beside it"))' <<< "$result" >/dev/null; then
+  pass "a volume that stops answering mid-write: the run ends ${took} s after dw, naming the file that may remain"
+else
+  fail "stalled write (file: ${left:-none}, ${took} s): $result"
+fi
+rm -f "$left"
+
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"
 mkdir -p "$limits/pages"

@@ -87,7 +87,7 @@ final class PublicationGate {
     /// rename that outlasted its grace.
     enum Stop {
         case now
-        case afterWorker(temporary: String)
+        case afterWorker(temporary: String, written: Int?, total: Int)
         case afterCommit
         case interrupted
     }
@@ -95,20 +95,27 @@ final class PublicationGate {
     private let lock = NSLock()
     private var stopped = false
     private var writing: String?
+    private var total = 0
+    private var written: Int?
     private var committingSince: Date?
 
-    /// Said on the main queue before the worker starts: the file it writes first, beside the target.
-    func beginWrite(_ temporary: String) {
+    /// Said on the main queue before the worker starts: the file it writes first, beside the target,
+    /// and how many bytes it will hold.
+    func beginWrite(_ temporary: String, total bytes: Int) {
         lock.lock()
         defer { lock.unlock() }
         writing = temporary
+        total = bytes
     }
 
-    /// Asked by the worker between two writes: whether a watchdog has stopped the run.
-    func isStopped() -> Bool {
+    /// Asked by the worker before each write and once after the last, with the bytes written so far:
+    /// whether to go on. False once a watchdog has stopped the run, or when `stillWanted` says dw is
+    /// gone or the run's time is up.
+    func mayContinue(written bytes: Int, _ stillWanted: () -> Bool) -> Bool {
         lock.lock()
         defer { lock.unlock() }
-        return stopped
+        written = bytes
+        return !stopped && stillWanted()
     }
 
     /// Asked by the worker before each rename: whether it may rename now. False once a watchdog has
@@ -135,7 +142,7 @@ final class PublicationGate {
             return .interrupted
         }
         stopped = true
-        if let writing { return .afterWorker(temporary: writing) }
+        if let writing { return .afterWorker(temporary: writing, written: written, total: total) }
         return .now
     }
 }
@@ -234,13 +241,13 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// itself and set on the new one by descriptor: who could not read it cannot read the new one, and
 /// when they cannot be carried the earlier Handout goes back. The file is written without the ACL its
 /// folder hands down, so nobody reads it half written; a new Handout gets that ACL back. It is written
-/// at `temporary` (`temporaryPath`) a chunk at a time, and between two `mayContinue` says whether to
-/// go on; before each rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
+/// at `temporary` (`temporaryPath`) a chunk at a time, and before each and after the last
+/// `mayContinue` (given the bytes written so far) says whether to go on; before each rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
 /// temporary path is removed only when it holds exactly the bytes written, and a save made into the
 /// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
-func publish(_ data: Data, to target: String, temporary: String, mayContinue: () -> Bool,
-             mayPublish: () -> Bool) -> Publication {
+func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0,
+             mayContinue: (Int) -> Bool, mayPublish: () -> Bool) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -270,7 +277,7 @@ func publish(_ data: Data, to target: String, temporary: String, mayContinue: ()
     let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
     var offset = 0
     while offset < data.count {
-        guard mayContinue() else {
+        guard mayContinue(offset) else {
             unlink(temporary)
             return .cancelled
         }
@@ -282,6 +289,13 @@ func publish(_ data: Data, to target: String, temporary: String, mayContinue: ()
             return .failed("could not write in \(folder): \(describe(error))")
         }
         offset = end
+        // Test only (input.json limits.writePauseMs): a pause standing in for a slow volume
+        if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
+    }
+    // Once more after the last write: a stop meanwhile still removes the file
+    guard mayContinue(offset) else {
+        unlink(temporary)
+        return .cancelled
     }
     var written = stat()
     guard fstat(descriptor, &written) == 0 else {
@@ -384,6 +398,16 @@ func temporaryPath(for target: String) -> String {
     return (folder as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString).tmp")
 }
 
+/// Whether the file at `path` is still the one this run created (same device and inode) holding only
+/// the start of `data`: what a write that failed part way leaves. Anything else (a save another program
+/// made into it, a file put in its place) is not this run's to remove.
+func isOwnPartialWrite(_ path: String, created: stat, data: Data) -> Bool {
+    var now = stat()
+    guard lstat(path, &now) == 0, now.st_dev == created.st_dev, now.st_ino == created.st_ino,
+          now.st_size <= off_t(data.count), let content = FileManager.default.contents(atPath: path) else { return false }
+    return data.prefix(content.count) == content
+}
+
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
 /// created exclusively and written in place; an existing one is never replaced there.
 func publishWithoutRenames(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
@@ -402,11 +426,13 @@ func publishWithoutRenames(_ data: Data, to target: String, mayPublish: () -> Bo
         try handle.write(contentsOf: data)
         try handle.close()
     } catch {
-        // A partial file goes, when the path still names this run's own (another program may have put
-        // its file there meanwhile)
-        var now = stat()
-        if lstat(target, &now) == 0, now.st_dev == mine.st_dev, now.st_ino == mine.st_ino { unlink(target) }
-        return .failed("could not write \(target): \(describe(error))")
+        // A partial file goes only while it is this run's own and holds nothing but the start of what
+        // was written: another program may have put its file there, or saved into this one meanwhile
+        if isOwnPartialWrite(target, created: mine, data: data) {
+            unlink(target)
+            return .failed("could not write \(target): \(describe(error))")
+        }
+        return .failed("could not write \(target) (\(describe(error))), and another program changed it meanwhile: it was left as it is")
     }
     return .published(warnings: [])
 }
@@ -435,6 +461,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let pageLimitMs: Int
     let runLimitMs: Int
     let parentCheckMs: Int
+    /// Test only (input.json limits.writePauseMs): a pause after each chunk of the Handout is written.
+    let writePauseMs: Int
     /// Page number → built page, relative to explainDir.
     let builtPages: [Int: String]
     let window: NSWindow
@@ -449,11 +477,14 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let publicationGate = PublicationGate()
     /// Whether a stop already waits for the worker writing the Handout (`stopRun`).
     var workerStopScheduled = false
+    /// Why a watchdog stopped the run while the worker wrote: what the run says once the worker
+    /// reports that it stopped (`report`), however the clock reads by then.
+    var stopReason: String?
     /// When the run started: publication looks at the run's time itself (`pastDeadline`).
     let startedAt = Date()
 
     init(input: [String: Any], explainDir: URL, distDir: URL, out: String, logPath: String,
-         pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, builtPages: [Int: String]) {
+         pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, writePauseMs: Int = 0, builtPages: [Int: String]) {
         self.input = input
         self.explainDir = explainDir
         self.distDir = distDir
@@ -462,6 +493,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         self.pageLimitMs = pageLimitMs
         self.runLimitMs = runLimitMs
         self.parentCheckMs = parentCheckMs
+        self.writePauseMs = writePauseMs
         self.builtPages = builtPages
         FileManager.default.createFile(atPath: logPath, contents: nil)
         logHandle = FileHandle(forWritingAtPath: logPath)
@@ -557,12 +589,21 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         switch publicationGate.stop() {
         case .now:
             failRenderer(message, page: pendingRender?.page)
-        case .afterWorker(let temporary):
+        case .afterWorker(let temporary, let written, let total):
             guard !workerStopScheduled else { return true }
             workerStopScheduled = true
-            _ = schedule(after: workerStopWaitMs) {
-                self.failRenderer("\(message); the volume did not answer, so a partly written \(temporary) may remain beside it: remove it")
+            let reason = message.hasSuffix("nothing was published") ? message : "\(message): nothing was published"
+            stopReason = reason
+            // What may be beside the target, by how far the write had come when the volume stopped answering
+            let left: String
+            if written == nil {
+                left = "the volume did not answer before the Handout was written: \(temporary) may remain beside it, empty; remove it if it is there"
+            } else if (written ?? 0) < total {
+                left = "the volume did not answer, so a partly written \(temporary) may remain beside it: remove it"
+            } else {
+                left = "the volume did not answer, so \(temporary), written but not published, may remain beside it: remove it"
             }
+            _ = schedule(after: workerStopWaitMs) { self.failRenderer("\(reason); \(left)") }
             return true
         case .afterCommit:
             return false
@@ -622,11 +663,12 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         let data = Data(html.utf8)
         let target = out
         let temporary = temporaryPath(for: target)
-        publicationGate.beginWrite(temporary)
+        let pause = writePauseMs
+        publicationGate.beginWrite(temporary, total: data.count)
         DispatchQueue.global(qos: .userInitiated).async {
             let stillWanted = { self.parentIsAlive() && !self.pastDeadline() }
-            let publication = publish(data, to: target, temporary: temporary,
-                                      mayContinue: { !self.publicationGate.isStopped() && stillWanted() },
+            let publication = publish(data, to: target, temporary: temporary, writePauseMs: pause,
+                                      mayContinue: { self.publicationGate.mayContinue(written: $0, stillWanted) },
                                       mayPublish: { self.publicationGate.allowCommit(stillWanted) })
             DispatchQueue.main.async { self.report(publication, outcome: outcome) }
         }
@@ -642,8 +684,9 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
             finish(["v": protocolVersion, "ok": true, "path": out, "pages": outcome["pages"] ?? 0,
                     "diagrams": outcome["diagrams"] ?? 0, "warnings": warnings], code: 0)
         case .cancelled:
-            failRenderer(pastDeadline() ? "the export took longer than \(runLimitMs / 1000) s: nothing was published"
-                                        : "dw ended before the export finished: nothing was published")
+            // The watchdog's reason when one stopped the run; else the worker stopped by itself
+            failRenderer(stopReason ?? (pastDeadline() ? "the export took longer than \(runLimitMs / 1000) s: nothing was published"
+                                                       : "dw ended before the export finished: nothing was published"))
         case .isFolder:
             finish(failure(code: "HANDOUT_OUT_EXISTS", message: "\(out) is a folder: name a file", log: logPath), code: 1)
         case .notAHandout:
@@ -897,6 +940,7 @@ app.setActivationPolicy(.accessory)
 let renderer = Renderer(input: input, explainDir: URL(fileURLWithPath: explainPath, isDirectory: true),
                         distDir: URL(fileURLWithPath: arguments[2], isDirectory: true), out: out, logPath: logPath,
                         pageLimitMs: pageLimitMs, runLimitMs: runLimitMs,
-                        parentCheckMs: (limits["parentMs"] as? Int) ?? defaultParentCheckMs, builtPages: builtPages)
+                        parentCheckMs: (limits["parentMs"] as? Int) ?? defaultParentCheckMs,
+                        writePauseMs: (limits["writePauseMs"] as? Int) ?? 0, builtPages: builtPages)
 renderer.start()
 withExtendedLifetime(renderer) { app.run() }
