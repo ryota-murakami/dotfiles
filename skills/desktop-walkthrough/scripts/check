@@ -21,12 +21,12 @@ run() {
 
 # The scripts parse under macOS /bin/bash 3.2
 bash_syntax() {
-  /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks
+  /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks && /bin/bash -n scripts/hud-golden
 }
 
 # bash 3.2 reads "$name（" as a longer variable name and stops with "unbound variable": brace it
 multibyte_after_variable() {
-  perl -ne 'if (!/^\s*#/ && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/) { print "$ARGV:$.: $_"; $hit = 1 } close ARGV if eof; END { exit($hit ? 1 : 0) }' scripts/dw scripts/check
+  perl -ne 'if (!/^\s*#/ && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/) { print "$ARGV:$.: $_"; $hit = 1 } close ARGV if eof; END { exit($hit ? 1 : 0) }' scripts/dw scripts/check scripts/hud-golden
 }
 
 # Manifest and hooks module as the engine reads them; only problems are printed
@@ -69,7 +69,7 @@ PY
 
 run "bash syntax (/bin/bash 3.2)" bash_syntax
 if command -v shellcheck >/dev/null 2>&1; then
-  run "shellcheck" shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks
+  run "shellcheck" shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks scripts/hud-golden
 else
   echo "== shellcheck: skipped (brew install shellcheck)"
 fi

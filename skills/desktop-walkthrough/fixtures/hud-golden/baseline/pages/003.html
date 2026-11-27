@@ -1,0 +1,417 @@
+<!doctype html>
+<!--
+  Template of one explainer page. `dw explain` copies it to <state>/explain/pages/NNN.html with the
+  page's data (number, title, section, Markdown source) in place of the DW_DATA line; the HUD's
+  explainer panel loads the result. The libraries come from <state>/explain/vendor (fetched and
+  digest-checked by `dw`); without them the page shows the Markdown source as plain text.
+-->
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<!-- Local files only: a page never loads anything from the network -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src file: 'unsafe-inline'; style-src file: 'unsafe-inline'; img-src file: data:; font-src file: data:">
+<link rel="stylesheet" href="../vendor/highlight.css">
+<style>
+  :root { color-scheme: dark; --accent: #5ccc9e; --line: rgba(255, 255, 255, .16); }
+  html { background: transparent; }
+  body {
+    margin: 0; padding: 16px 22px 48px; color: #e9e9e9;
+    font: 15px/1.75 -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
+    -webkit-font-smoothing: antialiased; overflow-wrap: anywhere;
+  }
+  #section { color: var(--accent); font-size: .82em; font-weight: 700; letter-spacing: .04em; margin-bottom: 2px; }
+  h1 { font-size: 1.5em; line-height: 1.35; margin: 0 0 .7em; padding-bottom: .35em; border-bottom: 1px solid var(--line); }
+  h2 { font-size: 1.22em; line-height: 1.4; margin: 1.7em 0 .5em; padding-left: .55em; border-left: 4px solid var(--accent); }
+  h3 { font-size: 1.06em; margin: 1.3em 0 .4em; color: #a6e6c9; }
+  h4 { font-size: 1em; margin: 1.1em 0 .3em; color: #cfcfcf; }
+  p { margin: .6em 0; }
+  ul, ol { padding-left: 1.4em; margin: .5em 0; }
+  li { margin: .22em 0; }
+  li > p { margin: .2em 0; }
+  a { color: #6cb6ff; }
+  strong { color: #fff; }
+  em { color: #ffd98a; font-style: normal; }
+  hr { border: 0; border-top: 1px solid var(--line); margin: 1.5em 0; }
+  code {
+    font: .88em/1.5 "SF Mono", Menlo, monospace; background: rgba(255, 255, 255, .10);
+    padding: .1em .35em; border-radius: 4px;
+  }
+  pre {
+    position: relative; background: #0d1117; border: 1px solid rgba(255, 255, 255, .12);
+    border-radius: 8px; padding: 12px 14px; overflow-x: auto; margin: .8em 0;
+  }
+  pre code, pre code.hljs {
+    background: none; padding: 0; font-size: .86em; line-height: 1.55;
+    white-space: pre; overflow-wrap: normal; display: block;
+  }
+  /* The panel never becomes the key window, so hover is unreliable: the button is always visible */
+  /* At least 24px high: a control smaller than 20 points is hard to hit */
+  .copy {
+    position: absolute; top: 6px; right: 6px; font: 12px/1 -apple-system, sans-serif; color: #d7dde3;
+    background: rgba(255, 255, 255, .12); border: 1px solid rgba(255, 255, 255, .18);
+    border-radius: 12px; padding: 5px 10px; min-height: 24px; box-sizing: border-box; cursor: pointer; opacity: .85;
+  }
+  .copy:active { opacity: 1; background: rgba(92, 204, 158, .35); }
+  .table-wrap { overflow-x: auto; margin: .8em 0; }
+  table { border-collapse: collapse; font-size: .92em; }
+  th, td { border: 1px solid rgba(255, 255, 255, .2); padding: .35em .65em; text-align: left; vertical-align: top; overflow-wrap: break-word; }
+  th { background: rgba(92, 204, 158, .16); white-space: nowrap; }
+  tr:nth-child(even) td { background: rgba(255, 255, 255, .035); }
+  blockquote {
+    margin: .8em 0; padding: .45em .9em; border-left: 4px solid #f0b429;
+    background: rgba(240, 180, 41, .09); border-radius: 0 6px 6px 0; color: #f3e9cf;
+  }
+  blockquote p { margin: .25em 0; }
+  details { margin: .8em 0; padding: .4em .8em; border: 1px solid var(--line); border-radius: 8px; }
+  summary { cursor: pointer; font-weight: 700; color: #a6e6c9; }
+  img { max-width: 100%; }
+  kbd {
+    font: .82em "SF Mono", Menlo, monospace; padding: .1em .45em; border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, .3); background: rgba(255, 255, 255, .08);
+  }
+  .diagram {
+    margin: 1em 0; padding: 10px; background: rgba(255, 255, 255, .04);
+    border: 1px solid rgba(255, 255, 255, .1); border-radius: 8px; overflow-x: auto; text-align: center;
+    cursor: zoom-in;
+  }
+  .diagram svg { max-width: 100%; height: auto; }
+  .diagram.wide { cursor: zoom-out; text-align: left; }
+  .diagram-error { color: #ff9b9b; text-align: left; white-space: pre-wrap; cursor: default; }
+  /* Reading marks: a check in the gutter of every block, a frame on the block being read, a rail of
+     dots down the right edge. `rd-on` is set by the script once the blocks are wrapped. */
+  body.rd-on { padding-left: 50px; position: relative; }
+  .rd-block { position: relative; transition: opacity .25s; }
+  /* Nothing of the marks shows until the HUD has given back what was read, or while they are switched off */
+  .rd-ui { visibility: hidden; }
+  body.rd-ready .rd-ui { visibility: visible; }
+  body:not(.rd-on) .rd-ui { display: none; }
+  /* 24px: a control smaller than 20 points is hard to hit */
+  .rd-mark {
+    position: absolute; left: -34px; top: .25em; width: 24px; height: 24px; padding: 0; border: 0; background: none;
+    cursor: pointer; display: grid; place-items: center; border-radius: 50%; -webkit-appearance: none;
+  }
+  .rd-mark::before {
+    content: ''; width: 18px; height: 18px; box-sizing: border-box; border-radius: 50%;
+    border: 1.5px solid rgba(255, 255, 255, .38); transition: border-color .15s, background .15s;
+  }
+  .rd-mark svg { position: absolute; width: 18px; height: 18px; pointer-events: none; }
+  .rd-mark path {
+    stroke: #0e1a14; stroke-width: 2.4; fill: none; stroke-linecap: round; stroke-linejoin: round;
+    stroke-dasharray: 16; stroke-dashoffset: 16; transition: stroke-dashoffset .2s ease-out .08s;
+  }
+  .rd-read > .rd-mark::before { background: var(--accent); border-color: var(--accent); }
+  .rd-read > .rd-mark path { stroke-dashoffset: 0; }
+  /* The trail: the stretch of line under a mark turns green when its block is read */
+  body.rd-on .rd-block::after {
+    content: ''; position: absolute; left: -23px; top: calc(.25em + 27px); bottom: -.55em; width: 2px; border-radius: 1px;
+    background: rgba(255, 255, 255, .1); transition: background .35s;
+  }
+  body.rd-on .rd-block.rd-read::after { background: rgba(92, 204, 158, .6); }
+  body:not(.rd-ready) .rd-block::after { visibility: hidden; }
+  /* What lies past the block being read waits, a little dimmer */
+  body.rd-on .rd-ahead { opacity: .5; }
+  body.rd-on.rd-nodim .rd-ahead { opacity: 1; }
+  #rd-frame {
+    position: absolute; left: 8px; right: 8px; border-radius: 10px; border: 2px solid var(--accent); pointer-events: none;
+    box-shadow: 0 0 0 3px rgba(92, 204, 158, .16), 0 0 18px rgba(92, 204, 158, .3);
+    transition: top .2s cubic-bezier(.25, 1, .4, 1), height .2s cubic-bezier(.25, 1, .4, 1), opacity .25s;
+  }
+  #rd-go {
+    position: absolute; right: 20px; height: 28px; box-sizing: border-box; border-radius: 14px; border: 0; padding: 0 12px;
+    background: var(--accent); color: #0e1a14; font: 600 12.5px/1 -apple-system, "Hiragino Sans", sans-serif;
+    cursor: pointer; white-space: nowrap; box-shadow: 0 4px 12px rgba(0, 0, 0, .45);
+    transition: top .2s cubic-bezier(.25, 1, .4, 1), opacity .2s; -webkit-appearance: none;
+  }
+  #rd-go:active { transform: scale(.95); }
+  #rd-rail {
+    position: fixed; right: 3px; top: 12px; bottom: 12px; width: 8px; pointer-events: none;
+    display: flex; flex-direction: column; justify-content: space-between; align-items: center;
+  }
+  #rd-rail i { width: 4px; height: 4px; border-radius: 50%; background: rgba(255, 255, 255, .22); transition: transform .2s, background .2s, box-shadow .2s; }
+  #rd-rail i.read { background: var(--accent); }
+  #rd-rail i.cur { transform: scale(2.2); background: #fff; box-shadow: 0 0 6px var(--accent); }
+  .rd-ring { position: absolute; border-radius: 50%; box-sizing: border-box; border: 2px solid var(--accent); pointer-events: none; transform: translate(-50%, -50%); }
+  @media (prefers-reduced-motion: reduce) {
+    .rd-block, #rd-frame, #rd-go, #rd-rail i, .rd-mark path, body.rd-on .rd-block::after { transition: none; }
+  }
+  /* System setting "Increase contrast": full-strength text, visible lines, links told apart by more than colour */
+  @media (prefers-contrast: more) {
+    :root { --line: rgba(255, 255, 255, .5); }
+    body { color: #fff; }
+    th, td { border-color: rgba(255, 255, 255, .55); }
+    code { background: rgba(255, 255, 255, .18); }
+    pre, .diagram, kbd { border-color: rgba(255, 255, 255, .5); }
+    .copy { opacity: 1; border-color: rgba(255, 255, 255, .6); }
+    a { text-decoration: underline; }
+    .rd-mark::before { border-color: rgba(255, 255, 255, .8); }
+    body.rd-on .rd-ahead { opacity: .75; }
+    #rd-rail i { background: rgba(255, 255, 255, .6); }
+  }
+</style>
+</head>
+<body>
+<div id="section"></div>
+<main id="content"></main>
+<script id="dw-data" type="application/json">
+{"n":3,"title":"実装と確認","step":"確認","markdown":"# 実装と確認\n\n```ts\nexport function canExport(role: Role, count: number): boolean {\n  // 管理者だけが、上限以内の件数を書き出せる\n  return role === 'admin' && count \u003c= EXPORT_LIMIT\n}\n```\n\n\u003cdetails>\n\u003csummary>リクエストの例\u003c/summary>\n\n```http\nPOST /exports HTTP/1.1\nContent-Type: application/json\n\n{\"format\": \"csv\"}\n```\n\n\u003c/details>\n\n確かめる手順：\n\n1. 管理者でログインする\n2. \u003ckbd>⌘\u003c/kbd> + \u003ckbd>E\u003c/kbd> で書き出しを始める\n3. 届いたメールのリンクを開く\n"}
+</script>
+<script src="../vendor/marked.js"></script>
+<script src="../vendor/highlight.js"></script>
+<script src="../vendor/highlight-http.js"></script>
+<script src="../vendor/mermaid.js"></script>
+<script>
+(async () => {
+  const data = JSON.parse(document.getElementById('dw-data').textContent);
+  // The HUD listens on this channel; opened in a plain browser the page still renders
+  const post = message => { try { window.webkit.messageHandlers.dw.postMessage(message); } catch (_) { /* no HUD */ } };
+  const errors = [];
+  const content = document.getElementById('content');
+  document.title = data.title;
+  document.getElementById('section').textContent = data.step || '';
+
+  if (window.marked) {
+    content.innerHTML = marked.parse(data.markdown, { gfm: true });
+  } else {
+    const source = document.createElement('pre');
+    source.textContent = data.markdown;
+    content.appendChild(source);
+    errors.push('marked is not available: showing the Markdown source');
+  }
+
+  // A wide table scrolls sideways instead of stretching the page
+  for (const table of content.querySelectorAll('table')) {
+    const wrap = document.createElement('div');
+    wrap.className = 'table-wrap';
+    table.replaceWith(wrap);
+    wrap.appendChild(table);
+  }
+
+  // ```mermaid blocks become diagrams; every other block gets highlighting and a copy button
+  const diagrams = [];
+  for (const code of content.querySelectorAll('pre > code')) {
+    if (code.classList.contains('language-mermaid')) {
+      const holder = document.createElement('div');
+      holder.className = 'diagram';
+      holder.dataset.source = code.textContent;
+      code.parentElement.replaceWith(holder);
+      diagrams.push(holder);
+      continue;
+    }
+    if (window.hljs) { try { hljs.highlightElement(code); } catch (_) { /* unknown language: leave as is */ } }
+    const button = document.createElement('button');
+    button.className = 'copy';
+    button.textContent = 'コピー';
+    button.addEventListener('click', () => {
+      post({ type: 'copy', text: code.textContent });
+      button.textContent = 'コピーしました';
+      setTimeout(() => { button.textContent = 'コピー'; }, 1200);
+    });
+    code.parentElement.appendChild(button);
+  }
+
+  // ---- reading marks ----
+  // Why they exist: the reader marks each block as read, so they see where they are (also after a
+  // detour to another app) and the agent can tell how far they got. A frame rests on the block
+  // being read; its button marks the block and moves the frame on. The page keeps no state of its
+  // own: every change goes to the HUD (`{type: "reading", …}`), which keeps it, answers with sound,
+  // and gives it back through `dwReading.restore` when the page is shown again.
+  (() => {
+    const blocks = [...content.querySelectorAll(':scope > p, :scope > ul, :scope > ol, :scope > pre, :scope > .table-wrap, :scope > blockquote, :scope > .diagram')].map((source, i) => {
+      // A wrapper per block: the mark sits in the gutter, outside boxes that clip (code, tables)
+      const wrap = document.createElement('div');
+      wrap.className = 'rd-block';
+      source.replaceWith(wrap);
+      const mark = document.createElement('button');
+      mark.type = 'button';
+      mark.className = 'rd-mark rd-ui';
+      mark.setAttribute('aria-pressed', 'false');
+      mark.setAttribute('aria-label', `${i + 1} つ目のまとまりに読んだ印をつける`);
+      mark.innerHTML = '<svg viewBox="0 0 18 18"><path d="M5 9.4l2.7 2.7L13 6.6"/></svg>';
+      mark.addEventListener('click', event => { event.stopPropagation(); toggle(i); });
+      wrap.append(mark, source);
+      // A click on a block brings the frame to it without marking it: reading again is free
+      wrap.addEventListener('click', event => {
+        if (!enabled || i === focus || event.target.closest('a, button, summary') || String(getSelection())) return;
+        moveTo(i, 'focus');
+      });
+      return wrap;
+    });
+    if (!blocks.length) return;
+    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const read = new Set();
+    /** The block the frame rests on; -1 once every block is read. */
+    let focus = 0;
+    let enabled = true;
+
+    const frame = document.createElement('div');
+    frame.id = 'rd-frame';
+    frame.className = 'rd-ui';
+    const go = document.createElement('button');
+    go.id = 'rd-go';
+    go.type = 'button';
+    go.className = 'rd-ui';
+    go.addEventListener('click', event => {
+      event.stopPropagation();
+      if (focus < 0) return;
+      if (read.has(focus)) advance(focus, 'focus'); else toggle(focus);
+    });
+    const rail = document.createElement('div');
+    rail.id = 'rd-rail';
+    rail.className = 'rd-ui';
+    rail.innerHTML = blocks.map(() => '<i></i>').join('');
+    document.body.append(frame, go, rail);
+    document.body.classList.add('rd-on');
+
+    /** Tell the HUD what changed. `event` is init, mark, unmark or focus; `block` the block it happened to. */
+    function report(event, block) {
+      post({ type: 'reading', page: data.n, event, block, total: blocks.length, read: [...read].sort((a, b) => a - b), focus, complete: read.size === blocks.length });
+    }
+
+    /** The frame, its button, the dimming and the rail for the current state. */
+    function layout(scroll) {
+      blocks.forEach((block, i) => {
+        block.classList.toggle('rd-read', read.has(i));
+        block.firstElementChild.setAttribute('aria-pressed', String(read.has(i)));
+        block.classList.toggle('rd-ahead', focus >= 0 && i > focus && !read.has(i));
+      });
+      [...rail.children].forEach((dot, i) => {
+        dot.classList.toggle('read', read.has(i));
+        dot.classList.toggle('cur', i === focus);
+      });
+      if (focus < 0) { frame.style.opacity = '0'; go.style.opacity = '0'; go.style.pointerEvents = 'none'; return; }
+      const block = blocks[focus];
+      const top = block.offsetTop - 7;
+      const height = block.offsetHeight + 14;
+      frame.style.opacity = '1';
+      frame.style.top = `${top}px`;
+      frame.style.height = `${height}px`;
+      go.style.opacity = '1';
+      go.style.pointerEvents = 'auto';
+      go.style.top = `${top + height - 12}px`;
+      go.textContent = read.has(focus) ? '先へ ▼' : '読んだ ▼';
+      // A code block carries its copy button at its upper right: the frame's button keeps clear of it
+      const below = blocks[focus + 1];
+      go.style.right = below && below.lastElementChild.matches('pre') ? '96px' : '20px';
+      if (scroll) {
+        const view = document.scrollingElement;
+        const behavior = reduced ? 'auto' : 'smooth';
+        if (top < view.scrollTop + 20) view.scrollTo({ top: Math.max(0, top - 50), behavior });
+        else if (top + height > view.scrollTop + innerHeight - 50) view.scrollTo({ top: top + height - innerHeight + 80, behavior });
+      }
+    }
+
+    function moveTo(i, event) {
+      focus = i;
+      layout(true);
+      if (event) report(event, i);
+    }
+
+    /** Leave block i: on to the next unread block after it, else the first unread one, else nowhere. */
+    function advance(i, event) {
+      let next = blocks.findIndex((_, k) => k > i && !read.has(k));
+      if (next < 0) next = blocks.findIndex((_, k) => !read.has(k));
+      moveTo(next, event);
+    }
+
+    /** The press of a mark: it gives a little, and a ring leaves it. */
+    function press(mark) {
+      if (reduced) return;
+      mark.animate([{ transform: 'scale(.86)' }, { transform: 'scale(1.18)', offset: 0.55 }, { transform: 'scale(1)' }], { duration: 300, easing: 'cubic-bezier(.3, 1.4, .5, 1)' });
+      const ring = document.createElement('div');
+      ring.className = 'rd-ring';
+      ring.style.left = `${mark.parentElement.offsetLeft + mark.offsetLeft + 12}px`;
+      ring.style.top = `${mark.parentElement.offsetTop + mark.offsetTop + 12}px`;
+      document.body.appendChild(ring);
+      ring.animate([{ opacity: 0.9, width: '14px', height: '14px' }, { opacity: 0, width: '46px', height: '46px' }], { duration: 420, easing: 'ease-out' }).onfinish = () => ring.remove();
+    }
+
+    function toggle(i) {
+      if (!enabled) return;
+      if (read.has(i)) {
+        read.delete(i);
+        if (focus < 0) focus = i;
+        layout(false);
+        report('unmark', i);
+        return;
+      }
+      read.add(i);
+      press(blocks[i].firstElementChild);
+      // Marking the block under the frame moves the frame on; a mark elsewhere leaves it where it is
+      if (i === focus) advance(i); else layout(false);
+      report('mark', i);
+    }
+
+    let ready = false;
+    function start() {
+      if (ready) return;
+      ready = true;
+      document.body.classList.add('rd-ready');
+    }
+
+    window.dwReading = {
+      /** The HUD gives back what it kept for this page: the blocks read, where the frame was, the options. */
+      restore(state = {}) {
+        read.clear();
+        for (const i of state.read || []) if (Number.isInteger(i) && i >= 0 && i < blocks.length) read.add(i);
+        const first = blocks.findIndex((_, k) => !read.has(k));
+        focus = Number.isInteger(state.focus) && state.focus >= 0 && state.focus < blocks.length && !read.has(state.focus) ? state.focus : first;
+        this.configure(state);
+        start();
+        layout(false);
+        report('init', -1);
+      },
+      /** Options the HUD's settings decide: the marks at all, the dimming of what lies ahead. */
+      configure({ enabled: on = enabled, dim = !document.body.classList.contains('rd-nodim') } = {}) {
+        enabled = on !== false;
+        document.body.classList.toggle('rd-on', enabled);
+        document.body.classList.toggle('rd-nodim', dim === false);
+        if (enabled) layout(false);
+      },
+    };
+    // Diagrams and fonts arrive later and move the blocks: the frame follows
+    new ResizeObserver(() => layout(false)).observe(content);
+    // Outside the HUD (a plain browser) nobody restores: start empty
+    setTimeout(() => { if (!ready) { start(); layout(false); report('init', -1); } }, 250);
+  })();
+
+  if (diagrams.length && window.mermaid) {
+    mermaid.initialize({
+      startOnLoad: false, theme: 'dark', securityLevel: 'strict',
+      fontFamily: '-apple-system, "Hiragino Sans", sans-serif',
+    });
+  }
+  let index = 0;
+  for (const holder of diagrams) {
+    index += 1;
+    const id = `dw-diagram-${index}`;
+    try {
+      if (!window.mermaid) throw new Error('mermaid is not available');
+      const { svg } = await mermaid.render(id, holder.dataset.source);
+      holder.innerHTML = svg;
+      // Click toggles between fit-to-width and natural size (large diagrams are unreadable when fitted)
+      holder.addEventListener('click', () => {
+        const graphic = holder.querySelector('svg');
+        if (!graphic) return;
+        const wide = holder.classList.toggle('wide');
+        const natural = graphic.viewBox && graphic.viewBox.baseVal ? graphic.viewBox.baseVal.width : 0;
+        if (!graphic.dataset.fitted) graphic.dataset.fitted = graphic.style.maxWidth || '100%';
+        graphic.style.maxWidth = wide ? 'none' : graphic.dataset.fitted;
+        graphic.style.width = wide && natural ? `${Math.round(natural * 1.25)}px` : '';
+      });
+    } catch (error) {
+      const text = String(error && error.message ? error.message : error);
+      errors.push(`diagram ${index}: ${text}`);
+      // mermaid leaves a temporary element behind when it fails
+      const stray = document.getElementById(`d${id}`);
+      if (stray) stray.remove();
+      const shown = document.createElement('pre');
+      shown.className = 'diagram-error';
+      shown.textContent = `図を描けませんでした: ${text}\n\n${holder.dataset.source}`;
+      holder.replaceChildren(shown);
+    }
+  }
+  post({ type: 'rendered', page: data.n, diagrams: diagrams.length, errors });
+})();
+</script>
+</body>
+</html>
