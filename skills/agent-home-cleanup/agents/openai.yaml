@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agent Home Cleanup"
+  short_description: "Clean legacy/backup/orphan files in ~/.claude ~/.codex ~/.cursor"
+  default_prompt: "Use $agent-home-cleanup to audit ~/.claude, ~/.codex and ~/.cursor, stage legacy files, backups and unused MCP/plugin remnants to the Trash, and list risky items for my decision."

@@ -136,6 +136,7 @@ npx skills update apollousa coderabbit-resolver -g -y
 
 Available skills:
 
+- [agent-home-cleanup](skills/agent-home-cleanup/SKILL.md)
 - [apollousa](skills/apollousa/SKILL.md)
 - [ci-hardening](skills/ci-hardening/SKILL.md)
 - [claude-skill-name-only](skills/claude-skill-name-only/SKILL.md)
