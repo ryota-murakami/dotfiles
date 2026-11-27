@@ -23,8 +23,9 @@
 //   builder exception or dw's process gone (input.json parentPid, looked at every parentMs and once
 //   more right before publishing) ends the run at once ──▶ HANDOUT_RENDERER
 //   publish: a file there that is not a Handout ─▶ HANDOUT_OUT_EXISTS, nothing written; no file there
-//            ─▶ exclusive create; a Handout there ─▶ RENAME_SWAP, check the swapped-out file by
-//            descriptor, swap back if it is no Handout ──▶ HANDOUT_OUT_EXISTS. The new file stays 0600
+//            ─▶ exclusive create; a Handout there ─▶ RENAME_SWAP from a folder of the run's own
+//            beside it, check the swapped-out file by descriptor, swap back if it is no Handout
+//            ──▶ HANDOUT_OUT_EXISTS. The new file stays 0600
 //            until it takes the replaced one's permissions, group and ACL (else the earlier Handout goes
 //            back); dw's process is looked at before each rename; another program's save is never
 //            deleted. A volume without exclusive renames publishes a new file only
@@ -283,7 +284,7 @@ func stableDigest(atPath path: String, expected: stat, keepGoing: () -> Bool) ->
     return digest
 }
 
-/// Remove the ACL a new file inherited from its folder, by descriptor, before a byte is written.
+/// Remove the ACL a new file or folder inherited from its folder, by descriptor, before a byte is written.
 /// Returns nil once it has none (or the volume has no ACLs), else why it could not be removed: errno
 /// is read right after the call that failed.
 func clearInheritedAcl(_ descriptor: Int32) -> String? {
@@ -292,6 +293,27 @@ func clearInheritedAcl(_ descriptor: Int32) -> String? {
     guard acl_set_fd(descriptor, emptyAcl) != 0 else { return nil }
     let failure = errno
     return failure == ENOTSUP || failure == EOPNOTSUPP ? nil : String(cString: strerror(failure))
+}
+
+/// Make a folder for this run alone at `path`: created there exclusively, and changed by its owner only
+/// (0700, without the ACL its parent hands down, whose entries could let others add or remove files in
+/// it). A file this run removes there is never one another account put at a name it knew. Used by
+/// `publish` for the earlier Handout it swaps out, and by `writeVerificationCopy`. Returns nil once the
+/// folder is made, else why not (nothing is left then).
+func makeOwnedFolder(_ path: String) -> String? {
+    guard mkdir(path, 0o700) == 0 else { return errnoText() }
+    let descriptor = open(path, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+    guard descriptor >= 0 else {
+        let reason = errnoText()
+        rmdir(path)
+        return reason
+    }
+    defer { close(descriptor) }
+    if let reason = clearInheritedAcl(descriptor) {
+        rmdir(path)
+        return "its inherited ACL could not be removed (\(reason))"
+    }
+    return nil
 }
 
 /// Whether two looks saw the same file: the same device and inode.
@@ -331,17 +353,21 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// A file there that is not a Handout is left before anything is written. The new file is written
 /// beside the target, readable by its owner alone, and stays so until its final permissions are
 /// known. A missing target is created exclusively (RENAME_EXCL), then given a new file's usual
-/// permissions. An existing Handout is swapped with the new file in one step (RENAME_SWAP); the file
-/// swapped out is judged by descriptor and, when it does not start as a Handout (one that appeared
-/// meanwhile), swapped back. A replaced Handout's permissions, group and ACL are read from that file
+/// permissions. An existing Handout is swapped with the new file in one step (RENAME_SWAP), the new
+/// file first moved into a folder of the run's own beside the target (`makeOwnedFolder`, named like
+/// `temporary` without its extension), so the earlier Handout lands there; the file swapped out is
+/// judged by descriptor and, when it does not start as a Handout (one that appeared meanwhile),
+/// swapped back. A replaced Handout's permissions, group and ACL are read from that file
 /// itself and set on the new one by descriptor: who could not read it cannot read the new one, and
 /// when they cannot be carried the earlier Handout goes back. The file is written without the ACL its
 /// folder hands down, so nobody reads it half written; a new Handout gets that ACL back. It is written
 /// at `temporary` (`temporaryPath`) a chunk at a time, and before each and after the last
-/// `mayContinue` (given the bytes written so far) says whether to go on; before each rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
-/// temporary path is removed only when it holds exactly the bytes written, and a save made into the
-/// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
-/// new file can be published, created exclusively.
+/// `mayContinue` (given the bytes written so far) says whether to go on; before the exclusive create
+/// and again right before the swap, `mayPublish` says whether dw still waits and the run's time is not
+/// up. The new file swapped back out is removed only when it holds exactly the bytes written, and a
+/// save made into the replaced Handout since it was first looked at is kept: another program's save
+/// is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a new
+/// file can be published, created exclusively.
 func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0,
              digestLimit: Int = digestLimitBytes, keepGoing: () -> Bool = { true },
              mayContinue: (Int) -> Bool, mayPublish: () -> Bool, writingInPlace: (String) -> Void) -> Publication {
@@ -424,21 +450,45 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
         unlink(temporary)
         return .failed("could not create \(target): \(String(cString: strerror(exclusiveError)))")
     }
-    guard mayPublish() else {
+    // A Handout is there. The new file first moves into a folder of its own beside the target
+    // (`makeOwnedFolder`), and the earlier Handout is swapped out into it: what this run removes there
+    // afterwards is never a file another account put at a name it knew
+    let staging = (temporary as NSString).deletingPathExtension
+    let staged = (staging as NSString).appendingPathComponent((target as NSString).lastPathComponent)
+    if let reason = makeOwnedFolder(staging) {
         unlink(temporary)
-        return .cancelled
+        return .failed("could not prepare the Handout in \(folder): \(reason)")
+    }
+    guard renamex_np(temporary, staged, UInt32(RENAME_EXCL)) == 0 else {
+        let reason = errnoText()
+        unlink(temporary)
+        rmdir(staging)
+        return .failed("could not prepare the Handout in \(folder): \(reason)")
+    }
+    // Moved by name, so judged by what arrived: a file another program put at the temporary path while
+    // this one was written is never published
+    guard isAtPath(staged, written) else {
+        return .failed("another program replaced \(temporary) while the Handout was written: what it put there is at \(staged), and nothing was published")
     }
     // Looked at once more right before the swap: a save into the earlier Handout while this one was
     // written changed its change time, which nothing else here touches until the swap renames it
     var beforeSwap = stat()
     let lookedAgain = lstat(target, &beforeSwap) == 0
-    // A Handout is there: swap, then look at what was swapped out
-    guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
+    // dw may have ended, or the run's time may be up, while that look waited on the volume: asked last,
+    // right before the swap
+    guard mayPublish() else {
+        unlink(staged)
+        rmdir(staging)
+        return .cancelled
+    }
+    // Swap, then look at what was swapped out
+    guard renamex_np(staged, target, UInt32(RENAME_SWAP)) == 0 else {
         let reason = errnoText()
-        unlink(temporary)
+        unlink(staged)
+        rmdir(staging)
         return .failed("could not replace \(target): \(reason)")
     }
-    let theirs = open(temporary, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+    let theirs = open(staged, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
     var replaced = stat()
     if theirs >= 0, fstat(theirs, &replaced) == 0, startsAsHandout(theirs) {
         defer { close(theirs) }
@@ -460,7 +510,7 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
             // since, and unchanged while its permissions were read
             // A Handout that appeared there while this one was written (another export) stays too
             guard hadTarget else {
-                return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(temporary)"])
+                return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(staged)"])
             }
             var now = stat()
             // The same file with the same size and modification time from the first look to the look
@@ -471,48 +521,53 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
             // kept size and modification time changes it, a metadata change does not), and nothing may
             // change it after that read (its change time would move: no rename follows the swap)
             guard firstDigest != nil else {
-                return .published(warnings: ["the earlier Handout could not be checked for a save made while it was replaced: it is kept at \(temporary)"])
+                return .published(warnings: ["the earlier Handout could not be checked for a save made while it was replaced: it is kept at \(staged)"])
             }
             let displacedDigest = stampsKept ? contentDigest(theirs) : nil
             let unchanged = displacedDigest != nil && displacedDigest == firstDigest
                 && fstat(theirs, &now) == 0 && sameContentStamp(now, replaced) && sameChangeTime(now, replaced)
-            if !unchanged {
-                return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
+            // Removed only while its name still holds it: a save swapped in there since (a program that
+            // followed the file into the folder) stays too
+            if !unchanged || !isAtPath(staged, replaced) {
+                return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
             }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
             // keep what a new export may have been made to remove (a page taken out). A write through a
             // descriptor opened before and landing after the look above is lost, as with any file
             // replaced by a rename
-            unlink(temporary)
+            unlink(staged)
+            rmdir(staging)
             return .published(warnings: [])
         }
         // Who may read it could not be kept: the earlier Handout goes back, the new file goes. Only
         // over this run's own file: one another program put at the target meanwhile stays
         guard isAtPath(target, written) else {
-            return .failed("the permissions of the earlier Handout could not be carried over, and another program replaced \(target) meanwhile: that file stays, and the earlier Handout is at \(temporary)")
+            return .failed("the permissions of the earlier Handout could not be carried over, and another program replaced \(target) meanwhile: that file stays, and the earlier Handout is at \(staged)")
         }
-        guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
-            return .failed("the permissions of the earlier Handout could not be kept, and it could not be put back at \(target): it is at \(temporary)")
+        guard renamex_np(staged, target, UInt32(RENAME_SWAP)) == 0 else {
+            return .failed("the permissions of the earlier Handout could not be kept, and it could not be put back at \(target): it is at \(staged)")
         }
-        guard isUntouched(temporary, written: written, data: data) else {
-            return .failed("the permissions of the earlier Handout could not be carried over: it is back at \(target), and a newer save made there meanwhile is kept at \(temporary)")
+        guard isUntouched(staged, written: written, data: data) else {
+            return .failed("the permissions of the earlier Handout could not be carried over: it is back at \(target), and a newer save made there meanwhile is kept at \(staged)")
         }
-        unlink(temporary)
+        unlink(staged)
+        rmdir(staging)
         return .failed("the permissions of the earlier Handout at \(target) could not be carried over (it may belong to another account): it was left as it was")
     }
     if theirs >= 0 { close(theirs) }
-    // Not a Handout: put it back where it was; the temporary path then holds the new file again. Only
-    // over this run's own file: one another program put at the target meanwhile stays
+    // Not a Handout: put it back where it was; the staged path then holds the new file again. Only over
+    // this run's own file: one another program put at the target meanwhile stays
     guard isAtPath(target, written) else {
-        return .failed("another program replaced \(target) while the earlier file was being put back: that file stays, and the earlier file is at \(temporary)")
+        return .failed("another program replaced \(target) while the earlier file was being put back: that file stays, and the earlier file is at \(staged)")
     }
-    guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
-        return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(temporary)")
+    guard renamex_np(staged, target, UInt32(RENAME_SWAP)) == 0 else {
+        return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(staged)")
     }
-    guard isUntouched(temporary, written: written, data: data) else {
-        return .failed("\(target) was saved again while the earlier file was put back: it holds the earlier file, and the newer save is kept at \(temporary)")
+    guard isUntouched(staged, written: written, data: data) else {
+        return .failed("\(target) was saved again while the earlier file was put back: it holds the earlier file, and the newer save is kept at \(staged)")
     }
-    unlink(temporary)
+    unlink(staged)
+    rmdir(staging)
     return .notAHandout
 }
 
@@ -597,6 +652,39 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     return .published(warnings: aclRestored ? [] : ["the ACL its folder gives its files could not be given to \(target): only you can read it"])
 }
 
+/// Where the verification copy was written, or why it could not be.
+enum VerificationCopy {
+    case written(URL)
+    case failed(String)
+}
+
+/// Write the finished Handout where the verify view opens it: `handout.html`, created exclusively in a
+/// folder made for this check alone inside `explainDir` (`makeOwnedFolder`). A file of any name already
+/// in the explain folder is never written over, and the view may read that folder alone, as the
+/// colleague's browser has the one file. Called by `Renderer.verify` off the main queue; the folder
+/// goes once the check is done, or with dw's scratch folder, which holds `explainDir`, when the run
+/// ends before.
+func writeVerificationCopy(_ data: Data, in explainDir: URL) -> VerificationCopy {
+    let folder = explainDir.appendingPathComponent("handout-verify-\(UUID().uuidString)")
+    if let reason = makeOwnedFolder(folder.path) { return .failed("could not create \(folder.path): \(reason)") }
+    let copy = folder.appendingPathComponent("handout.html")
+    let descriptor = open(copy.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o600)
+    guard descriptor >= 0 else {
+        let reason = errnoText()
+        rmdir(folder.path)
+        return .failed("could not write \(copy.path): \(reason)")
+    }
+    defer { close(descriptor) }
+    do {
+        try FileHandle(fileDescriptor: descriptor, closeOnDealloc: false).write(contentsOf: data)
+    } catch {
+        unlink(copy.path)
+        rmdir(folder.path)
+        return .failed("could not write \(copy.path): \(describe(error))")
+    }
+    return .written(copy)
+}
+
 /// A render the builder is waiting for.
 struct PendingRender {
     let page: Int
@@ -631,6 +719,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let builderView: WKWebView
     let pageView: WKWebView
     var verifyView: WKWebView?
+    /// The copy the verify view opened (`writeVerificationCopy`): removed with its folder once checked.
+    var verifyCopy: URL?
     var builderStarted = false
     var pendingRender: PendingRender?
     var pendingVerify: PendingVerify?
@@ -789,7 +879,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
 
     /// What a stop that cut into a rename says: where the files may be.
     func stalledMessage() -> String {
-        "the volume of \(out) stopped answering while the Handout was being published: look at \(out) and the hidden .dw-handout file beside it"
+        "the volume of \(out) stopped answering while the Handout was being published: look at \(out) and the hidden .dw-handout file or folder beside it"
     }
 
     /// Whether the run's time (runMs) is up: the worker that publishes looks at the clock itself before
@@ -930,7 +1020,6 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
 
     func verify(html: String, probe: String, reply: @escaping (Any?, String?) -> Void) {
         guard pendingVerify == nil else { return reply(nil, "a verification is already running") }
-        let file = explainDir.appendingPathComponent("handout-verify.html")
         // The time limit runs from the request, and the copy is written off the main queue, where the
         // limits run: a write that stalls is caught by them
         let timer = schedule(after: pageLimitMs) {
@@ -939,19 +1028,25 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         pendingVerify = PendingVerify(probe: probe, reply: reply, timer: timer)
         log("verify: writing the finished Handout (\(html.utf8.count) bytes)")
         let data = Data(html.utf8)
+        let explainDir = self.explainDir
         DispatchQueue.global(qos: .userInitiated).async {
-            let written = Result { try data.write(to: file) }
+            let written = writeVerificationCopy(data, in: explainDir)
             DispatchQueue.main.async {
-                if case .failure(let error) = written {
-                    self.failRenderer("the finished Handout could not be written for verification: \(describe(error))")
+                let file: URL
+                switch written {
+                case .failed(let reason):
+                    self.failRenderer("the finished Handout could not be written for verification: \(reason)")
+                case .written(let copy):
+                    file = copy
                 }
+                self.verifyCopy = file
                 // A plain view, as the colleague's browser: no channel, nothing injected
                 let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 1200, height: 1000), configuration: WKWebViewConfiguration())
                 view.navigationDelegate = self
                 self.window.contentView?.addSubview(view)
                 self.verifyView = view
                 self.log("verify: opening the finished Handout")
-                view.loadFileURL(file, allowingReadAccessTo: self.explainDir)
+                view.loadFileURL(file, allowingReadAccessTo: file.deletingLastPathComponent())
             }
         }
     }
@@ -992,10 +1087,15 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                     self.log("verify: checked")
                     // The copy opened for the check is of no further use: only the published file stays.
                     // Removed off the main queue, like every other file operation of the run, and before
-                    // the builder hears back, so it is gone before the run can end
-                    let copy = self.explainDir.appendingPathComponent("handout-verify.html")
+                    // the builder hears back, so it is gone before the run can end. Its folder is the
+                    // check's own: nothing else is in it
+                    let copy = self.verifyCopy
+                    self.verifyCopy = nil
                     DispatchQueue.global(qos: .utility).async {
-                        try? FileManager.default.removeItem(at: copy)
+                        if let copy {
+                            unlink(copy.path)
+                            rmdir(copy.deletingLastPathComponent().path)
+                        }
                         DispatchQueue.main.async { pending.reply(["type": "verified", "probe": probe], nil) }
                     }
                 }

@@ -515,7 +515,7 @@ cp "$scratch/other.html" "$scratch/other.copy"
 handout_input "$RECORDS/direct" "$scratch/other.html" "$scratch/direct" "$scratch/direct.json"
 result=$("$BIN" "$scratch/direct.json" "$DIST")
 if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/other.html" "$scratch/other.copy" \
-  && [ -z "$(find "$scratch" -maxdepth 1 -name '.handout-*.tmp')" ]; then
+  && [ -z "$(find "$scratch" -maxdepth 1 -name '.other.html.dw-handout-*')" ]; then
   pass "a non-Handout file found at write time is left byte-identical, nothing written beside it (eng D7)"
 else
   fail "non-Handout at write time: $result"
@@ -528,6 +528,17 @@ if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null
   pass "a file that only mentions the marker (a form field named dw-handout) is not taken for a Handout"
 else
   fail "marker text is not a Handout: $result"
+fi
+# The verification copy is written in a folder of the check's own: a file of its old name in the
+# explain folder is never written over, and nothing of the check stays there
+handout_input "$RECORDS/direct" "$scratch/verified.html" "$scratch/verified-explain" "$scratch/verified.json"
+printf 'a file of the same name\n' > "$scratch/verified-explain/handout-verify.html"
+result=$("$BIN" "$scratch/verified.json" "$DIST")
+if jq -e '.ok == true' <<< "$result" >/dev/null && [ "$(cat "$scratch/verified-explain/handout-verify.html")" = 'a file of the same name' ] \
+  && [ -z "$(find "$scratch/verified-explain" -maxdepth 1 -name 'handout-verify-*')" ]; then
+  pass "a file named like the verification copy in the explain folder is left as it was, and nothing of the check stays"
+else
+  fail "verification copy beside a file of its name: $result"
 fi
 handout_input "$RECORDS/direct" "$scratch/orphan.html" "$scratch/orphan-explain" "$scratch/orphan.json"
 # A process id that no longer exists, as dw's would be once dw was killed
@@ -647,8 +658,8 @@ touched=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
 wait "$writer"
 result=$(cat "$scratch/meta.out")
 if [ "${before%% *}" = "${touched%% *}" ] && [ "${before#* }" != "${touched#* }" ] && jq -e '.ok == true and (.warnings | length) == 0' <<< "$result" >/dev/null \
-  && [ "$(/usr/bin/stat -f '%i' "$scratch/meta.html")" != "${before%% *}" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*.tmp')" ] \
-  && [ ! -e "$scratch/meta-explain/handout-verify.html" ]; then
+  && [ "$(/usr/bin/stat -f '%i' "$scratch/meta.html")" != "${before%% *}" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*')" ] \
+  && [ -z "$(find "$scratch/meta-explain" -maxdepth 1 -name 'handout-verify*')" ]; then
   pass "an extended attribute set on the earlier Handout meanwhile is no save: it is replaced, nothing left beside"
 else
   fail "metadata change during the replace ($before → $touched): $result"
@@ -669,14 +680,14 @@ printf 'X' | dd of="$scratch/resaved.html" bs=1 seek=200 conv=notrunc 2>/dev/nul
 touch -t 202601010000.00 "$scratch/resaved.html"
 wait "$writer"
 result=$(cat "$scratch/resaved.out")
-kept=$(find "$scratch" -maxdepth 1 -name '.resaved.html.dw-handout-*.tmp' | head -1)
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.resaved.html.dw-handout-*/resaved.html" | head -1)
 if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout was saved while it was replaced: that save is kept at \($kept)") != null)' <<< "$result" >/dev/null \
   && [ -n "$kept" ] && [ "$(dd if="$kept" bs=1 skip=200 count=1 2>/dev/null)" = X ]; then
   pass "a same-size save that put the modification time back is told by its content and kept beside"
 else
   fail "same-size save during the replace (kept: ${kept:-none}): $result"
 fi
-rm -f "$kept"
+[ -n "$kept" ] && rm -rf "${kept%/*}"
 
 # An earlier Handout whose content could not be read first (larger than the digest's limit, set to
 # 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning
@@ -684,14 +695,33 @@ handout_input "$RECORDS/direct" "$scratch/unread.html" "$scratch/unread-explain"
 "$BIN" "$scratch/unread.json" "$DIST" > /dev/null
 jq '.limits.digestLimitBytes = 1' "$scratch/unread.json" > "$scratch/unread-limited.json"
 result=$("$BIN" "$scratch/unread-limited.json" "$DIST")
-kept=$(find "$scratch" -maxdepth 1 -name '.unread.html.dw-handout-*.tmp' | head -1)
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.unread.html.dw-handout-*/unread.html" | head -1)
 if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout could not be checked for a save made while it was replaced: it is kept at \($kept)") != null)' <<< "$result" >/dev/null \
   && [ -n "$kept" ] && grep -q 'name="dw-handout"' "$kept"; then
   pass "an earlier Handout whose content could not be read first is kept beside, with its own warning"
 else
   fail "unread earlier Handout (kept: ${kept:-none}): $result"
 fi
-rm -f "$kept"
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
+# The earlier Handout is swapped out into a folder of the run's own beside it: its owner alone can
+# change that folder, even where the folder around it lets everyone add and remove files (an ACL
+# that new folders inherit). Kept there, as its content could not be read first (limit 1 byte)
+mkdir -p "$scratch/owned"
+chmod +a "everyone allow list,add_file,search,delete_child,file_inherit,directory_inherit" "$scratch/owned"
+handout_input "$RECORDS/direct" "$scratch/owned/handout.html" "$scratch/owned-explain" "$scratch/owned.json"
+"$BIN" "$scratch/owned.json" "$DIST" > /dev/null
+jq '.limits.digestLimitBytes = 1' "$scratch/owned.json" > "$scratch/owned-limited.json"
+result=$("$BIN" "$scratch/owned-limited.json" "$DIST")
+kept=$(find "$scratch/owned" -maxdepth 2 -path "$scratch/owned/.handout.html.dw-handout-*/handout.html" | head -1)
+holder=${kept%/*}
+if jq -e '.ok == true' <<< "$result" >/dev/null && [ -n "$kept" ] && [ "$(stat -f '%Lp' "$holder")" = 700 ] \
+  && [ -z "$(ls -led "$holder" | sed -n 's/^ *[0-9]*: //p')" ]; then
+  pass "the earlier Handout is swapped out into a folder its owner alone can change, whatever the folder around it allows"
+else
+  fail "owned folder for the swapped-out Handout (kept: ${kept:-none}): $(ls -led "$holder" 2>&1) / $result"
+fi
+[ -n "$kept" ] && rm -rf "$holder"
 
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"

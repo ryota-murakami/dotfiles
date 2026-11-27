@@ -220,3 +220,79 @@ test('a label with text that was not laid out stops the export, even beside a la
     },
   ])
 })
+
+test('a diagram the page rendered but the measurement did not find stops the export instead of passing unchecked', () => {
+  // Arrange
+  const report = { type: 'rendered' as const, page: 2, diagrams: 2, errors: [], libs: [...allLibraries] }
+  const measurement = { html: '', diagrams: [{ id: 'p2-d1', labels: [fitting] }] }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, measurement)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_DIAGRAM',
+      message:
+        'page 2:8: diagram 2 was rendered but not found when the page was measured: nothing was laid out to check',
+      page: 2,
+      diagram: 2,
+      line: 8,
+    },
+  ])
+})
+
+test('a diagram that failed to render and was not measured is reported once, as not rendered', () => {
+  // Arrange
+  const report = {
+    type: 'rendered' as const,
+    page: 2,
+    diagrams: 2,
+    errors: ['diagram 2: Parse error on line 1'],
+    libs: [...allLibraries],
+  }
+  const measurement = { html: '', diagrams: [{ id: 'p2-d1', labels: [fitting] }] }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, measurement)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_DIAGRAM',
+      message: 'page 2:8: diagram 2 did not render: Parse error on line 1',
+      page: 2,
+      diagram: 2,
+      line: 8,
+    },
+  ])
+})
+
+test('a diagram with no sized label does not keep the next diagram from being judged', () => {
+  // Arrange
+  const report = { type: 'rendered' as const, page: 2, diagrams: 2, errors: [], libs: [...allLibraries] }
+  const unsized = { text: '書き出す', width: 0, height: 0, contentWidth: 0, contentHeight: 0 }
+  const measurement = { html: '', diagrams: [{ id: 'p2-d1', labels: [unsized] }] }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, measurement)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_DIAGRAM',
+      message: 'page 2:3: diagram 1 has no label with a size: nothing was laid out to check',
+      page: 2,
+      diagram: 1,
+      line: 3,
+    },
+    {
+      code: 'HANDOUT_DIAGRAM',
+      message:
+        'page 2:8: diagram 2 was rendered but not found when the page was measured: nothing was laid out to check',
+      page: 2,
+      diagram: 2,
+      line: 8,
+    },
+  ])
+})

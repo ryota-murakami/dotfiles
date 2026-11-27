@@ -28,8 +28,9 @@ export function missingLibraries(report: RenderReport): PageLibrary[] {
 }
 
 /**
- * Judge one rendered page: diagrams that failed, diagrams nothing was laid out for, labels that do
- * not fit their box (DX D9, eng C6a), and audience markers the page met as HTML, which dw's filter
+ * Judge one rendered page: diagrams that failed, diagrams nothing was laid out for or that the
+ * measurement did not find, labels that do not fit their box (DX D9, eng C6a), and audience markers
+ * the page met as HTML, which dw's filter
  * never read (HANDOUT_MARKER). Library problems are judged once per run by the caller.
  *
  * Why it exists: an agent fixes what the export names, so every problem carries the page, the
@@ -82,11 +83,23 @@ export function judgeRenderedPage(
       ...(line === undefined ? {} : { line }),
     })
   }
-  measurement.diagrams.forEach((measured, index) => {
-    const diagram = index + 1
-    if (failed.has(diagram)) return
+  // Every diagram the page rendered and every one the probe found: one rendered but not found would
+  // otherwise pass without a look
+  const diagramTotal = Math.max(report.diagrams, measurement.diagrams.length)
+  for (let diagram = 1; diagram <= diagramTotal; diagram++) {
+    if (failed.has(diagram)) continue
     const { where, line } = at(diagram)
     const location = { page: page.n, diagram, ...(line === undefined ? {} : { line }) }
+    const measured = measurement.diagrams[diagram - 1]
+    // Fail closed: nothing was measured, so nothing can be said to fit (eng C6a)
+    if (!measured) {
+      diagnostics.push({
+        code: 'HANDOUT_DIAGRAM',
+        message: `${where}: diagram ${diagram} was rendered but not found when the page was measured: nothing was laid out to check`,
+        ...location,
+      })
+      continue
+    }
     const labels = measured.labels.filter((label) => label.text !== '')
     // Fail closed: without a laid-out label the overflow check would pass on nothing (eng C6a)
     if (!labels.some((label) => label.width > 0 && label.height > 0)) {
@@ -95,7 +108,7 @@ export function judgeRenderedPage(
         message: `${where}: diagram ${diagram} has no label with a size: nothing was laid out to check`,
         ...location,
       })
-      return
+      continue
     }
     for (const label of labels) {
       // A label with text but neither a box nor content was not laid out: what it says is not shown
@@ -118,6 +131,6 @@ export function judgeRenderedPage(
         ...location,
       })
     }
-  })
+  }
   return diagnostics
 }
