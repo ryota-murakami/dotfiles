@@ -889,3 +889,30 @@ test('a key at the start of a PNG chunk cut off by the end of the file still sto
     'page 3:1: the image shot.png carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
   ])
 })
+
+test('a screenshot an SVG label carries as an HTML image (src or srcset) is checked like one on its own', async () => {
+  // Arrange
+  const png = pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]])
+  const label = (attribute: string) =>
+    `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="10" height="10"><img xmlns="http://www.w3.org/1999/xhtml" ${attribute}="data:image/png;base64,${bytesToBase64(png)}"/></foreignObject></svg>`
+  const host = hostWithFiles({
+    '/r/pages/src.svg': toBase64(label('src')),
+    '/r/pages/srcset.svg': toBase64(label('srcset')),
+  })
+  const html = '<p><img src="src.svg"><img src="srcset.svg"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](src.svg)\n![二](srcset.svg)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image src.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    'page 3:2: the image srcset.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})

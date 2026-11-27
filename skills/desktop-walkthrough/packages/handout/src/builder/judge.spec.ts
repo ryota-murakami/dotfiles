@@ -198,3 +198,25 @@ test('an audience marker that reached the page as HTML stops the export: dw’s 
     },
   ])
 })
+
+test('a label with text that was not laid out stops the export, even beside a label that fits', () => {
+  // Arrange
+  const report = { type: 'rendered' as const, page: 2, diagrams: 1, errors: [], libs: [...allLibraries] }
+  const hidden = { text: '隠れた説明', width: 0, height: 0, contentWidth: 0, contentHeight: 0 }
+  const measurement = { html: '', diagrams: [{ id: 'p2-d1', labels: [fitting, hidden] }] }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, measurement)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_DIAGRAM',
+      message:
+        'page 2:3: diagram 1: the label 「隠れた説明」 was not laid out (it has no size): a style on the page hides diagram text, or the diagram did not finish drawing; remove the style and export again',
+      page: 2,
+      diagram: 1,
+      line: 3,
+    },
+  ])
+})

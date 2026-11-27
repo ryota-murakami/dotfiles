@@ -550,7 +550,8 @@ function linkedPicture(parsed: Document): string | null {
 
 /**
  * The pictures an SVG carries as data: each `data:image/…` an element names in `href` or
- * `xlink:href` (an `<image>`, a filter's `<feImage>`), and each one a style's `url(…)` loads.
+ * `xlink:href` (an `<image>`, a filter's `<feImage>`), in `src` or `srcset` (an HTML image in a
+ * label), and each one a style's `url(…)` loads.
  *
  * @param parsed - The SVG's document.
  * @returns The data URIs, as written.
@@ -563,8 +564,13 @@ function nestedPictures(parsed: Document): string[] {
   for (const element of Array.from(parsed.querySelectorAll('*'))) {
     for (const attribute of Array.from(element.attributes)) {
       const value = attribute.value.trim()
-      if ((attribute.name === 'href' || attribute.name === 'xlink:href') && /^data:image\//i.test(value))
+      // An <image>'s href, and the src of an HTML image in a label (foreignObject)
+      if (['href', 'xlink:href', 'src'].includes(attribute.name) && /^data:image\//i.test(value))
         pictures.push(value)
+      // Each data picture of a srcset, up to the space before its descriptor
+      if (attribute.name === 'srcset') {
+        for (const match of value.matchAll(/data:image\/[^\s"')]+/gi)) pictures.push(match[0])
+      }
       for (const match of attribute.value.matchAll(/url\(\s*["']?(data:image\/[^"')\s]+)/gi))
         pictures.push(match[1] ?? '')
     }

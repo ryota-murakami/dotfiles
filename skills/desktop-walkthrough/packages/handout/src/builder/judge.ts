@@ -98,6 +98,15 @@ export function judgeRenderedPage(
       return
     }
     for (const label of labels) {
+      // A label with text but neither a box nor content was not laid out: what it says is not shown
+      if (label.width <= 0 && label.height <= 0 && label.contentWidth <= 0 && label.contentHeight <= 0) {
+        diagnostics.push({
+          code: 'HANDOUT_DIAGRAM',
+          message: `${where}: diagram ${diagram}: the label 「${excerpt(maskSecrets(label.text))}」 was not laid out (it has no size): a style on the page hides diagram text, or the diagram did not finish drawing; remove the style and export again`,
+          ...location,
+        })
+        continue
+      }
       const tooWide = label.contentWidth > label.width + OVERFLOW_TOLERANCE_PX
       const tooTall = label.contentHeight > label.height + OVERFLOW_TOLERANCE_PX
       if (!tooWide && !tooTall) continue

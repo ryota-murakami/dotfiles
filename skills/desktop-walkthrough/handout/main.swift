@@ -41,6 +41,10 @@ let protocolVersion = 1
 let imageLimitBytes = 20 * 1024 * 1024
 /// How often the renderer looks whether dw's process is still there, unless input.json's limits say (parentMs).
 let defaultParentCheckMs = 1000
+/// How long the run's watchdogs wait for a rename already under way before they stop the run anyway
+/// (a volume that stopped answering), and how often they look again meanwhile.
+let commitGraceMs = 60_000
+let commitRecheckMs = 1_000
 
 /// Print the result line for dw and exit.
 func finish(_ result: [String: Any], code: Int32) -> Never {
@@ -68,6 +72,44 @@ func describe(_ error: Error) -> String {
 }
 
 /// How publishing ended.
+/// Publication's agreement with the run's watchdogs (the run's timer, the look at dw's process), which
+/// keep running on the main queue while a worker publishes: a rename starts only while no watchdog has
+/// stopped the run, and once one has started, the watchdogs leave the outcome to the worker for up to
+/// `commitGraceMs`, so a completed worker never publishes after a stop and a stop never cuts a
+/// replace in half (unless the volume stops answering in the middle of it).
+final class PublicationGate {
+    private let lock = NSLock()
+    private var stopped = false
+    private var committingSince: Date?
+
+    /// Asked by the worker before each rename: whether it may rename now. False once a watchdog has
+    /// stopped the run, or when `stillWanted` says dw is gone or the run's time is up.
+    func allowCommit(_ stillWanted: () -> Bool) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        guard !stopped, stillWanted() else {
+            stopped = true
+            return false
+        }
+        if committingSince == nil { committingSince = Date() }
+        return true
+    }
+
+    /// Asked by a watchdog before it stops the run: false while a rename is under way and within its
+    /// grace (the worker reports the outcome). `interrupted` says the stop cut into a rename.
+    func stop() -> (allowed: Bool, interrupted: Bool) {
+        lock.lock()
+        defer { lock.unlock() }
+        if let since = committingSince {
+            guard Date().timeIntervalSince(since) * 1000 >= Double(commitGraceMs) else { return (false, false) }
+            stopped = true
+            return (true, true)
+        }
+        stopped = true
+        return (true, false)
+    }
+}
+
 enum Publication {
     /// Published; the warnings say what was kept beside it (a save another program made meanwhile).
     case published(warnings: [String])
@@ -354,6 +396,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     var pendingRender: PendingRender?
     var pendingVerify: PendingVerify?
     var logHandle: FileHandle?
+    /// Shared with the worker that publishes (see `PublicationGate`).
+    let publicationGate = PublicationGate()
     /// When the run started: publication looks at the run's time itself (`pastDeadline`).
     let startedAt = Date()
 
@@ -419,16 +463,15 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
 
     func start() {
         log("start: \(builtPages.count) page(s), limits \(pageLimitMs) ms per page, \(runLimitMs) ms per run")
-        _ = schedule(after: runLimitMs) {
-            self.failRenderer("the export took longer than \(self.runLimitMs / 1000) s", page: self.pendingRender?.page)
-        }
+        _ = schedule(after: runLimitMs) { self.enforceRunLimit() }
         watchParent()
         builderView.loadFileURL(distDir.appendingPathComponent("builder.html"), allowingReadAccessTo: distDir)
     }
 
     /// Stop without publishing once dw's process (input.json parentPid) is gone: dw was killed or its
     /// terminal closed, nobody waits for this export, and it must not write a file minutes later.
-    /// Runs on the main queue like publishing, so it never stops a publication halfway.
+    /// Runs on the main queue while a worker publishes; a rename under way is left to finish
+    /// (`PublicationGate`), so a stop never cuts a replace in half.
     func watchParent() {
         guard input["parentPid"] is Int else { return }
         // Looked at once now (dw may be gone already), then every parentCheckMs; publish looks once more
@@ -437,14 +480,35 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     }
 
     /// End the run without publishing when dw's process (input.json parentPid) is gone. Called by
-    /// watchParent, and by handleOutcome right before publishing: dw may end after the last look.
+    /// watchParent, and by handleOutcome right before publishing: dw may end after the last look. A
+    /// rename under way is left to finish (watchParent looks again).
     func stopIfParentGone() {
         guard !parentIsAlive(), let parent = input["parentPid"] as? Int else { return }
-        failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
+        let stop = publicationGate.stop()
+        guard stop.allowed else { return }
+        failRenderer(stop.interrupted ? stalledMessage()
+                                      : "dw (process \(parent)) ended before the export finished: nothing was published")
     }
 
-    /// Whether the run's time (runMs) is up: publishing on the main queue can outlast the run's timer,
-    /// which then could not fire, so publication looks at the clock itself.
+    /// End the run once its time (runMs) is up. Called by the run's timer; a rename under way is left
+    /// to finish, looked at again every commitRecheckMs.
+    func enforceRunLimit() {
+        let stop = publicationGate.stop()
+        guard stop.allowed else {
+            _ = schedule(after: commitRecheckMs) { self.enforceRunLimit() }
+            return
+        }
+        failRenderer(stop.interrupted ? stalledMessage() : "the export took longer than \(runLimitMs / 1000) s",
+                     page: pendingRender?.page)
+    }
+
+    /// What a stop that cut into a rename says: where the files may be.
+    func stalledMessage() -> String {
+        "the volume of \(out) stopped answering while the Handout was being published: look at \(out) and the hidden .dw-handout file beside it"
+    }
+
+    /// Whether the run's time (runMs) is up: the worker that publishes looks at the clock itself before
+    /// each rename, as the run's timer may fire while it writes.
     func pastDeadline() -> Bool {
         Date().timeIntervalSince(startedAt) * 1000 > Double(runLimitMs)
     }
@@ -484,7 +548,22 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         guard let html = outcome["html"] as? String else { failRenderer("the builder returned no Handout") }
         // dw may have ended since the last look: nobody waits for this file any more
         stopIfParentGone()
-        switch publish(Data(html.utf8), to: out, mayPublish: { self.parentIsAlive() && !self.pastDeadline() }) {
+        // Published on a queue of its own: a volume that stalls a write leaves the run's timer and the
+        // look at dw's process running here. Each rename asks the gate first
+        let data = Data(html.utf8)
+        let target = out
+        DispatchQueue.global(qos: .userInitiated).async {
+            let publication = publish(data, to: target, mayPublish: {
+                self.publicationGate.allowCommit { self.parentIsAlive() && !self.pastDeadline() }
+            })
+            DispatchQueue.main.async { self.report(publication, outcome: outcome) }
+        }
+    }
+
+    /// Say how the publication ended, as dw reads it. Called on the main queue by the worker that
+    /// published.
+    func report(_ publication: Publication, outcome: [String: Any]) -> Never {
+        switch publication {
         case .published(let kept):
             log("published: \(out)")
             let warnings = (outcome["warnings"] as? [[String: Any]] ?? []) + kept.map { ["message": $0] }
