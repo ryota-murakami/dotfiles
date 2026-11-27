@@ -588,7 +588,9 @@ else
 fi
 
 # A volume that stops answering mid-write: the worker cannot notice (limits.writePauseMs holds it 30 s
-# after its first write), so 5 s after dw ends the renderer ends the run itself, naming the file left
+# after its first write), so 5 s after dw ends the renderer ends the run itself, naming the file left.
+# Its first write is all the gate knows of (the bytes written before it: none), so the file is "partly
+# written"; a stall before the first write or after the last is worded otherwise, and has no knob here
 handout_input "$RECORDS/direct" "$scratch/stalled.html" "$scratch/stalled-explain" "$scratch/stalled.json"
 sleep 60 &
 parent=$!
@@ -608,7 +610,8 @@ wait "$writer"
 took=$(( $(date +%s) - started ))
 result=$(cat "$scratch/stalled.out")
 if [ -n "$left" ] && [ -f "$left" ] && [ ! -e "$scratch/stalled.html" ] && [ "$took" -lt 20 ] \
-  && jq -e --arg left "$left" '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | contains($left)) and (.message | test("may remain beside it"))' <<< "$result" >/dev/null; then
+  && jq -e --arg left "$left" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+    and (.message | contains("the volume did not answer, so a partly written \($left) may remain beside it: remove it"))' <<< "$result" >/dev/null; then
   pass "a volume that stops answering mid-write: the run ends ${took} s after dw, naming the file that may remain"
 else
   fail "stalled write (file: ${left:-none}, ${took} s): $result"
