@@ -1036,7 +1036,8 @@ explain_problems() {
 # Build page N of the explainer from its Markdown MD for AUDIENCE (hud, the default, or handout) and
 # list it in the index. CURRENT is the page the panel shows afterwards. Problems of the audience
 # markers go to the file PROBLEMS (see explain_filter); a marker error stops before anything is
-# written (exit 1). The HUD's pages carry the data they always did; a Handout page adds mode
+# written (exit 1), a page whose HTML cannot be written is not listed (exit 2), and an index that
+# cannot be updated is exit 3. The HUD's pages carry the data they always did; a Handout page adds mode
 # "handout", which page.html renders for the Handout's builder
 explain_build() {
   local n="$1" title="$2" step="$3" md="$4" current="$5" audience="${6:-hud}" problems="${7:-/dev/null}" file data shown
@@ -1057,18 +1058,21 @@ explain_build() {
   if ! { awk -v data="$data" '/<!--DW_DATA-->/ { while ((getline line < data) > 0) print line; next } { print }' \
     "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part.$$" && mv "$EXPLAIN/$file.part.$$" "$EXPLAIN/$file"; }; then
     rm -f "$EXPLAIN/$file.part.$$" "$data"
-    return 1
+    return 2
   fi
   rm -f "$data"
-  jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$file" --argjson current "$current" \
+  if ! { jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$file" --argjson current "$current" \
     '.pages = ([.pages[] | select(.n != $n)] + [{n: $n, title: $title, step: $step, file: $file}] | sort_by(.n)) | .current = $current' \
-    "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part.$$" && mv "$EXPLAIN/index.json.part.$$" "$EXPLAIN/index.json"
+    "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part.$$" && mv "$EXPLAIN/index.json.part.$$" "$EXPLAIN/index.json"; }; then
+    rm -f "$EXPLAIN/index.json.part.$$"
+    return 3
+  fi
 }
 
 # Show a long explanation as a page in the HUD's explainer panel. Pages are numbered and kept, so the
 # user can page back; --replace rewrites the newest page (to fix a diagram) instead of adding one.
 cmd_explain() {
-  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label
+  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label built
   while [ $# -gt 0 ]; do
     case "$1" in
       --title)   title="${2:?--title needs a value}"; shift 2 ;;
@@ -1156,8 +1160,11 @@ cmd_explain() {
   # --back with a page: the request is in place before the page is listed, so the panel takes the new
   # page and steps behind the app in the same moment
   [ "$request" = back ] && printf 'back' > "$EXPLAIN/visibility-request"
-  if ! explain_build "$n" "$title" "$step" "$md" "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)"; then
+  explain_build "$n" "$title" "$step" "$md" "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)"
+  built=$?
+  if [ "$built" != 0 ]; then
     release_lock 7
+    [ "$built" = 3 ] && die "page $n was built, but the explainer's index ($EXPLAIN/index.json) could not be updated: run the command again"
     die "page $n could not be built (its HTML could not be written in $EXPLAIN/pages): the panel does not list it; run the command again"
   fi
   printf '%s %s\n' "$(date +%H:%M:%S)" "explain: page $n ${title}" >> "$DW_HOME/narration.log"

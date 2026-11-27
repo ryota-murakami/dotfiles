@@ -718,3 +718,31 @@ test('an SVG that draws a picture by linking it stops the export: a picture show
     'page 3:1: the image linked.svg draws a picture it links to (shot.png), which it cannot show inside the Handout: embed that picture in the SVG',
   ])
 })
+
+test('an SVG that loads a picture through a style or an HTML image stops the export like a linked <image>', async () => {
+  // Arrange
+  const styled =
+    '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" style="fill: url(texture.png)"/></svg>'
+  const labelled =
+    '<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="10" height="10"><img xmlns="http://www.w3.org/1999/xhtml" src="shot.png"/></foreignObject></svg>'
+  const host = hostWithFiles({
+    '/r/pages/styled.svg': toBase64(styled),
+    '/r/pages/labelled.svg': toBase64(labelled),
+  })
+  const html = '<p><img src="styled.svg"><img src="labelled.svg"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](styled.svg)\n![二](labelled.svg)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image styled.svg draws a picture it links to (texture.png), which it cannot show inside the Handout: embed that picture in the SVG',
+    'page 3:2: the image labelled.svg draws a picture it links to (shot.png), which it cannot show inside the Handout: embed that picture in the SVG',
+  ])
+})

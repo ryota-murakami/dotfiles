@@ -52,7 +52,8 @@ test('sequence diagram labels survive sanitizing word for word', () => {
 
 test("a diagram keeps the style mermaid drew it with, so its colours reach the colleague's screen", () => {
   // Arrange
-  const content = `<div class="diagram">${flowchart}</div>`
+  // In Handout mode page.html gives each diagram's svg the id p<page>-d<diagram>
+  const content = `<div class="diagram">${flowchart.replaceAll('dw-diagram-1', 'p2-d1')}</div>`
 
   // Act
   const sanitized = sanitizePage(content)
@@ -172,7 +173,7 @@ test('a template element goes: its contents would ship in the file without anyon
 test('a style a page hides inside a diagram label goes too: only the diagram’s own style stays', () => {
   // Arrange
   const html =
-    '<div class="diagram"><svg viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg></div>'
+    '<div class="diagram"><svg id="p1-d1" viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg></div>'
 
   // Act
   const sanitized = sanitizePage(html)
@@ -193,4 +194,16 @@ test('a style in an SVG the page wrote itself goes: it would apply to the whole 
   // Assert
   expect(sanitized).not.toContain('#pageno')
   expect(sanitized).toContain('<rect')
+})
+
+test('a style in an SVG a page wrote inside its own .diagram goes: only the svg page.html drew for a diagram keeps one', () => {
+  // Arrange
+  const html =
+    '<div class="diagram"><svg viewBox="0 0 10 10"><style>body { display: none }</style><rect width="10" height="10"></rect></svg></div>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  expect(sanitized).not.toContain('display: none')
 })

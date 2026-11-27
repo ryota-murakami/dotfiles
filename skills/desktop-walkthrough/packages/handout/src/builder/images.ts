@@ -463,19 +463,52 @@ function metadataSecretShape(raster: Uint8Array): string | null {
 }
 
 /**
- * The first picture an SVG links instead of carrying: an `<image>` or `<feImage>` whose `href` or
- * `xlink:href` is neither data nor a reference within the drawing (`#id`).
+ * Whether an SVG's link points at a file: neither data nor a reference within the drawing (`#id`).
  *
- * @param parsed - The SVG's document.
- * @returns The link as written, or null when the drawing links no picture.
+ * @param target - An href, a src or a url(…) target as written.
+ * @returns Whether a picture shown as an image would have to load it.
  *
  * @example
- * linkedPicture(parse('<svg …><image href="shot.png"/></svg>')) // 'shot.png'
+ * isFileLink('shot.png')  // true
+ * isFileLink('#gradient') // false
+ */
+function isFileLink(target: string): boolean {
+  return target !== '' && !target.startsWith('#') && !/^data:/i.test(target)
+}
+
+/**
+ * The first picture an SVG loads instead of carrying: an `<image>` or `<feImage>` whose `href` or
+ * `xlink:href` is neither data nor a reference within the drawing (`#id`), an HTML `<img>` of a label
+ * (foreignObject) whose `src` is not data, or a style's `url(…)` of a file.
+ *
+ * @param parsed - The SVG's document.
+ * @returns The link as written, or null when the drawing loads no picture.
+ *
+ * @example
+ * linkedPicture(parse('<svg …><image href="shot.png"/></svg>'))              // 'shot.png'
+ * linkedPicture(parse('<svg …><rect style="fill: url(texture.png)"/></svg>')) // 'texture.png'
  */
 function linkedPicture(parsed: Document): string | null {
-  for (const element of Array.from(parsed.querySelectorAll('image, feImage'))) {
-    const link = (element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '').trim()
-    if (link !== '' && !link.startsWith('#') && !/^data:/i.test(link)) return link
+  for (const element of Array.from(parsed.querySelectorAll('*'))) {
+    const name = element.localName
+    // An <image> or a filter's <feImage> names its picture in href; a label's HTML <img> in src
+    const linked =
+      name === 'image' || name === 'feImage'
+        ? (element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '').trim()
+        : name === 'img'
+          ? (element.getAttribute('src') ?? '').trim()
+          : ''
+    if (isFileLink(linked)) return linked
+    // A style (an attribute or a <style>) that loads a file by url(…)
+    const styles = [
+      ...Array.from(element.attributes, (attribute) => attribute.value),
+      name === 'style' ? (element.textContent ?? '') : '',
+    ]
+    for (const style of styles) {
+      for (const match of style.matchAll(/url\(\s*["']?([^"')\s]+)/gi)) {
+        if (isFileLink(match[1] ?? '')) return match[1] ?? ''
+      }
+    }
   }
   return null
 }

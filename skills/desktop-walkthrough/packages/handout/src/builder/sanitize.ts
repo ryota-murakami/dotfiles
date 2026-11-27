@@ -27,6 +27,9 @@ const RESERVED_IDS: ReadonlySet<string> = new Set([
   HANDOUT_DOM.pageNumberId,
 ])
 
+/** The id page.html gives the svg of a diagram it drew in Handout mode: `p<page>-d<diagram>`. */
+const DIAGRAM_SVG_ID = /^p\d+-d\d+$/
+
 /** A page's position id (`page-3`), which `#3` and the verify probe look up. */
 const PAGE_POSITION_ID = new RegExp(`^${HANDOUT_DOM.pageIdPrefix}\\d+$`)
 
@@ -77,12 +80,14 @@ export function sanitizePage(html: string): string {
   // A page's own <style> would apply to every page of the one file a Handout is, though each page
   // was measured alone; mermaid's styles sit inside its SVG, scoped by the diagram's id
   // An SVG's style applies to the whole document, so only a diagram's own stays: a child of the svg
-  // mermaid drew in a .diagram (its rules scoped by the diagram's id). One in an SVG the page wrote,
-  // or inside a diagram's HTML label (foreignObject), goes like the page's own styles
+  // page.html drew for a diagram (a .diagram holder, the svg's id p<page>-d<diagram>, its rules scoped
+  // by that id). One in an SVG the page wrote, or inside a diagram's HTML label (foreignObject), goes
+  // like the page's own styles
   for (const style of Array.from(fragment.querySelectorAll('style'))) {
     const svg = style.parentElement
     const ownedByDiagram =
       svg?.localName === 'svg' &&
+      DIAGRAM_SVG_ID.test(svg.id) &&
       svg.parentElement?.classList.contains('diagram') === true &&
       style.closest('foreignObject') === null
     if (!ownedByDiagram) style.remove()
