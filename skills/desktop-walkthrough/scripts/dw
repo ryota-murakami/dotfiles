@@ -813,8 +813,9 @@ explain_rebuild() {
 #   <!-- hud-only --> … <!-- /hud-only -->          shown in the HUD, left out of a Handout
 #   <!-- handout-only --> … <!-- /handout-only -->  only in a Handout (the HUD leaves it out)
 # Words a page uses for the HUD itself mean nothing to a reader of a Handout: outside a hud-only block
-# they give a warning, never a stop. The list is kept by hand beside the labels in hud/*.swift
-HANDOUT_HUD_WORDS="HUD|解説パネル|このパネル|ステータスバー|読んだ ▼|先へ ▼|理解した|完了しました|できない・中断|本のボタン"
+# they give a warning, never a stop. The list is kept by hand beside the labels in hud/*.swift, plus
+# the words real pages used for the surfaces (the first page of a walkthrough explains how to steer it)
+HANDOUT_HUD_WORDS="HUD|解説パネル|このパネル|右のパネル|左のパネル|ステータスバー|カードの|ミラー|緑の枠|読んだ ▼|先へ ▼|理解した|完了しました|できない・中断|質問・中断|本のボタン"
 
 # Print SRC's text for AUDIENCE (hud or handout) and append one line per problem to the file PROBLEMS:
 # "error<TAB>LINE<TAB>text" for a marker without its partner, and for the Handout
@@ -1348,6 +1349,9 @@ cmd_handout() (
   echo "handout: record $name ($dir)"
   # Never replace what is not a Handout; the renderer checks again at the moment it writes (eng D7)
   if [ -d "$out" ]; then handout_fail HANDOUT_OUT_EXISTS "$out is a folder: name a file"; exit 1; fi
+  if [ ! -d "$(dirname "$out")" ]; then
+    handout_fail HANDOUT_OUT_EXISTS "the folder of $out does not exist: create it, or choose another --out"; exit 1
+  fi
   if [ -e "$out" ] && ! handout_marked "$out"; then
     handout_fail HANDOUT_OUT_EXISTS "$out holds a file that is not a Handout: it was left as it is; choose another --out"; exit 1
   fi

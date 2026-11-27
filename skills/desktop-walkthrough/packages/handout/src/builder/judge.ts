@@ -93,7 +93,7 @@ export function judgeRenderedPage(
       const has = `${Math.round(label.width)}×${Math.round(label.height)}`
       diagnostics.push({
         code: 'HANDOUT_OVERFLOW',
-        message: `${where}: diagram ${diagram}: the label 「${excerpt(maskSecrets(label.text))}」 needs ${needs} px in a ${has} px box; shorten it or break the line with <br>`,
+        message: `${where}: diagram ${diagram}: the label 「${excerpt(maskSecrets(label.text))}」 needs ${needs} px in a ${has} px box: a style on the page changes diagram text, or a font loaded late; remove the style or shorten the label`,
         ...location,
       })
     }

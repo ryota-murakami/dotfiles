@@ -446,7 +446,13 @@ final class HUDRenderer: NSObject, WKScriptMessageHandler, WKNavigationDelegate 
 
     func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
         guard let report = message.body as? [String: Any], report["type"] as? String == "rendered" else { return }
-        let probe = "return { content: document.getElementById('content').innerHTML, blocks: document.querySelectorAll('.rd-block').length }"
+        // Which block is read or ahead is reading state, set by timers that may run before or after the
+        // report: it is left out, so the comparison sees the page's structure only
+        let probe = """
+        const content = document.getElementById('content').cloneNode(true);
+        for (const block of content.querySelectorAll('.rd-ahead, .rd-read')) block.classList.remove('rd-ahead', 'rd-read');
+        return { content: content.innerHTML, blocks: document.querySelectorAll('.rd-block').length };
+        """
         pageView.callAsyncJavaScript(probe, arguments: [:], in: nil, in: .page) { result in
             self.timer?.cancel()
             guard case .success(let value) = result, let dom = value as? [String: Any] else {

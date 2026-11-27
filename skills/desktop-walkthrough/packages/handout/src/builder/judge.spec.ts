@@ -80,7 +80,7 @@ test('a label wider than its node stops the export, quoting the label and both s
     {
       code: 'HANDOUT_OVERFLOW',
       message:
-        'pages/02-判定の仕組み.md:3: diagram 1: the label 「利用者が書き出しを押す」 needs 168×24 px in a 120×24 px box; shorten it or break the line with <br>',
+        'pages/02-判定の仕組み.md:3: diagram 1: the label 「利用者が書き出しを押す」 needs 168×24 px in a 120×24 px box: a style on the page changes diagram text, or a font loaded late; remove the style or shorten the label',
       page: 2,
       diagram: 1,
       line: 3,

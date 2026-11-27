@@ -9,6 +9,7 @@
 # on screen: scripts/check runs this file in a logged-in macOS session and skips it elsewhere.
 #
 # Usage: scripts/handout-check   exit 0 when every case passed
+#        DW_HANDOUT_CHECK_KEEP=1 scripts/handout-check   keep the scratch folder to look at a failure
 set -u
 cd "$(dirname "$0")/.." || exit 1
 SKILL_DIR=$(pwd)
@@ -17,7 +18,11 @@ pass() { printf '  ✓ %s\n' "$1"; }
 fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
 
 scratch=$(mktemp -d)
-trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+if [ -n "${DW_HANDOUT_CHECK_KEEP:-}" ]; then
+  trap 'echo "scratch kept: $scratch"' EXIT
+else
+  trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+fi
 export DW_HOME="$scratch/state" DW_CONFIG="$scratch/config"
 RECORDS="$DW_CONFIG/walkthroughs"
 mkdir -p "$DW_HOME/explain/vendor" "$DW_HOME/bin" "$RECORDS"
@@ -199,11 +204,12 @@ else
 fi
 
 new_record overflow
-printf '\n```mermaid\nflowchart LR\n  A[ExportPolicyRepositoryFactoryProviderConfigurationResolverInterface] --> B[短い]\n```\n' \
-  >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
+# mermaid measures a label outside the page's diagrams: a style that enlarges text inside them makes
+# every label lay out larger than the box it was given
+printf '\n<style>.diagram .nodeLabel { font-size: 40px; }</style>\n' >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
 export_record overflow
-if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:23: diagram 3: the label' <<< "$out"; then
-  pass "a label wider than its node stops with HANDOUT_OVERFLOW (so the concealed window lays out)"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:5: diagram 1: the label' <<< "$out"; then
+  pass "a label laid out larger than its node stops with HANDOUT_OVERFLOW (so the concealed window lays out)"
 else
   fail "overflow: $out"
 fi

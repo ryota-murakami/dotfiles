@@ -77,10 +77,9 @@
   .diagram svg { max-width: 100%; height: auto; }
   .diagram.wide { cursor: zoom-out; text-align: left; }
   .diagram-error { color: #ff9b9b; text-align: left; white-space: pre-wrap; cursor: default; }
-  /* A Handout's diagrams: the text settings mermaid measured them with when they were drawn for the
-     Handout, and the same in the Handout itself (`dw handout` takes this CSS). Page line height and
-     wrapping would make node labels spill out of their boxes */
-  body.handout .diagram { line-height: normal; overflow-wrap: normal; font-size: 16px; }
+  /* `dw handout` takes this CSS for the Handout (without the reading marks below), so a diagram shows
+     there with the text settings mermaid measured its labels with when it was drawn: rules scoped to
+     .diagram that change text would make labels spill out of their boxes (HANDOUT_OVERFLOW) */
   /* handout: reading marks begin */
   /* Reading marks: a check in the gutter of every block, a frame on the block being read, a rail of
      dots down the right edge. `rd-on` is set by the script once the blocks are wrapped. */

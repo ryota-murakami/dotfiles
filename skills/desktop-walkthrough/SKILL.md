@@ -168,7 +168,7 @@ The HUD leaves out handout-only blocks and the Handout leaves out hud-only ones;
 | `HANDOUT_VENDOR` | a library of the Explainer is missing, changed, or did not load | `$DW doctor`; dw fetches the libraries, so check the network |
 | `HANDOUT_SECRET` | a secret shape at `pages/NN-*.md:LINE`, named by its shape (never its value) | take the value out of the page (say where it comes from instead, such as `op://…`), then export again |
 | `HANDOUT_DIAGRAM` | a diagram did not render, or nothing was laid out to check | fix the diagram at the line given; when every diagram fails, `$DW doctor` |
-| `HANDOUT_OVERFLOW` | a diagram label does not fit its box | shorten the label or break it with `<br>` (a long identifier breaks nowhere) |
+| `HANDOUT_OVERFLOW` | a diagram label lays out larger than the box mermaid made for it | a style on the page that changes text inside diagrams is the usual cause: remove it (or shorten the label) |
 | `HANDOUT_IMAGE` | an image could not be embedded | point it at a local png, jpg, gif, webp, avif or svg that exists (relative to the record's `pages/`, or absolute) |
 | `HANDOUT_TEMPLATE` | `explainer/page.html` lacks its reading-marks markers | a skill bug: report it with the message |
 | `HANDOUT_VERIFY` | the finished file, opened under its own policy, lost diagram labels or its controls did not run | a skill bug: report it with the message; nothing was published |
