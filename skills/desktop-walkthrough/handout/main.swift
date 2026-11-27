@@ -529,9 +529,16 @@ func temporaryPath(for target: String) -> String {
 func holdsOnlyStartOf(_ descriptor: Int32, _ data: Data) -> Bool {
     var now = stat()
     guard fstat(descriptor, &now) == 0, now.st_size <= off_t(data.count) else { return false }
-    var content = [UInt8](repeating: 0, count: Int(now.st_size))
-    let count = content.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, Int(now.st_size), 0) }
-    return count == Int(now.st_size) && data.prefix(count).elementsEqual(content)
+    let size = Int(now.st_size)
+    var content = [UInt8](repeating: 0, count: size)
+    // Read to the end: a read may return less than asked (a network volume)
+    var filled = 0
+    while filled < size {
+        let count = content.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress! + filled, size - filled, off_t(filled)) }
+        guard count > 0 else { return false }
+        filled += count
+    }
+    return data.prefix(size).elementsEqual(content)
 }
 
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
