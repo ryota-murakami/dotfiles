@@ -667,6 +667,21 @@ else
 fi
 rm -f "$kept"
 
+# An earlier Handout whose content could not be read first (larger than the digest's limit, set to
+# 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning
+handout_input "$RECORDS/direct" "$scratch/unread.html" "$scratch/unread-explain" "$scratch/unread.json"
+"$BIN" "$scratch/unread.json" "$DIST" > /dev/null
+jq '.limits.digestLimitBytes = 1' "$scratch/unread.json" > "$scratch/unread-limited.json"
+result=$("$BIN" "$scratch/unread-limited.json" "$DIST")
+kept=$(find "$scratch" -maxdepth 1 -name '.unread.html.dw-handout-*.tmp' | head -1)
+if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout could not be checked for a save made while it was replaced: it is kept at \($kept)") != null)' <<< "$result" >/dev/null \
+  && [ -n "$kept" ] && grep -q 'name="dw-handout"' "$kept"; then
+  pass "an earlier Handout whose content could not be read first is kept beside, with its own warning"
+else
+  fail "unread earlier Handout (kept: ${kept:-none}): $result"
+fi
+rm -f "$kept"
+
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"
 mkdir -p "$limits/pages"

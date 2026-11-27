@@ -333,7 +333,8 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// temporary path is removed only when it holds exactly the bytes written, and a save made into the
 /// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
-func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0, keepGoing: () -> Bool = { true },
+func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0,
+             digestLimit: Int = digestLimitBytes, keepGoing: () -> Bool = { true },
              mayContinue: (Int) -> Bool, mayPublish: () -> Bool, writingInPlace: (String) -> Void) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
@@ -344,7 +345,7 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     if hadTarget, !isHandout(atPath: target) { return .notAHandout }
     // What the earlier Handout held when first looked at, read while it stays that file with those
     // stamps (else unknown): the file swapped out is removed only when it holds exactly this
-    let firstDigest = hadTarget && present.st_size <= off_t(digestLimitBytes)
+    let firstDigest = hadTarget && present.st_size <= off_t(digestLimit)
         ? stableDigest(atPath: target, expected: present, keepGoing: keepGoing) : nil
     let folder = (target as NSString).deletingLastPathComponent
     let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
@@ -451,8 +452,8 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
                 return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(temporary)"])
             }
             var now = stat()
-            // Unchanged while this one was written (its change time too: no rename yet), the same file
-            // swapped out (the swap changed its change time), and unchanged since (change time too)
+            // The same file with the same size and modification time from the first look to the look
+            // before the swap and to the file swapped out (the swap changes the change time)
             let stampsKept = lookedAgain && sameFile(present, beforeSwap) && sameContentStamp(present, beforeSwap)
                 && sameFile(beforeSwap, replaced) && sameContentStamp(beforeSwap, replaced)
             // The content decides: the file swapped out must hold what the first look read (a save that
@@ -592,6 +593,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let parentCheckMs: Int
     /// Test only (input.json limits.writePauseMs): a pause after each chunk of the Handout is written.
     let writePauseMs: Int
+    /// Test only (input.json limits.digestLimitBytes): the largest earlier Handout whose content is read.
+    let digestLimit: Int
     /// Page number → built page, relative to explainDir.
     let builtPages: [Int: String]
     let window: NSWindow
@@ -615,7 +618,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let startedAt = Date()
 
     init(input: [String: Any], explainDir: URL, distDir: URL, out: String, logPath: String,
-         pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, writePauseMs: Int = 0, builtPages: [Int: String]) {
+         pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, writePauseMs: Int = 0,
+         digestLimit: Int = digestLimitBytes, builtPages: [Int: String]) {
         self.input = input
         self.explainDir = explainDir
         self.distDir = distDir
@@ -625,6 +629,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         self.runLimitMs = runLimitMs
         self.parentCheckMs = parentCheckMs
         self.writePauseMs = writePauseMs
+        self.digestLimit = digestLimit
         self.builtPages = builtPages
         FileManager.default.createFile(atPath: logPath, contents: nil)
         logHandle = FileHandle(forWritingAtPath: logPath)
@@ -797,11 +802,12 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         let target = out
         let temporary = temporaryPath(for: target)
         let pause = writePauseMs
+        let limit = digestLimit
         publicationGate.beginWrite(temporary, total: data.count)
         publicationStarted = true
         DispatchQueue.global(qos: .userInitiated).async {
             let stillWanted = { self.parentIsAlive() && !self.pastDeadline() }
-            let publication = publish(data, to: target, temporary: temporary, writePauseMs: pause,
+            let publication = publish(data, to: target, temporary: temporary, writePauseMs: pause, digestLimit: limit,
                                       keepGoing: { !self.publicationGate.isStopped() && stillWanted() },
                                       mayContinue: { self.publicationGate.mayContinue(written: $0, stillWanted) },
                                       mayPublish: { self.publicationGate.allowCommit(stillWanted) },
@@ -1092,6 +1098,7 @@ let renderer = Renderer(input: input, explainDir: URL(fileURLWithPath: explainPa
                         distDir: URL(fileURLWithPath: arguments[2], isDirectory: true), out: out, logPath: logPath,
                         pageLimitMs: pageLimitMs, runLimitMs: runLimitMs,
                         parentCheckMs: (limits["parentMs"] as? Int) ?? defaultParentCheckMs,
-                        writePauseMs: (limits["writePauseMs"] as? Int) ?? 0, builtPages: builtPages)
+                        writePauseMs: (limits["writePauseMs"] as? Int) ?? 0,
+                        digestLimit: (limits["digestLimitBytes"] as? Int) ?? digestLimitBytes, builtPages: builtPages)
 renderer.start()
 withExtendedLifetime(renderer) { app.run() }
