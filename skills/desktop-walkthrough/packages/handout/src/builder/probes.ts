@@ -33,8 +33,10 @@ export interface MeasureArgs {
 }
 
 /**
- * Probe run after a page reported: open every `<details>`, measure each diagram label, close them
- * again and take the content. Closed details lay nothing out, so their labels would measure 0 (DX D9).
+ * Probe run after a page reported: open every `<details>` (an accordion's shared name taken off, so
+ * opening one closes no other), measure each diagram label by its box and by the text it holds, put
+ * every details back as the author left it and take the content. Closed details lay nothing out, so
+ * their labels would measure 0 (DX D9).
  *
  * @param args - Where the content is.
  * @returns A {@link PageMeasurement}, parsed by the builder.
@@ -45,30 +47,45 @@ export interface MeasureArgs {
 export async function measurePage(args: MeasureArgs): Promise<unknown> {
   const content = document.getElementById(args.contentId)
   if (!content) return { html: '', diagrams: [] }
-  const closed = Array.from(content.querySelectorAll('details')).filter((details) => !details.open)
-  for (const details of closed) details.open = true
-  // Two frames: the opened details lay out before anything is measured
-  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-  const diagrams = Array.from(content.querySelectorAll('.diagram')).map((holder) => {
-    const svg = holder.querySelector('svg')
-    const labels = svg
-      ? Array.from(svg.querySelectorAll('foreignObject, text')).map((label) => {
-          const box = label.getBoundingClientRect()
-          // A foreignObject's HTML can lay out past its box; an SVG text is its own box
-          const inner = label.localName === 'foreignObject' ? label.firstElementChild : null
-          const innerBox = inner ? inner.getBoundingClientRect() : box
-          return {
-            text: (label.textContent ?? '').trim(),
-            width: box.width,
-            height: box.height,
-            contentWidth: innerBox.width,
-            contentHeight: innerBox.height,
-          }
-        })
-      : []
-    return { id: svg ? svg.id : '', labels }
-  })
-  for (const details of closed) details.open = false
+  const allDetails = Array.from(content.querySelectorAll('details'))
+  const wasOpen = allDetails.map((details) => details.open)
+  // Details that share a name are an accordion: opening one would close another. Each is measured
+  // open with its name taken off, then its name and its state come back as the author left them
+  const names = allDetails.map((details) => details.getAttribute('name'))
+  for (const details of allDetails) details.removeAttribute('name')
+  for (const details of allDetails) details.open = true
+  let diagrams: Array<{ id: string; labels: LabelBox[] }> = []
+  try {
+    // Two frames: the opened details lay out before anything is measured
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    diagrams = Array.from(content.querySelectorAll('.diagram')).map((holder) => {
+      const svg = holder.querySelector('svg')
+      const labels = svg
+        ? Array.from(svg.querySelectorAll('foreignObject, text')).map((label) => {
+            const box = label.getBoundingClientRect()
+            // A foreignObject's HTML can lay out past its box, or be clipped inside its wrapper: the
+            // wrapper's scroll size is the text it holds. An SVG text is its own box
+            const inner = label.localName === 'foreignObject' ? label.firstElementChild : null
+            const innerBox = inner ? inner.getBoundingClientRect() : box
+            return {
+              text: (label.textContent ?? '').trim(),
+              width: box.width,
+              height: box.height,
+              contentWidth: inner ? Math.max(innerBox.width, inner.scrollWidth) : box.width,
+              contentHeight: inner ? Math.max(innerBox.height, inner.scrollHeight) : box.height,
+            }
+          })
+        : []
+      return { id: svg ? svg.id : '', labels }
+    })
+  } finally {
+    allDetails.forEach((details, index) => {
+      details.open = wasOpen[index] ?? false
+      const name = names[index]
+      if (name !== null && name !== undefined) details.setAttribute('name', name)
+    })
+  }
+  // The content as the author left it: every details back in its own state, with its name
   return { html: content.innerHTML, diagrams }
 }
 

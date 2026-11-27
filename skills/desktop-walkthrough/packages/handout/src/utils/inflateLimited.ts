@@ -1,3 +1,5 @@
+import { INFLATE_INPUT_CHUNK_BYTES } from '../constants'
+
 /** Why compressed bytes could not be inflated: no inflater in this WebKit, broken data, or more than allowed. */
 export type InflateFailure = 'unavailable' | 'broken' | 'too-large'
 
@@ -24,14 +26,23 @@ export async function inflateLimited(
   limitBytes: number,
 ): Promise<{ ok: true; bytes: Uint8Array } | { ok: false; reason: InflateFailure }> {
   if (typeof DecompressionStream === 'undefined') return { ok: false, reason: 'unavailable' }
-  const inflater = new DecompressionStream('deflate')
-  const writer = inflater.writable.getWriter()
-  // The write settles with the read below; its own rejection is the read's error too
-  writer
-    .write(new Uint8Array(compressed))
-    .then(() => writer.close())
-    .catch(() => undefined)
-  const reader = inflater.readable.getReader()
+  // The compressed bytes go in a little at a time, as the inflater asks for more: a small input that
+  // inflates to gigabytes is stopped once its output passes the limit, never inflated whole first
+  let fed = 0
+  const input = new ReadableStream<BufferSource>(
+    {
+      pull(controller) {
+        if (fed >= compressed.length) {
+          controller.close()
+          return
+        }
+        controller.enqueue(compressed.slice(fed, fed + INFLATE_INPUT_CHUNK_BYTES))
+        fed += INFLATE_INPUT_CHUNK_BYTES
+      },
+    },
+    { highWaterMark: 0 },
+  )
+  const reader = input.pipeThrough(new DecompressionStream('deflate')).getReader()
   const chunks: Uint8Array[] = []
   let total = 0
   try {

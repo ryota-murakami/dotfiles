@@ -76,9 +76,15 @@ export function sanitizePage(html: string): string {
   const fragment = handoutPurifier().sanitize(html, { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true })
   // A page's own <style> would apply to every page of the one file a Handout is, though each page
   // was measured alone; mermaid's styles sit inside its SVG, scoped by the diagram's id
-  // A style inside a diagram's HTML label (foreignObject) is the page's HTML: it goes too
+  // An SVG's style applies to the whole document, so only a diagram's own stays: a child of the svg
+  // mermaid drew in a .diagram (its rules scoped by the diagram's id). One in an SVG the page wrote,
+  // or inside a diagram's HTML label (foreignObject), goes like the page's own styles
   for (const style of Array.from(fragment.querySelectorAll('style'))) {
-    const ownedByDiagram = style.parentElement?.localName === 'svg' && style.closest('foreignObject') === null
+    const svg = style.parentElement
+    const ownedByDiagram =
+      svg?.localName === 'svg' &&
+      svg.parentElement?.classList.contains('diagram') === true &&
+      style.closest('foreignObject') === null
     if (!ownedByDiagram) style.remove()
   }
   // Read back in a document without a window: nothing in it loads (an image of a page fetches nothing)

@@ -385,6 +385,18 @@ async function inspectImage(
     }
     const [finding] = findSecrets(`${text}\n${collectReadableText(parsed)}`)
     if (finding) return secretIn(finding.pattern, 'remove the value from the file')
+    // A picture the drawing links (`<image href="shot.png">`) does not load where the drawing is
+    // shown as an image: the Handout would show it without that picture
+    const linked = linkedPicture(parsed)
+    if (linked !== null) {
+      return {
+        ok: false,
+        failure: {
+          code: 'HANDOUT_IMAGE',
+          reason: `draws a picture it links to (${excerpt(maskSecrets(linked))}), which it cannot show inside the Handout: embed that picture in the SVG`,
+        },
+      }
+    }
     // A picture the drawing carries (a screenshot as data) is checked like one of its own
     for (const nested of nestedPictures(parsed)) {
       if (depth >= NESTED_PICTURE_DEPTH) {
@@ -446,6 +458,24 @@ function metadataSecretShape(raster: Uint8Array): string | null {
   for (const text of byteTexts(raster)) {
     const [finding] = findSecrets(`${text}\n${decodeXmlEntities(text)}`)
     if (finding) return finding.pattern
+  }
+  return null
+}
+
+/**
+ * The first picture an SVG links instead of carrying: an `<image>` or `<feImage>` whose `href` or
+ * `xlink:href` is neither data nor a reference within the drawing (`#id`).
+ *
+ * @param parsed - The SVG's document.
+ * @returns The link as written, or null when the drawing links no picture.
+ *
+ * @example
+ * linkedPicture(parse('<svg …><image href="shot.png"/></svg>')) // 'shot.png'
+ */
+function linkedPicture(parsed: Document): string | null {
+  for (const element of Array.from(parsed.querySelectorAll('image, feImage'))) {
+    const link = (element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '').trim()
+    if (link !== '' && !link.startsWith('#') && !/^data:/i.test(link)) return link
   }
   return null
 }

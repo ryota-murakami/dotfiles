@@ -89,3 +89,9 @@ export const BASE64_CHUNK_BYTES = 32_768
 
 /** How deep pictures may nest inside an SVG (a drawing holding a screenshot): each level is checked like a picture of its own. */
 export const NESTED_PICTURE_DEPTH = 2
+
+/**
+ * How many compressed bytes go into the inflater at a time: deflate expands at most about 1,000
+ * times, so no single step holds more than about a megabyte before the output limit is looked at.
+ */
+export const INFLATE_INPUT_CHUNK_BYTES = 1_024

@@ -703,3 +703,18 @@ test('a file: link with a single slash names a local file like file:///', async 
   // Assert
   expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
 })
+
+test('an SVG that draws a picture by linking it stops the export: a picture shown as an image loads no link', async () => {
+  // Arrange
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"><image href="shot.png" width="10" height="10"/></svg>'
+  const host = hostWithFiles({ '/r/pages/linked.svg': toBase64(svg) })
+  const html = '<p><img src="linked.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](linked.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image linked.svg draws a picture it links to (shot.png), which it cannot show inside the Handout: embed that picture in the SVG',
+  ])
+})

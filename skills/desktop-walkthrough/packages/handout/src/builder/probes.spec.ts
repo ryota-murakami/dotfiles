@@ -189,3 +189,42 @@ test('a picture shown on several pages is decoded once, and each place it shows 
     { page: 2, image: 1 },
   ])
 })
+
+test('details that share a name (an accordion) are each measured open, and come back as the author left them', async () => {
+  // Arrange
+  layOutOpenDetailsOnly()
+  document.body.innerHTML =
+    '<main id="content">' +
+    '<details name="faq" open><summary>一</summary><div class="diagram"><svg id="p1-d1"><foreignObject><div>開いている</div></foreignObject></svg></div></details>' +
+    '<details name="faq"><summary>二</summary><div class="diagram"><svg id="p1-d2"><foreignObject><div>閉じている</div></foreignObject></svg></div></details>' +
+    '</main>'
+
+  // Act
+  const measured = pageMeasurementSchema.parse(await measurePage({ contentId: 'content' }))
+
+  // Assert
+  expect(measured.diagrams.map((diagram) => diagram.labels[0]?.width)).toEqual([70, 70])
+  const details = Array.from(document.querySelectorAll('details'))
+  expect(details.map((element) => [element.getAttribute('name'), element.open])).toEqual([
+    ['faq', true],
+    ['faq', false],
+  ])
+})
+
+test('a label clipped inside its wrapper is measured by the text it holds, not by the wrapper', async () => {
+  // Arrange
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 70, 24))
+  document.body.innerHTML =
+    '<main id="content"><div class="diagram"><svg id="p1-d1"><foreignObject><div class="clip">とても長いラベルの文字</div></foreignObject></svg></div></main>'
+  const wrapper = document.querySelector('.clip')
+  if (wrapper) {
+    Object.defineProperty(wrapper, 'scrollWidth', { configurable: true, value: 140 })
+    Object.defineProperty(wrapper, 'scrollHeight', { configurable: true, value: 24 })
+  }
+
+  // Act
+  const measured = pageMeasurementSchema.parse(await measurePage({ contentId: 'content' }))
+
+  // Assert
+  expect(measured.diagrams[0]?.labels[0]).toMatchObject({ width: 70, contentWidth: 140, contentHeight: 24 })
+})

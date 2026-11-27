@@ -195,3 +195,24 @@ test('a long run of quote markers that opens no fence is read at once, not by tr
   expect(lines).toEqual([4])
   expect(performance.now() - started).toBeLessThan(200)
 })
+
+test('a fence ends where its quote or list item ends, so the diagram after it is found at its line', () => {
+  // Arrange
+  const markdown = [
+    '> ```',
+    '> 引用の中',
+    '引用の外',
+    '- ```',
+    '  項目の中',
+    'リストの外',
+    '```mermaid',
+    'flowchart LR',
+    '```',
+  ].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([7])
+})

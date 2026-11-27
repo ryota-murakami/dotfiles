@@ -326,27 +326,39 @@ record_page() {
   else
     : > "$rows"
   fi
+  # The section each page was filed under and the title given with --title ("N<TAB>section[<TAB>title]"),
+  # so a resumed walkthrough and a Handout list the page the same way. A tab or a line break in either
+  # would break the row: they become spaces (jq -j adds no line break of its own, which would become one).
+  # The new index is staged before the page changes: a page is never published without its row
+  step=$(jq -j --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json" 2>/dev/null | tr '\t\r\n' '   ')
+  given=$(printf '%s' "$given" | tr '\t\r\n' '   ')
+  if ! {
+    cat "$rows"
+    if [ -n "$given" ]; then printf '%s\t%s\t%s\n' "$n" "$step" "$given"; else printf '%s\t%s\n' "$n" "$step"; fi
+  } | sort -n > "$sections.part.$$" 2>/dev/null; then
+    rm -f "$rows" "$sections.part.$$" 2>/dev/null
+    release_lock 8
+    echo "dw: page $n: the record's sections.tsv could not be written: the record was left as it was" >&2
+    return 1
+  fi
+  rm -f "$rows"
   # Written beside under a name of this process (two writers never share it), then renamed: a reader
   # (dw handout) never sees half a page, and a write that fails removes nothing
   part="$dir/pages/.$nn.md.part.$$"
   if ! { cp "$md" "$part" && mv "$part" "$page"; }; then
-    rm -f "$part" "$rows"
+    rm -f "$part" "$sections.part.$$"
     release_lock 8
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
   # A replaced page keeps its number: an earlier file of that number under another title goes
   for old in "$dir/pages/$nn-"*.md; do [ -f "$old" ] && [ "$old" != "$page" ] && rm -f "$old"; done
-  # The section each page was filed under and the title given with --title ("N<TAB>section[<TAB>title]"),
-  # so a resumed walkthrough and a Handout list the page the same way. A tab or a line break in either
-  # would break the row: they become spaces (jq -j adds no line break of its own, which would become one)
-  step=$(jq -j --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json" 2>/dev/null | tr '\t\r\n' '   ')
-  given=$(printf '%s' "$given" | tr '\t\r\n' '   ')
-  {
-    cat "$rows"
-    if [ -n "$given" ]; then printf '%s\t%s\t%s\n' "$n" "$step" "$given"; else printf '%s\t%s\n' "$n" "$step"; fi
-  } | sort -n > "$sections.part.$$" && mv "$sections.part.$$" "$sections"
-  rm -f "$rows"
+  if ! mv "$sections.part.$$" "$sections"; then
+    rm -f "$sections.part.$$"
+    release_lock 8
+    echo "dw: page $n is in the record, but its row in sections.tsv could not be saved: show the page again (dw explain <file> --page $n)" >&2
+    return 1
+  fi
   record_handbook "$dir"
   release_lock 8
   [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
@@ -357,7 +369,7 @@ record_page() {
 # archive is complete (every page and sections.tsv copied and compared) before anything leaves the
 # record: a clear that fails part way has removed nothing
 record_clear() {
-  local dir base archive tries=0 n page moved=0 listed
+  local dir base archive tries=0 n page moved=0 listed stayed
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   listed=$(record_pages "$dir")
@@ -392,10 +404,19 @@ record_clear() {
     echo "dw: explain --clear: sections.tsv could not be copied to the archive: nothing was removed" >&2
     return 1
   fi
-  # The record's own copies go; one that cannot be removed stays in pages/ (and in the archive)
+  # The record's own copies go; one that cannot be removed stays in pages/ (and in the archive), with
+  # its row in sections.tsv, and the clear says it did not finish (the panel is left as it was)
+  stayed=""
   while IFS=$'\t' read -r n page; do
-    if rm -f "$page"; then moved=$((moved + 1)); else echo "dw: explain --clear: page $n could not be removed from pages/: it is in the archive too" >&2; fi
+    if rm -f "$page" 2>/dev/null; then moved=$((moved + 1)); else stayed="$stayed $n"; fi
   done <<< "$listed"
+  if [ -n "$stayed" ]; then
+    awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/sections.tsv" 2>/dev/null
+    record_handbook "$dir"
+    release_lock 8
+    echo "dw: explain --clear: page(s)$stayed could not be removed from pages/ (they stay, with their sections; every page is in pages/$(basename "$archive")/ too)" >&2
+    return 1
+  fi
   : > "$dir/pages/sections.tsv"
   record_handbook "$dir"
   release_lock 8
@@ -940,6 +961,10 @@ explain_filter() {
       # A page saved with Windows line endings: its markers and fences end in a carriage return
       sub(/\r$/, "")
       # Inside a fence only its closing line matters: a marker there is an example, shown as code
+      # A fence ends where its container does: a quote at a line without ">", a list item at a line
+      # (not blank) indented less than its text. The line is then read like any other
+      if (fence != "" && quoted && $0 !~ /^ ? ? ?>/) { fence = ""; quoted = 0 }
+      if (fence != "" && !quoted && indent > 0 && $0 !~ /^[ \t]*$/) { match($0, /^[ \t]*/); if (RLENGTH < indent) fence = "" }
       if (fence != "") {
         # A fence opened in a quote closes on a quoted line ("> ```")
         line = $0
@@ -1028,8 +1053,12 @@ explain_build() {
     '{n: $n, title: $title, step: $step, markdown: $markdown} + (if $audience == "handout" then {mode: "handout"} else {} end)' \
     | sed 's/</\\u003c/g' > "$data"
   rm -f "$shown"
-  awk -v data="$data" '/<!--DW_DATA-->/ { while ((getline line < data) > 0) print line; next } { print }' \
-    "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part.$$" && mv "$EXPLAIN/$file.part.$$" "$EXPLAIN/$file"
+  # The page is listed only once its HTML is in place: a build that cannot write it lists nothing
+  if ! { awk -v data="$data" '/<!--DW_DATA-->/ { while ((getline line < data) > 0) print line; next } { print }' \
+    "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part.$$" && mv "$EXPLAIN/$file.part.$$" "$EXPLAIN/$file"; }; then
+    rm -f "$EXPLAIN/$file.part.$$" "$data"
+    return 1
+  fi
   rm -f "$data"
   jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$file" --argjson current "$current" \
     '.pages = ([.pages[] | select(.n != $n)] + [{n: $n, title: $title, step: $step, file: $file}] | sort_by(.n)) | .current = $current' \
@@ -1127,7 +1156,10 @@ cmd_explain() {
   # --back with a page: the request is in place before the page is listed, so the panel takes the new
   # page and steps behind the app in the same moment
   [ "$request" = back ] && printf 'back' > "$EXPLAIN/visibility-request"
-  explain_build "$n" "$title" "$step" "$md" "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)"
+  if ! explain_build "$n" "$title" "$step" "$md" "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)"; then
+    release_lock 7
+    die "page $n could not be built (its HTML could not be written in $EXPLAIN/pages): the panel does not list it; run the command again"
+  fi
   printf '%s %s\n' "$(date +%H:%M:%S)" "explain: page $n ${title}" >> "$DW_HOME/narration.log"
   # The page is shown either way; a record that could not keep it is said, never passed over
   if ! record_page "$n" "$title" "$md" "$given"; then
@@ -1598,29 +1630,37 @@ LIST
   mkdir -p "$tmp/source"
   # Read every page for the Handout audience; pages that changed meanwhile are read once more
   for attempt in 1 2; do
-    # The pages this reading stages, listed once; its listing and its copy of sections.tsv come from
-    # this list, so what is compared afterwards is exactly what was staged
+    # The record as one moment holds it: the list, sections.tsv and a copy of every page are taken
+    # while no dw writes it (its lock, when the folder can be locked), then built without the lock.
+    # Its listing comes from this list, so what is compared afterwards is exactly what was staged
+    if [ -w "$dir/pages" ] && ! hold_lock "$dir/pages/.dw-lock" 8 2>/dev/null; then
+      handout_fail HANDOUT_RECORD "the pages of $name are being written by another dw: export again in a moment"; exit 1
+    fi
     record_pages "$dir" > "$tmp/manifest.tsv"
     listing=$(handout_listing "$tmp/manifest.tsv" "$dir")
     cp "$dir/pages/sections.tsv" "$tmp/sections.tsv" 2>/dev/null || : > "$tmp/sections.tsv"
     # Two files of one number would both become page N: which one the colleague reads is not guessed.
-    # A page being rewritten has both for a moment (the new file is renamed in, then the old one goes):
-    # the first reading tries again, the second stops
+    # A page being rewritten by a dw from before the lock has both for a moment: the first reading
+    # tries again, the second stops
     duplicate=$(cut -f1 "$tmp/manifest.tsv" | uniq -d | head -1)
     if [ -n "$duplicate" ]; then
+      release_lock 8
       if [ "$attempt" = 1 ]; then echo "handout: two files for page $duplicate (a page being rewritten?): reading the pages again" >&2; continue; fi
       handout_fail HANDOUT_RECORD "$name has two files for page $duplicate in pages/: keep one, then export again"; exit 1
     fi
+    # One read of each page: its title, its build and the secret scan all come from this copy, so
+    # what is checked is what is shown, however the page changes meanwhile
+    while IFS=$'\t' read -r n page; do
+      if ! cp "$page" "$tmp/source/$(printf '%03d' "$n").md" 2>/dev/null; then
+        handout_fail HANDOUT_RECORD "page $n of $name could not be read: check its permissions, then export again"; exit 1
+      fi
+    done < "$tmp/manifest.tsv"
+    release_lock 8
     : > "$tmp/pages.jsonl"; : > "$tmp/problems.tsv"
     listed=0
     while IFS=$'\t' read -r n page; do
       listed=$((listed + 1))
-      # One read of the page: its title, its build and the secret scan all come from this copy, so
-      # what is checked is what is shown, however the page changes meanwhile
       copy="$tmp/source/$(printf '%03d' "$n").md"
-      if ! cp "$page" "$copy" 2>/dev/null; then
-        handout_fail HANDOUT_RECORD "page $n of $name could not be read: check its permissions, then export again"; exit 1
-      fi
       problems="$tmp/problems-$n.tsv"
       : > "$problems"
       title=$(record_title "$dir" "$n" "$page" handout "$copy" "$tmp/sections.tsv")

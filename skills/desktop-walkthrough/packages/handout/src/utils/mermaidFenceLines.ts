@@ -54,6 +54,17 @@ export function mermaidFenceLines(markdown: string): number[] {
   markdown.split('\n').forEach((line, index) => {
     // A page saved with Windows line endings: its fences and markers end in a carriage return
     const text = line.replace(/\r$/, '')
+    // A fence ends where its container does: a quote at a line without ">", a list item at a line
+    // (not blank) indented less than its text; the line is then read like any other
+    if (fence?.quoted && !/^ {0,3}>/.test(text)) fence = null
+    if (
+      fence &&
+      !fence.quoted &&
+      fence.indent > 0 &&
+      text.trim() !== '' &&
+      (/^[ \t]*/.exec(text)?.[0].length ?? 0) < fence.indent
+    )
+      fence = null
     // Inside a fence only its closing line matters: indented at most 3 past the list item it opened in
     if (fence) {
       // A fence opened in a quote closes on a quoted line

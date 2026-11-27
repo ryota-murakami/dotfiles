@@ -246,9 +246,29 @@ body.handout {
 .btn:focus-visible,
 .pager button:focus-visible,
 .toc button:focus-visible,
-.diagram:focus-visible {
+.diagram-toggle:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+/* A diagram's own button, in its top right corner: the keyboard's and the screen reader's way to show
+   the diagram at natural size (a click on the diagram does the same) */
+body.handout .diagram {
+  position: relative;
+}
+.diagram-toggle {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  background: rgba(18, 18, 18, 0.85);
+  color: #e9e9e9;
+  font: 12px/1 var(--ui-font);
+  cursor: pointer;
+}
+.diagram-toggle[aria-pressed='true'] {
+  border-color: var(--accent);
 }
 /* A finger needs a larger target than a pointer: 40px header controls in a header tall enough to hold
    them, 44px rows in the table of contents and the pager, a larger copy button */
@@ -267,7 +287,8 @@ body.handout {
   .pager button {
     min-height: 44px;
   }
-  body.handout .copy {
+  body.handout .copy,
+  .diagram-toggle {
     min-height: 36px;
     padding: 8px 12px;
   }
@@ -347,7 +368,8 @@ body.handout {
   .pager,
   .toc,
   .edge,
-  .copy {
+  .copy,
+  .diagram-toggle {
     display: none !important;
   }
   .scroller {

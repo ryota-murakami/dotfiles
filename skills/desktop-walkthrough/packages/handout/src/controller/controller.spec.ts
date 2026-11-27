@@ -423,26 +423,28 @@ test('arrow keys typed in a field or inside a code block stay there and do not t
   expect(visiblePages()).toEqual(['page-1'])
 })
 
-test('a diagram can be enlarged from the keyboard with Enter or Space, and says whether it is', () => {
+test('each diagram has its own enlarge button, which says whether the diagram is enlarged; the diagram stays readable', () => {
   // Arrange
   loadHandout()
   startHandout(document, memoryStore())
   const holder = document.querySelector<HTMLElement>('#page-2 .diagram')
+  const button = holder?.querySelector<HTMLButtonElement>('button.diagram-toggle')
 
   // Act
-  holder?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
-  const afterEnter = {
+  button?.click()
+  const afterClick = {
     wide: holder?.classList.contains('wide'),
-    pressed: holder?.getAttribute('aria-pressed'),
+    pressed: button?.getAttribute('aria-pressed'),
   }
-  holder?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+  button?.click()
 
   // Assert
-  expect(holder?.getAttribute('tabindex')).toBe('0')
-  expect(holder?.getAttribute('role')).toBe('button')
-  expect(afterEnter).toEqual({ wide: true, pressed: 'true' })
+  expect(holder?.hasAttribute('role')).toBe(false)
+  expect(holder?.hasAttribute('aria-label')).toBe(false)
+  expect(button?.type).toBe('button')
+  expect(afterClick).toEqual({ wide: true, pressed: 'true' })
   expect(holder?.classList.contains('wide')).toBe(false)
-  expect(holder?.getAttribute('aria-pressed')).toBe('false')
+  expect(button?.getAttribute('aria-pressed')).toBe('false')
 })
 
 test('a browser that refuses to store the dragged width keeps the panel working, the width unremembered', () => {

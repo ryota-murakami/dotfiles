@@ -172,7 +172,7 @@ test('a template element goes: its contents would ship in the file without anyon
 test('a style a page hides inside a diagram label goes too: only the diagram’s own style stays', () => {
   // Arrange
   const html =
-    '<svg viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg>'
+    '<div class="diagram"><svg viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg></div>'
 
   // Act
   const sanitized = sanitizePage(html)
@@ -180,4 +180,17 @@ test('a style a page hides inside a diagram label goes too: only the diagram’s
   // Assert
   expect(sanitized).toContain('.node { fill: #5ccc9e }')
   expect(sanitized).not.toContain('display: none')
+})
+
+test('a style in an SVG the page wrote itself goes: it would apply to the whole Handout, its controls included', () => {
+  // Arrange
+  const html =
+    '<p>本文</p><svg viewBox="0 0 10 10"><style>#pageno { display: none !important }</style><rect width="10" height="10"></rect></svg>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  expect(sanitized).not.toContain('#pageno')
+  expect(sanitized).toContain('<rect')
 })

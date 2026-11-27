@@ -200,6 +200,16 @@ else
 fi
 
 printf '1\t\n' > "$dir/pages/sections.tsv"
+mkdir "$dir/pages/sections.tsv.part.$$"
+before=$(ls "$dir/pages")
+in_dw record_page 5 "書けない索引" "$scratch/body.md" "" quiet
+after=$(ls "$dir/pages")
+rmdir "$dir/pages/sections.tsv.part.$$"
+if [ "$code" = 1 ] && [ "$after" = "$before" ] && [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t')" ]; then
+  pass "a sections.tsv that cannot be written stops a page write before the page changes"
+else
+  fail "unwritable sections index (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
 chmod 000 "$dir/pages/sections.tsv"
 before=$(ls "$dir/pages")
 in_dw record_page 4 "新しい" "$scratch/body.md" "" quiet
@@ -381,6 +391,38 @@ fi
 rm -f "$DW_HOME/record_dir"
 rm -rf "$DW_HOME/explain"
 
+dir=$(two_page_record stuck)
+printf '1\t準備\n2\t確認\n' > "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw cmd_explain "$scratch/waiting.md"
+chflags uchg "$dir/pages/02-二枚目.md"
+in_dw cmd_explain --clear
+chflags nouchg "$dir/pages/02-二枚目.md"
+if [ "$code" != 0 ] && grep -q 'could not be removed' <<< "$out" && [ -f "$dir/pages/02-二枚目.md" ] \
+  && grep -q "$(printf '^2\t確認$')" "$dir/pages/sections.tsv" && [ -f "$DW_HOME/explain/pages/001.md" ]; then
+  pass "a page a clear cannot remove keeps its row in sections.tsv, and the panel is left as it was"
+else
+  fail "clear with a page that cannot be removed (exit $code: $out): $(cat "$dir/pages/sections.tsv" | tr '\n' '|')"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
+mkdir -p "$scratch/unreadable-skill/explainer" "$DW_HOME/explain/pages"
+printf 'x\n' > "$scratch/unreadable-skill/explainer/page.html"
+chmod 000 "$scratch/unreadable-skill/explainer/page.html"
+printf '{"current":0,"pages":[]}\n' > "$DW_HOME/explain/index.json"
+# Run "$@" with dw's SKILL_DIR pointing at another folder (read by dw's functions sourced in in_dw)
+# shellcheck disable=SC2034
+with_skill_dir() { SKILL_DIR="$1"; shift; "$@"; }
+in_dw with_skill_dir "$scratch/unreadable-skill" explain_build 5 "書けないページ" "" "$scratch/body.md" 5
+chmod 644 "$scratch/unreadable-skill/explainer/page.html"
+if [ "$code" != 0 ] && [ "$(jq '.pages | length' "$DW_HOME/explain/index.json")" = 0 ] && [ ! -e "$DW_HOME/explain/pages/005.html" ]; then
+  pass "a page whose HTML cannot be written is not listed in the explainer"
+else
+  fail "explain_build without its HTML (exit $code: $out): $(cat "$DW_HOME/explain/index.json")"
+fi
+rm -rf "$DW_HOME/explain"
+
 dir=$(two_page_record explain-error)
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 printf '# 壊れた\n\n<!-- hud-only -->\n' > "$scratch/broken.md"
@@ -439,6 +481,14 @@ if [ "$code" = 0 ] && grep -q '^> <!-- hud-only -->' <<< "$out" && ! grep -q 'HU
   pass "a quoted fenced example holding a marker is an example, and the block after the quote is still left out"
 else
   fail "quoted fence (exit $code): $out"
+fi
+
+printf '> ```\n> 引用の中のコード\n引用の外\n<!-- handout-only -->\nHandout だけの段落\n<!-- /handout-only -->\n- ```bash\n  echo 項目の中\nリストの外\n<!-- handout-only -->\nもう一つの段落\n<!-- /handout-only -->\n' > "$scratch/ended-fence.md"
+in_dw explain_filter hud "$scratch/ended-fence.md" /dev/null
+if [ "$code" = 0 ] && grep -q '引用の外' <<< "$out" && ! grep -q 'Handout だけの段落' <<< "$out" && ! grep -q 'もう一つの段落' <<< "$out"; then
+  pass "a fence ends where its quote or list item ends: the audience blocks after it are read"
+else
+  fail "fence that ends with its container (exit $code): $out"
 fi
 
 printf '記法は `` <!-- hud-only --> `` のとおり\n' > "$scratch/double-tick.md"
@@ -515,8 +565,8 @@ if [ "$code" = 1 ] && [ -z "$left" ]; then
   pass "a stopped export leaves no scratch folder (with copies of the pages) behind"
 else
   fail "scratch folders left (exit $code): $(printf '%s' "$left" | tr '\n' ' ')"
-  # This run's leftovers go: they hold its synthetic pages
-  for copy in $left; do rm -rf -- "$(dirname "$(dirname "$copy")")"; done
+  # This run's leftovers go, one path per line: they hold its synthetic pages
+  while IFS= read -r copy; do [ -n "$copy" ] && rm -rf -- "$(dirname "$(dirname "$copy")")"; done <<< "$left"
 fi
 
 dir="$RECORDS/race"
@@ -702,6 +752,17 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_RENDERER the renderer ended without a res
   pass "a renderer that ends without its result line stops with HANDOUT_RENDERER and names the log"
 else
   fail "renderer without a result (exit $code: $out)"
+fi
+
+dir=$(two_page_record writing)
+holder=$(hold_like_another_dw "$dir/pages/.dw-lock")
+rm -f "$DW_CHECK_SEEN"
+DW_LOCK_WAIT=1 in_dw cmd_handout writing
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD.*being written by another dw' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "an export waits for a page being written (the record's lock), then stops before the renderer starts"
+else
+  fail "export during a write (exit $code: $out)"
 fi
 
 dir=$(two_page_record staged)
