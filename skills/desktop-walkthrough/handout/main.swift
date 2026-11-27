@@ -171,7 +171,8 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
         return .isFolder
     }
     var present = stat()
-    if lstat(target, &present) == 0, !isHandout(atPath: target) { return .notAHandout }
+    let hadTarget = lstat(target, &present) == 0
+    if hadTarget, !isHandout(atPath: target) { return .notAHandout }
     let folder = (target as NSString).deletingLastPathComponent
     let name = (target as NSString).lastPathComponent
     // Named after the target: a file an interrupted run leaves here says what it belongs to
@@ -255,6 +256,10 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
             // A save another program made into the earlier Handout meanwhile stays where it is: the file
             // swapped out must be the one looked at before anything was written (`present`), unchanged
             // since, and unchanged while its permissions were read
+            // A Handout that appeared there while this one was written (another export) stays too
+            guard hadTarget else {
+                return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(temporary)"])
+            }
             var now = stat()
             let sameAsLookedAt = present.st_dev == replaced.st_dev && present.st_ino == replaced.st_ino
                 && sameContentStamp(present, replaced)

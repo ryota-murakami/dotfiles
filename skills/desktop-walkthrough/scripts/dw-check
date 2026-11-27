@@ -457,6 +457,20 @@ else
 fi
 rm -f "$DW_HOME/record_dir"
 
+# An earlier file whose name nears the 255-character limit of a name (a long title) is replaced
+# like any other: the name it is moved aside under stays short
+dir=$(two_page_record long-name)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+long="01-$(printf 'a%.0s' $(seq 240)).md"
+mv "$dir/pages/01-一枚目.md" "$dir/pages/$long"
+in_dw record_page 1 "新しい題" "$scratch/new-title.md" "" quiet
+if [ "$code" = 0 ] && [ "${#long}" -gt 80 ] && [ "$(files_but_lock "$dir/pages" | tr '\n' ' ')" = "01-新しい題.md 02-二枚目.md sections.tsv " ]; then
+  pass "an earlier file with a name near the length limit is replaced too"
+else
+  fail "earlier file with a long name (exit $code: $out): $(files_but_lock "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
 dir=$(two_page_record uncopyable)
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 in_dw cmd_explain "$scratch/waiting.md"

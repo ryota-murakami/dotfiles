@@ -299,12 +299,15 @@ hold_lock() {
 }
 release_lock() { eval "exec $1>&-"; }
 
-# Put back the earlier page files record_page moved aside (each named as it was before the move)
+# Put back the earlier files of page number NN that record_page moved aside in PAGES (.NN.aside.PID.I,
+# I counting from 0 in the order of the files given): each takes its name from before the move
 record_restore_aside() {
-  local old
+  local pages="$1" nn="$2" old i=0
+  shift 2
   for old in "$@"; do
-    mv "$(dirname "$old")/.$(basename "$old").aside.$$" "$old" 2>/dev/null \
-      || echo "dw: $(basename "$old") could not be put back: it is at $(dirname "$old")/.$(basename "$old").aside.$$" >&2
+    mv "$pages/.$nn.aside.$$.$i" "$old" 2>/dev/null \
+      || echo "dw: $(basename "$old") could not be put back: it is at $pages/.$nn.aside.$$.$i" >&2
+    i=$((i + 1))
   done
 }
 
@@ -315,7 +318,7 @@ shell_word() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
 record_page() {
-  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside
+  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   mkdir -p "$dir/pages"
@@ -369,8 +372,9 @@ record_page() {
   aside=()
   for old in "$dir/pages/$nn-"*.md; do
     [ -f "$old" ] && [ "$old" != "$page" ] || continue
-    if ! mv "$old" "$dir/pages/.$(basename "$old").aside.$$" 2>/dev/null; then
-      record_restore_aside ${aside[@]+"${aside[@]}"}
+    # A short name, whatever the length of the file's own (a long title nears the 255-byte limit)
+    if ! mv "$old" "$dir/pages/.$nn.aside.$$.${#aside[@]}" 2>/dev/null; then
+      record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
       rm -f "$part" "$sections.part.$$"
       release_lock 8
       echo "dw: page $n: its earlier file $(basename "$old") could not be replaced (check its permissions): the record was left as it was" >&2
@@ -379,13 +383,13 @@ record_page() {
     aside+=("$old")
   done
   if ! mv "$part" "$page" 2>/dev/null; then
-    record_restore_aside ${aside[@]+"${aside[@]}"}
+    record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
     rm -f "$part" "$sections.part.$$"
     release_lock 8
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
-  for old in ${aside[@]+"${aside[@]}"}; do rm -f "$dir/pages/.$(basename "$old").aside.$$"; done
+  for ((i = 0; i < ${#aside[@]}; i++)); do rm -f "$dir/pages/.$nn.aside.$$.$i"; done
   if ! mv "$sections.part.$$" "$sections"; then
     rm -f "$sections.part.$$"
     release_lock 8
