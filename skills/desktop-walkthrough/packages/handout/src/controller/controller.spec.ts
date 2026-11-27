@@ -444,3 +444,34 @@ test('a diagram can be enlarged from the keyboard with Enter or Space, and says 
   expect(holder?.classList.contains('wide')).toBe(false)
   expect(holder?.getAttribute('aria-pressed')).toBe('false')
 })
+
+test('a browser that refuses to store the dragged width keeps the panel working, the width unremembered', () => {
+  // Arrange
+  loadHandout()
+  const refusing: WidthStore = {
+    getItem: () => {
+      throw new Error('SecurityError')
+    },
+    setItem: () => {
+      throw new Error('QuotaExceededError')
+    },
+    removeItem: () => {
+      throw new Error('SecurityError')
+    },
+  }
+
+  // Act
+  const start = () => startHandout(document, refusing)
+  start()
+  const edge = document.querySelector<HTMLElement>('.edge.right')
+  const drag = () => {
+    edge?.dispatchEvent(new PointerEvent('pointerdown', { clientX: 1050, pointerId: 1, bubbles: true }))
+    document.dispatchEvent(new PointerEvent('pointermove', { clientX: 1100, pointerId: 1, bubbles: true }))
+    document.dispatchEvent(new PointerEvent('pointerup', { clientX: 1100, pointerId: 1, bubbles: true }))
+    edge?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }))
+  }
+
+  // Assert
+  expect(drag).not.toThrow()
+  expect(document.querySelector('#pageno')?.textContent).toBe('1/3')
+})

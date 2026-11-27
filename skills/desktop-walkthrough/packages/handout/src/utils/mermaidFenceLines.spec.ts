@@ -182,3 +182,16 @@ test('a quoted line inside an unquoted fence is code, not its closing fence', ()
   // Assert
   expect(lines).toEqual([5])
 })
+
+test('a long run of quote markers that opens no fence is read at once, not by trying every way to split it', () => {
+  // Arrange
+  const markdown = `${'> '.repeat(40)}x\n${'-  '.repeat(40)}x\n\n\`\`\`mermaid\nflowchart LR\n\`\`\``
+  const started = performance.now()
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([4])
+  expect(performance.now() - started).toBeLessThan(200)
+})

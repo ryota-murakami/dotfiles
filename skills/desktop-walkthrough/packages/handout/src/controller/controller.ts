@@ -22,6 +22,24 @@ import { HANDOUT_DOM } from '../dom'
 /** Where the dragged panel width is remembered; null where the browser refuses storage. */
 export type WidthStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
+/**
+ * Run a call on the browser's storage, which it may refuse (a private window, a full quota, a
+ * policy): a refusal leaves the width unremembered, never the panel broken.
+ *
+ * @param call - The storage call.
+ * @returns What the call returned, or undefined when the browser refused it.
+ *
+ * @example
+ * attemptStorage(() => localStorage.getItem('dw-handout-width:/x.html')) // '640', or undefined in a refusing browser
+ */
+function attemptStorage<Value>(call: () => Value): Value | undefined {
+  try {
+    return call()
+  } catch {
+    return undefined
+  }
+}
+
 /** What a screen reader hears for a diagram, which Enter, Space or a click enlarges and fits again. */
 const DIAGRAM_TOGGLE_LABEL = '図（Enter で実寸表示と幅合わせを切り替え）'
 
@@ -378,7 +396,7 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   const minWidth = () => Math.min(PANEL_MIN_WIDTH_PX, view.innerWidth - PANEL_VIEWPORT_MARGIN_PX)
   const maxWidth = () => view.innerWidth - PANEL_VIEWPORT_MARGIN_PX
   const clampWidth = (width: number) => Math.max(minWidth(), Math.min(maxWidth(), width))
-  const stored = Number(store?.getItem(widthKey))
+  const stored = Number(attemptStorage(() => store?.getItem(widthKey)))
   /** The width the reader dragged to; null keeps the default, min(900px, window − 32px). */
   let draggedWidth: number | null = Number.isFinite(stored) && stored > 0 ? stored : null
   const applyWidth = () => {
@@ -400,14 +418,15 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
       const end = () => {
         edge.removeEventListener('pointermove', move)
         for (const type of dragEndEvents) edge.removeEventListener(type, end)
-        if (draggedWidth !== null) store?.setItem(widthKey, String(Math.round(draggedWidth)))
+        const width = draggedWidth
+        if (width !== null) attemptStorage(() => store?.setItem(widthKey, String(Math.round(width))))
       }
       edge.addEventListener('pointermove', move)
       for (const type of dragEndEvents) edge.addEventListener(type, end)
     })
     edge.addEventListener('dblclick', () => {
       draggedWidth = null
-      store?.removeItem(widthKey)
+      attemptStorage(() => store?.removeItem(widthKey))
       applyWidth()
     })
   }

@@ -181,6 +181,13 @@ fi
 
 holder=$(hold_like_another_dw "$dir/pages/.dw-lock")
 before=$(ls "$dir/pages")
+started=$(date +%s)
+DW_LOCK_WAIT=0 in_dw record_page 3 "待つ" "$scratch/body.md" "" quiet
+if [ "$code" = 1 ] && grep -q 'another dw' <<< "$out" && [ $(($(date +%s) - started)) -le 2 ]; then
+  pass "DW_LOCK_WAIT=0 gives up at once when another writer holds the lock, never waiting for it"
+else
+  fail "no-wait lock (exit $code after $(($(date +%s) - started)) s): $out"
+fi
 DW_LOCK_WAIT=1 in_dw record_page 3 "待つ" "$scratch/body.md" "" quiet
 held_code="$code" held_out="$out" held_after=$(ls "$dir/pages")
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null

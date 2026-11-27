@@ -289,8 +289,9 @@ body.handout {
   .header .zoom-control {
     display: none;
   }
+  /* !important: a width remembered from a drag on a wider window is an inline style */
   .panel {
-    width: 100vw;
+    width: 100vw !important;
     height: 100vh;
     height: 100dvh;
     margin: 0;

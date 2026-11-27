@@ -1,9 +1,30 @@
+/** One quote or list marker an opening fence may follow on its line: `> `, `- `, `1. `. */
+const LINE_MARKER = /^ {0,3}(?:> ?|(?:[-*+]|\d{1,9}[.)])[ \t]+)/
+
+/** A fence's run of ``` or ~~~ after up to 3 spaces, and the rest of its line. */
+const FENCE_RUN = /^ {0,3}(`{3,}|~{3,})(.*)$/
+
 /**
- * An opening fence: the quote and list markers it may follow on its line (`> `, `- `, `1. `, nested
- * `1. - `), up to 3 spaces, the run of ``` or ~~~, and the rest of the line. The same rule as dw's
- * explain_filter.
+ * Read an opening fence: the quote and list markers it follows on its line (`> `, `- `, `1. `, nested
+ * `1. - `), up to 3 spaces, the run of ``` or ~~~, and the rest of the line. The markers are read one
+ * at a time, each once: a long run of them that opens no fence costs one pass, never a try of every
+ * way to split it. The same rule as dw's explain_filter.
+ *
+ * @param text - One line of a page.
+ * @returns The markers before the fence, its run and the rest of the line; null for a line that opens none.
+ *
+ * @example
+ * fenceOpening('- ```bash') // { prefix: '- ', run: '```', rest: 'bash' }
+ * fenceOpening('> > text')  // null
  */
-const FENCE_OPENING = /^((?: {0,3}> ?| {0,3}(?:[-*+]|\d{1,9}[.)])[ \t]+)*) {0,3}(`{3,}|~{3,})(.*)$/
+function fenceOpening(text: string): { prefix: string; run: string; rest: string } | null {
+  let markersEnd = 0
+  for (let marker = LINE_MARKER.exec(text); marker; marker = LINE_MARKER.exec(text.slice(markersEnd))) {
+    markersEnd += marker[0].length
+  }
+  const fence = FENCE_RUN.exec(text.slice(markersEnd))
+  return fence ? { prefix: text.slice(0, markersEnd), run: fence[1] ?? '', rest: fence[2] ?? '' } : null
+}
 
 /** The quote markers at the start of a line (`> > `). */
 const QUOTE_MARKERS = /^(?: {0,3}> ?)+/
@@ -49,12 +70,12 @@ export function mermaidFenceLines(markdown: string): number[] {
         fence = null
       return
     }
-    const opening = FENCE_OPENING.exec(text)
-    const run = opening?.[2] ?? ''
-    const rest = opening?.[3] ?? ''
+    const opening = fenceOpening(text)
+    const run = opening?.run ?? ''
+    const rest = opening?.rest ?? ''
     // "```x```" at the start of a line is code inside the text, not a fence
     if (opening && !(run.startsWith('`') && rest.includes('`'))) {
-      const prefix = opening[1] ?? ''
+      const prefix = opening.prefix
       const quoted = prefix.includes('>')
       fence = {
         character: run.charAt(0),

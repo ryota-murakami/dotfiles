@@ -36,6 +36,9 @@ interface CheckedImage {
 /** What reading and checking one source came to: the picture, or why it is not embedded. */
 type CheckOutcome = { ok: true; image: CheckedImage } | { ok: false; failure: EmbedFailure }
 
+/** What to do about a secret shape in a raster picture's metadata. */
+const METADATA_ADVICE = 'save the picture again without it'
+
 /**
  * What one export's pictures have cost so far, shared by every page of it: each file read and
  * checked once (a picture shown on several pages), and the bytes embedded, against a total. Once
@@ -88,7 +91,8 @@ export function classifySource(source: string, pagesDir: string): ImageSource {
   if (/^data:image\//i.test(source)) return { kind: 'embedded' }
   // A "%" that starts no escape (shot%zz.png) names no file: refused with a reason, never thrown
   try {
-    if (/^file:\/\//i.test(source)) {
+    // file:///Users/… and file:/Users/… alike
+    if (/^file:/i.test(source)) {
       const url = new URL(source)
       // file://fileserver/share/a.png is another computer's file: the same path here is another picture
       if (url.host !== '' && url.host !== 'localhost') {
@@ -429,16 +433,6 @@ async function inspectImage(
 }
 
 /**
- * The pictures an SVG carries as data: each `data:image/…` an element names in `href` or
- * `xlink:href` (an `<image>`, a filter's `<feImage>`), and each one a style's `url(…)` loads.
- *
- * @param parsed - The SVG's document.
- * @returns The data URIs, as written.
- *
- * @example
- * nestedPictures(parse('<svg …><image href="data:image/png;base64,iVBOR…"/></svg>')) // ['data:image/png;base64,iVBOR…']
- */
-/**
  * The first secret shape a raster picture's bytes hold as text: read one byte per character and
  * without zero bytes ({@link byteTexts}), each as stored and with XML's escapes decoded (XMP).
  *
@@ -456,6 +450,16 @@ function metadataSecretShape(raster: Uint8Array): string | null {
   return null
 }
 
+/**
+ * The pictures an SVG carries as data: each `data:image/…` an element names in `href` or
+ * `xlink:href` (an `<image>`, a filter's `<feImage>`), and each one a style's `url(…)` loads.
+ *
+ * @param parsed - The SVG's document.
+ * @returns The data URIs, as written.
+ *
+ * @example
+ * nestedPictures(parse('<svg …><image href="data:image/png;base64,iVBOR…"/></svg>')) // ['data:image/png;base64,iVBOR…']
+ */
 function nestedPictures(parsed: Document): string[] {
   const pictures: string[] = []
   for (const element of Array.from(parsed.querySelectorAll('*'))) {
@@ -473,9 +477,6 @@ function nestedPictures(parsed: Document): string[] {
   }
   return pictures.filter((picture) => picture !== '')
 }
-
-/** What to do about a secret shape in a raster picture's metadata. */
-const METADATA_ADVICE = 'save the picture again without it'
 
 /**
  * The HANDOUT_SECRET failure of a picture, naming the shape and never the value.

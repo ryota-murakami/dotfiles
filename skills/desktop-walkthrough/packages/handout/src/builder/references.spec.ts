@@ -150,3 +150,14 @@ test('an SVG presentation attribute that points outside the diagram stops the ex
   // Assert
   expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['HANDOUT_IMAGE'])
 })
+
+test('a url() whose name is spelled with CSS escapes still counts as a load', () => {
+  // Arrange
+  const html = '<p><span style="background: u\\72l(data:image/png;base64,iVBORw0KGgo=)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['HANDOUT_IMAGE'])
+})

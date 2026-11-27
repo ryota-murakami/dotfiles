@@ -135,13 +135,35 @@ export function localLinks(page: HandoutPage, html: string): Warning[] {
  * cssLoads('fill: url(#gradient); background: image-set("bg.png" 1x)') // ['bg.png']
  * cssLoads('@import "theme.css";')                                     // ['theme.css']
  */
-function cssLoads(css: string): string[] {
+function cssLoads(written: string): string[] {
+  // CSS lets a name be spelled with escapes (`u\\72l(` is `url(`): read as the browser does
+  const css = unescapeCss(written)
   const targets = Array.from(css.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/gi), (match) => match[2] ?? '')
   for (const set of css.matchAll(/image-set\(([^)]*)\)/gi)) {
     for (const string of (set[1] ?? '').matchAll(/(["'])(.*?)\1/g)) targets.push(string[2] ?? '')
   }
   for (const imported of css.matchAll(/@import\s+(["'])(.*?)\1/gi)) targets.push(imported[2] ?? '')
   return targets.map((target) => target.trim()).filter((target) => target !== '' && !target.startsWith('#'))
+}
+
+/**
+ * CSS text with its escapes decoded: `\\72` (hexadecimal, up to six digits, one space after it
+ * swallowed) and `\\l` (any other character as itself).
+ *
+ * @param css - CSS as written.
+ * @returns The same CSS as a browser reads its names and strings.
+ *
+ * @example
+ * unescapeCss('u\\72l(x.png)') // 'url(x.png)'
+ */
+function unescapeCss(css: string): string {
+  return css.replace(
+    /\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n0-9a-fA-F])/g,
+    (_written, hexadecimal?: string, character?: string) =>
+      hexadecimal
+        ? String.fromCodePoint(Math.min(Number.parseInt(hexadecimal, 16), 0x10ffff))
+        : (character ?? ''),
+  )
 }
 
 /** The message of a style that loads TARGET. */

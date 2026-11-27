@@ -278,17 +278,20 @@ record_handbook() {
 # so no lock outlives its writer. Waits DW_LOCK_WAIT seconds (10) for another writer, then gives up
 # having changed nothing. Called by record_page, record_clear and cmd_explain
 hold_lock() {
-  local lock="$1" fd="$2"
+  local lock="$1" fd="$2" wait="${DW_LOCK_WAIT:-10}"
+  # Whole seconds; 0 does not wait at all (perl's alarm 0 would wait forever), anything else is 10
+  case "$wait" in ''|*[!0-9]*) wait=10 ;; esac
   if ! eval "exec $fd>>\"\$lock\"" 2>/dev/null; then
     echo "dw: $lock cannot be opened (check the folder's permissions): nothing changed" >&2
     return 1
   fi
   if ! perl -MFcntl=:flock -e '
       open(my $held, ">&=", $ARGV[0]) or exit 2;
+      if ($ARGV[1] == 0) { flock($held, LOCK_EX | LOCK_NB) or exit 1; exit 0 }
       $SIG{ALRM} = sub { exit 1 };
       alarm($ARGV[1]);
       flock($held, LOCK_EX) or exit 1;
-      exit 0' "$fd" "${DW_LOCK_WAIT:-10}"; then
+      exit 0' "$fd" "$wait"; then
     eval "exec $fd>&-"
     echo "dw: $(dirname "$lock") is being changed by another dw: nothing changed; run the command again" >&2
     return 1

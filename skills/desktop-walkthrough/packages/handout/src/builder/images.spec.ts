@@ -685,3 +685,21 @@ test('the ledger counts the raster pictures embedded, whose pixels no check read
   // Assert
   expect(ledger.rasterPictures).toBe(2)
 })
+
+test('a file: link with a single slash names a local file like file:///', async () => {
+  // Arrange
+  const host = hostWithFiles({ '/tmp/shot.png': 'iVBORw0KGgo=' })
+  const html = '<p><img src="file:/tmp/shot.png"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![画面](file:/tmp/shot.png)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+})

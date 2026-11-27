@@ -560,6 +560,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                     pending.timer.cancel()
                     self.pendingVerify = nil
                     self.log("verify: checked")
+                    // The copy opened for the check is of no further use: only the published file stays
+                    try? FileManager.default.removeItem(at: self.explainDir.appendingPathComponent("handout-verify.html"))
                     pending.reply(["type": "verified", "probe": probe], nil)
                 }
             }

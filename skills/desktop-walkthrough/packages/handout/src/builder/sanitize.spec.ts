@@ -168,3 +168,16 @@ test('a template element goes: its contents would ship in the file without anyon
   // Assert
   expect(sanitized).toBe('<p>本文</p>')
 })
+
+test('a style a page hides inside a diagram label goes too: only the diagram’s own style stays', () => {
+  // Arrange
+  const html =
+    '<svg viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  expect(sanitized).toContain('.node { fill: #5ccc9e }')
+  expect(sanitized).not.toContain('display: none')
+})
