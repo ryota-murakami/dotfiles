@@ -9,12 +9,16 @@ import { decodeXmlEntities } from '../utils/decodeXmlEntities'
 import { encodeBase64 } from '../utils/encodeBase64'
 import { excerpt } from '../utils/excerpt'
 import { inflateLimited } from '../utils/inflateLimited'
+import { gifExtensionTexts } from '../utils/gifExtensionTexts'
+import { pngChunks } from '../utils/pngChunks'
 import { pngCompressedTexts } from '../utils/pngCompressedTexts'
 import { resolvePath } from '../utils/resolvePath'
 import type { ImageMime } from '../utils/sniffImage'
 import { sniffImage } from '../utils/sniffImage'
 import type { HostPort } from './host'
 import { readFile } from './host'
+import { decodeTextByBom } from '../utils/decodeTextByBom'
+import { percentDecode } from '../utils/percentDecode'
 
 /** Where an image source points: an embedded image to keep, a local file to read, or something refused. */
 type ImageSource = { kind: 'embedded' } | { kind: 'file'; path: string } | { kind: 'refused'; reason: string }
@@ -372,7 +376,7 @@ async function inspectImage(
   // An SVG is text: a key in its text, or a signed link in one of its URLs, travels with the drawing.
   // It is read as written and as an XML reader decodes it (`&#65;KIA…`, `&amp;signature=`)
   if (mime === 'image/svg+xml') {
-    const text = new TextDecoder().decode(bytes)
+    const text = decodeTextByBom(bytes)
     const parsed = new DOMParser().parseFromString(text, 'image/svg+xml')
     if (parsed.getElementsByTagName('parsererror').length > 0) {
       return {
@@ -422,8 +426,22 @@ async function inspectImage(
   // XMP with XML's escapes (`&amp;signature=`): read as stored and decoded
   const stored = metadataSecretShape(bytes)
   if (stored) return secretIn(stored, METADATA_ADVICE, ' in its metadata')
-  // ...or compressed, in a PNG: each such text is inflated (all of them within one limit) and read the same way
+  // A GIF keeps a comment in sub-blocks, each after a length byte that can be a letter a key would run
+  // into: each extension is read on its own too, its sub-blocks joined
+  if (mime === 'image/gif') {
+    for (const text of gifExtensionTexts(bytes)) {
+      const extensionSecret = metadataSecretShape(text)
+      if (extensionSecret) return secretIn(extensionSecret, METADATA_ADVICE, ' in its metadata')
+    }
+  }
   if (mime === 'image/png') {
+    // A PNG keeps a text chunk's text right before the chunk's CRC, whose bytes can be letters that a
+    // key would run into: each chunk but the image data is read on its own too
+    for (const chunk of pngChunks(bytes)) {
+      const chunkSecret = chunk.type === 'IDAT' ? null : metadataSecretShape(chunk.data)
+      if (chunkSecret) return secretIn(chunkSecret, METADATA_ADVICE, ' in its metadata')
+    }
+    // ...or compressed: each such text is inflated (all of them within one limit) and read the same way
     let inflatedBytes = 0
     for (const compressed of pngCompressedTexts(bytes)) {
       const inflated = await inflateLimited(compressed, IMAGE_LIMIT_BYTES - inflatedBytes)
@@ -586,7 +604,8 @@ function dataUriBytes(source: string): { ok: true; bytes: Uint8Array } | { ok: f
   if (isBase64 ? base64DecodedLength(base64) > IMAGE_LIMIT_BYTES : payload.length / 3 > IMAGE_LIMIT_BYTES)
     return { ok: false, reason: tooLarge().reason }
   try {
-    const bytes = isBase64 ? decodeBase64(base64) : new TextEncoder().encode(decodeURIComponent(payload))
+    // Percent escapes are bytes, as a browser reads them (%89 is no UTF-8 text)
+    const bytes = isBase64 ? decodeBase64(base64) : percentDecode(payload)
     return bytes.length > IMAGE_LIMIT_BYTES ? { ok: false, reason: tooLarge().reason } : { ok: true, bytes }
   } catch {
     return { ok: false, reason: UNDECODABLE }

@@ -161,3 +161,16 @@ test('a url() whose name is spelled with CSS escapes still counts as a load', ()
   // Assert
   expect(diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['HANDOUT_IMAGE'])
 })
+
+test('a style whose quoted url goes on past a backslash at the end of a line still stops the export', () => {
+  // Arrange
+  const html = '<p><span style="background: url(&quot;im\\\nage.png&quot;)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads image.png, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})

@@ -327,6 +327,11 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   doc.addEventListener('pointerdown', (event) => {
     pressedIn = event.target instanceof view.Element ? event.target : null
   })
+  // Focus moved out of the block by keyboard (Tab to a button): the arrow keys turn the page again
+  doc.addEventListener('focusin', (event) => {
+    const block = pressedIn?.closest(SIDEWAYS_SCROLLERS)
+    if (block && event.target instanceof view.Node && !block.contains(event.target)) pressedIn = null
+  })
   doc.addEventListener('keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return
     if (event.key === 'Escape') {

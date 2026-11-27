@@ -987,6 +987,23 @@ explain_filter() {
   awk -v audience="$1" -v problems="$3" -v words="$HANDOUT_HUD_WORDS" '
     BEGIN { fence = ""; indent = 0; quoted = 0; open = ""; opened = 0; failed = 0; count = (audience == "handout") ? split(words, word, "|") : 0 }
     function problem(kind, line, text) { printf "%s\t%d\t%s\n", kind, line, text >> problems }
+    # The columns indentation takes: a tab reaches the next multiple of 4 (CommonMark), anything else one
+    function columns(text,    i, width) {
+      width = 0
+      for (i = 1; i <= length(text); i++) width = (substr(text, i, 1) == "\t") ? width + 4 - width % 4 : width + 1
+      return width
+    }
+    # How many quote markers start TEXT ("> > " is 2)
+    function quote_depth(text,    lead) {
+      if (!match(text, /^( ? ? ?>[ ]?)+/)) return 0
+      lead = substr(text, 1, RLENGTH)
+      return gsub(/>/, ">", lead)
+    }
+    # TEXT without its first N quote markers
+    function strip_quotes(text, n,    i) {
+      for (i = 0; i < n; i++) sub(/^ ? ? ?>[ ]?/, "", text)
+      return text
+    }
     function shown() { return open == "" || open == audience }
     # TEXT without its code spans, as Markdown reads them: a run of N backticks opens one and the next
     # run of exactly N closes it; a run without such a partner is backticks shown as they are
@@ -1011,16 +1028,16 @@ explain_filter() {
       # A page saved with Windows line endings: its markers and fences end in a carriage return
       sub(/\r$/, "")
       # Inside a fence only its closing line matters: a marker there is an example, shown as code
-      # A fence ends where its container does: a quote at a line without ">", a list item at a line
-      # (not blank) indented less than its text. The line is then read like any other
-      if (fence != "" && quoted && $0 !~ /^ ? ? ?>/) { fence = ""; quoted = 0 }
-      if (fence != "" && !quoted && indent > 0 && $0 !~ /^[ \t]*$/) { match($0, /^[ \t]*/); if (RLENGTH < indent) fence = "" }
+      # A fence ends where its container does: a quote at a line with fewer quote markers, a list item
+      # at a line (not blank) indented less than its text. The line is then read like any other
+      if (fence != "" && quoted && quote_depth($0) < quoted) { fence = ""; quoted = 0 }
+      if (fence != "" && !quoted && indent > 0 && $0 !~ /^[ \t]*$/) { match($0, /^[ \t]*/); if (columns(substr($0, 1, RLENGTH)) < indent) fence = "" }
       if (fence != "") {
-        # A fence opened in a quote closes on a quoted line ("> ```")
+        # A fence opened in a quote closes on a line quoted as deep ("> ```"); a tab counts to its stop
         line = $0
-        if (quoted) sub(/^( ? ? ?>[ ]?)+/, "", line)
+        if (quoted) line = strip_quotes(line, quoted)
         if (line ~ /^[ \t]*(```+|~~~+)[ \t]*$/) {
-          match(line, /^[ \t]*/); lead = RLENGTH
+          match(line, /^[ \t]*/); lead = columns(substr(line, 1, RLENGTH))
           mark = line; gsub(/[ \t]/, "", mark)
           if (lead <= indent + 3 && substr(mark, 1, 1) == substr(fence, 1, 1) && length(mark) >= length(fence)) fence = ""
         }
@@ -1035,9 +1052,10 @@ explain_filter() {
       rest = substr($0, length(prefix) + 1)
       if (match(rest, /^ ? ? ?(```+|~~~+)/) && !(substr(rest, RSTART + RLENGTH - 1, 1) == "`" && index(substr(rest, RSTART + RLENGTH), "`"))) {
         fence = substr(rest, RSTART, RLENGTH); gsub(/ /, "", fence)
-        quoted = (index(prefix, ">") > 0)
-        indent = length(prefix)
-        if (quoted) { sub(/^( ? ? ?>[ ]?)+/, "", prefix); indent = length(prefix) }
+        # How deep in quotes it opened, and the columns of the list item text it may be indented to
+        markers = prefix; quoted = gsub(/>/, ">", markers)
+        indent = columns(prefix)
+        if (quoted) { sub(/^( ? ? ?>[ ]?)+/, "", prefix); indent = columns(prefix) }
         if (shown()) print
         next
       }

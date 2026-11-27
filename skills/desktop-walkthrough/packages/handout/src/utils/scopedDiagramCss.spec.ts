@@ -63,3 +63,20 @@ test('a comma inside :is() or an attribute and a + inside :nth-child() keep a ru
     '#p2-d1 :is(.a, .b), #p2-d1 [data-x="a,b"] { fill: red; }\n#p2-d1 g:nth-child(2n+1) { fill: blue; }',
   )
 })
+
+test('each diagram keeps its own keyframes: their names and the animations that use them take the diagram id', () => {
+  // Arrange
+  const css = '@keyframes dash{to{stroke-dashoffset:0}}#p2-d1 .edge{animation-name:dash}'
+
+  // Act
+  const scoped = [
+    scopedDiagramCss(css, 'p2-d1', document),
+    scopedDiagramCss(css.replace('#p2-d1', '#p3-d1'), 'p3-d1', document),
+  ]
+
+  // Assert
+  expect(scoped).toEqual([
+    '@keyframes p2-d1-dash {\n100% { stroke-dashoffset: 0; }\n}\n#p2-d1 .edge { animation-name: p2-d1-dash; }',
+    '@keyframes p3-d1-dash {\n100% { stroke-dashoffset: 0; }\n}\n#p3-d1 .edge { animation-name: p3-d1-dash; }',
+  ])
+})

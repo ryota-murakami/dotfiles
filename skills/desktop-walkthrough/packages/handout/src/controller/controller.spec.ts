@@ -477,3 +477,26 @@ test('a browser that refuses to store the dragged width keeps the panel working,
   expect(drag).not.toThrow()
   expect(document.querySelector('#pageno')?.textContent).toBe('1/3')
 })
+
+test('after a click into a code block that scrolls sideways, Tab to a button gives the arrow keys back to paging', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+  const code = document.querySelector<HTMLElement>('#page-1 pre')
+  // Nothing is laid out here: the block is made wider than its box by hand
+  if (code) {
+    Object.defineProperty(code, 'scrollWidth', { value: 900 })
+    Object.defineProperty(code, 'clientWidth', { value: 300 })
+  }
+  code?.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+  press('ArrowRight')
+  const whileInBlock = visiblePages()
+
+  // Act
+  document.querySelector<HTMLButtonElement>('.header .btn[aria-label="目次"]')?.focus()
+  press('ArrowRight')
+
+  // Assert
+  expect(whileInBlock).toEqual(['page-1'])
+  expect(visiblePages()).toEqual(['page-2'])
+})

@@ -95,3 +95,10 @@ export const NESTED_PICTURE_DEPTH = 2
  * times, so no single step holds more than about a megabyte before the output limit is looked at.
  */
 export const INFLATE_INPUT_CHUNK_BYTES = 1_024
+
+/** The byte order marks that start UTF-16 text, little and big endian (UTF-8 is read otherwise). */
+export const UTF16_LITTLE_ENDIAN_BOM = [0xff, 0xfe] as const
+export const UTF16_BIG_ENDIAN_BOM = [0xfe, 0xff] as const
+
+/** How far a tab moves a line's indentation in Markdown: to the next multiple of 4 columns (CommonMark). */
+export const MARKDOWN_TAB_STOP_COLUMNS = 4

@@ -223,7 +223,7 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
     let exclusiveError = errno
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
         unlink(temporary)
-        return publishWithoutRenames(data, to: target)
+        return publishWithoutRenames(data, to: target, mayPublish: mayPublish)
     }
     guard exclusiveError == EEXIST else {
         unlink(temporary)
@@ -244,14 +244,15 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
     if theirs >= 0, fstat(theirs, &replaced) == 0, startsAsHandout(theirs) {
         defer { close(theirs) }
         // Its group, its ACL, then its permissions, set on the published file by descriptor: the file
-        // stays readable by its owner alone until the group and the ACL are right. A group this user
-        // cannot give leaves no group able to read it, rather than the folder's group
-        let groupCarried = fchown(descriptor, uid_t.max, replaced.st_gid) == 0
+        // stays readable by its owner alone until all three are right. A group this user cannot give
+        // would move the earlier group's members to "others", who may read what that group could
+        // not: the earlier Handout then goes back, as when its ACL cannot be carried
+        var carried = fchown(descriptor, uid_t.max, replaced.st_gid) == 0
         // A volume without ACLs has none to carry
-        var carried = fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 || errno == ENOTSUP
         if carried {
-            carried = fchmod(descriptor, replaced.st_mode & (groupCarried ? 0o7777 : 0o7707)) == 0
+            carried = fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 || errno == ENOTSUP
         }
+        if carried { carried = fchmod(descriptor, replaced.st_mode & 0o7777) == 0 }
         if carried {
             // A save another program made into the earlier Handout meanwhile stays where it is: the file
             // swapped out must be the one looked at before anything was written (`present`), unchanged
@@ -266,6 +267,10 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
             if !sameAsLookedAt || fstat(theirs, &now) != 0 || !sameContentStamp(now, replaced) {
                 return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
             }
+            // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
+            // keep what a new export may have been made to remove (a page taken out). A write through a
+            // descriptor opened before and landing after the look above is lost, as with any file
+            // replaced by a rename
             unlink(temporary)
             return .published(warnings: [])
         }
@@ -290,11 +295,13 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
 
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
 /// created exclusively and written in place; an existing one is never replaced there.
-func publishWithoutRenames(_ data: Data, to target: String) -> Publication {
+func publishWithoutRenames(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
     var present = stat()
     guard lstat(target, &present) != 0 else {
         return .failed("the volume of \(target) cannot replace a file safely (it has no atomic rename): remove the earlier Handout first, or choose an --out on another volume")
     }
+    // dw may have ended, or the run's time may be up, while the exclusive rename was tried
+    guard mayPublish() else { return .cancelled }
     let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, newFileMode())
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
     var mine = stat()

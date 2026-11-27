@@ -364,7 +364,11 @@ fi
 new_record metadata-key
 printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/metadata-key/pages/shot.png"
 # A key in the picture's text after its image data, assembled at run time
-printf 'tEXtComment\000%s%s' AKIA IOSFODNN7EXAMPLE >> "$RECORDS/metadata-key/pages/shot.png"
+# A tEXt chunk as a PNG keeps it: its length, type, keyword and text, and its CRC, before IEND
+perl -MCompress::Zlib -e 'local $/; my $png = <STDIN>; my $data = "Comment\0" . $ARGV[0];
+  print substr($png, 0, -12), pack("N", length $data), "tEXt", $data, pack("N", crc32("tEXt" . $data)), substr($png, -12)' \
+  "$(printf '%s%s' AKIA IOSFODNN7EXAMPLE)" < "$RECORDS/metadata-key/pages/shot.png" > "$scratch/metadata-key.png"
+mv "$scratch/metadata-key.png" "$RECORDS/metadata-key/pages/shot.png"
 printf '\n![画面](shot.png)\n' >> "$RECORDS/metadata-key/pages/01-書き出しの流れ.md"
 export_record metadata-key
 if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET page 1:16: the image shot.png carries a secret shape (aws-access-key-id) in its metadata' <<< "$out" \
@@ -443,7 +447,9 @@ printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/script/pages/shot.png"
 printf '\n<img src="shot.png" onerror="this.insertAdjacentHTML(%safterend%s, %s<b>forged</b>%s)">\n<a href="javascript:alert(1)">押す</a>\n' "'" "'" "'" "'" \
   >> "$RECORDS/script/pages/01-書き出しの流れ.md"
 export_record script
-if [ "$code" = 0 ] && ! grep -q 'forged\|onerror\|javascript:' "$RECORDS/script/handout.html"; then
+# grep's own failure (no file) is no pass: only "nothing found" (1) is
+grep -q 'forged\|onerror\|javascript:' "$RECORDS/script/handout.html" 2>/dev/null; found=$?
+if [ "$code" = 0 ] && [ -s "$RECORDS/script/handout.html" ] && [ "$found" = 1 ]; then
   pass "a page script runs neither during the export nor in the Handout (eng D6, DX D14)"
 else
   fail "script in a page: $out"
@@ -527,8 +533,11 @@ else
 fi
 
 # dw ends while the pages render; the renderer looks every 10 minutes (parentMs), so only its look right
-# before publishing can stop it
-handout_input "$RECORDS/direct" "$scratch/late-orphan.html" "$scratch/late-orphan-explain" "$scratch/late-orphan.json"
+# before publishing can stop it. Thirty pages keep it rendering long after its builder is loaded, and
+# a renderer that is no longer running when dw is ended is a setup that went wrong, said as such
+new_record late-orphan
+for n in $(seq 4 30); do cp "$RECORDS/late-orphan/pages/01-"*.md "$RECORDS/late-orphan/pages/$(printf '%02d' "$n")-copy.md"; done
+handout_input "$RECORDS/late-orphan" "$scratch/late-orphan.html" "$scratch/late-orphan-explain" "$scratch/late-orphan.json"
 sleep 60 &
 parent=$!
 jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 600000' "$scratch/late-orphan.json" > "$scratch/late-orphan-parent.json"
@@ -538,10 +547,15 @@ waited=0
 until grep -q 'builder loaded' "$scratch/late-orphan-explain/host.log" 2>/dev/null || [ "$waited" -ge 600 ]; do
   sleep 0.05; waited=$((waited + 1))
 done
+setup=ok
+grep -q 'builder loaded' "$scratch/late-orphan-explain/host.log" 2>/dev/null || setup="the builder never loaded"
+kill -0 "$late" 2>/dev/null || setup="the renderer had finished before dw was ended"
 kill "$parent"; wait "$parent" 2>/dev/null
 wait "$late"
 result=$(cat "$scratch/late-orphan.out")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
+if [ "$setup" != ok ]; then
+  fail "parent gone during the export: setup: $setup ($result)"
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/late-orphan.html" ]; then
   pass "dw ending while the pages render stops the renderer right before it would publish"
 else

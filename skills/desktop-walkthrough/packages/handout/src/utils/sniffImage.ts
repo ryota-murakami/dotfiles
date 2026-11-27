@@ -1,4 +1,5 @@
 import { IMAGE_SIGNATURES, SVG_SNIFF_BYTES } from '../constants'
+import { decodeTextByBom } from './decodeTextByBom'
 
 /** The image types a Handout embeds, as `data:` URIs name them. */
 export type ImageMime = (typeof IMAGE_SIGNATURES)[number]['mime'] | 'image/svg+xml'
@@ -26,11 +27,14 @@ export function sniffImage(bytes: Uint8Array): ImageMime | null {
     ),
   )
   if (signature) return signature.mime
-  // SVG is text: its <svg element comes first, after an optional byte order mark, XML declaration,
-  // comments and doctype
-  const head = new TextDecoder().decode(bytes.slice(0, SVG_SNIFF_BYTES))
+  // SVG is text: its <svg element comes first, after an optional byte order mark (which tells UTF-16
+  // from UTF-8), XML declaration, comments and doctype (with declarations of its own in [ ])
+  const head = decodeTextByBom(bytes.slice(0, SVG_SNIFF_BYTES))
   const body = head
-    .replace(/^﻿/, '')
-    .replace(/^\s*(?:<\?xml[\s\S]*?\?>\s*)?(?:(?:<!--[\s\S]*?-->|<!DOCTYPE[^>]*>)\s*)*/i, '')
+    .replace(/^\uFEFF/, '')
+    .replace(
+      /^\s*(?:<\?xml[\s\S]*?\?>\s*)?(?:(?:<!--[\s\S]*?-->|<!DOCTYPE[^>[]*(?:\[[^\]]*\])?\s*>)\s*)*/i,
+      '',
+    )
   return /^<svg[\s>/]/i.test(body) ? 'image/svg+xml' : null
 }

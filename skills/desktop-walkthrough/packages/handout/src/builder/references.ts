@@ -148,7 +148,8 @@ function cssLoads(written: string): string[] {
 
 /**
  * CSS text with its escapes decoded: `\\72` (hexadecimal, up to six digits, one space after it
- * swallowed) and `\\l` (any other character as itself).
+ * swallowed), `\\l` (any other character as itself), and a backslash before a line break (both
+ * removed, as a string continues on the next line).
  *
  * @param css - CSS as written.
  * @returns The same CSS as a browser reads its names and strings.
@@ -157,8 +158,9 @@ function cssLoads(written: string): string[] {
  * unescapeCss('u\\72l(x.png)') // 'url(x.png)'
  */
 function unescapeCss(css: string): string {
+  // A backslash before a line break continues a string on the next line: both go
   return css.replace(
-    /\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n0-9a-fA-F])/g,
+    /\\(?:\r\n|[\n\r\f])|\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n\r\f0-9a-fA-F])/g,
     (_written, hexadecimal?: string, character?: string) =>
       hexadecimal
         ? String.fromCodePoint(Math.min(Number.parseInt(hexadecimal, 16), 0x10ffff))

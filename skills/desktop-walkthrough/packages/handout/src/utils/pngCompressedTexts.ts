@@ -1,8 +1,4 @@
-/** Where a PNG's chunks start: after its 8-byte signature. */
-const FIRST_CHUNK_OFFSET = 8
-
-/** A chunk's length and type before its data, its CRC after: 4 bytes each. */
-const CHUNK_FIELD_BYTES = 4
+import { pngChunks } from './pngChunks'
 
 /**
  * The compressed text a PNG carries, still compressed (zlib): every `zTXt` chunk, each `iTXt` chunk
@@ -20,18 +16,8 @@ const CHUNK_FIELD_BYTES = 4
  * pngCompressedTexts(png) // [Uint8Array [120, 156, …]] for one zTXt chunk
  */
 export function pngCompressedTexts(bytes: Uint8Array): Uint8Array[] {
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
   const texts: Uint8Array[] = []
-  let offset = FIRST_CHUNK_OFFSET
-  while (offset + 2 * CHUNK_FIELD_BYTES <= bytes.length) {
-    const length = view.getUint32(offset)
-    const type = String.fromCharCode(
-      ...bytes.subarray(offset + CHUNK_FIELD_BYTES, offset + 2 * CHUNK_FIELD_BYTES),
-    )
-    const start = offset + 2 * CHUNK_FIELD_BYTES
-    const end = start + length
-    if (end > bytes.length || type === 'IEND') break
-    const data = bytes.subarray(start, end)
+  for (const { type, data } of pngChunks(bytes)) {
     const keywordEnd = data.indexOf(0)
     // zTXt: keyword, NUL, compression method, the compressed text; iCCP the same, with a color profile
     if ((type === 'zTXt' || type === 'iCCP') && keywordEnd >= 0) texts.push(data.subarray(keywordEnd + 2))
@@ -41,7 +27,6 @@ export function pngCompressedTexts(bytes: Uint8Array): Uint8Array[] {
       const translatedEnd = languageEnd < 0 ? -1 : data.indexOf(0, languageEnd + 1)
       if (translatedEnd >= 0) texts.push(data.subarray(translatedEnd + 1))
     }
-    offset = end + CHUNK_FIELD_BYTES
   }
   return texts
 }

@@ -746,3 +746,85 @@ test('an SVG that loads a picture through a style or an HTML image stops the exp
     'page 3:2: the image labelled.svg draws a picture it links to (shot.png), which it cannot show inside the Handout: embed that picture in the SVG',
   ])
 })
+
+test('a picture written as percent-encoded data (%89PNG…) is embedded as its bytes', async () => {
+  // Arrange
+  const host = hostWithFiles({})
+  const html = '<p><img src="data:image/png,%89PNG%0D%0A%1A%0A"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('<img src="data:image/png,…">\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+})
+
+test('a key in the text of an SVG saved as UTF-16 stops the export like one in a UTF-8 SVG', async () => {
+  // Arrange
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><text>${ACCESS_KEY_ID}</text></svg>`
+  const utf16 = new Uint8Array([
+    0xff,
+    0xfe,
+    ...Array.from(svg).flatMap((character) => [character.charCodeAt(0), 0]),
+  ])
+  const host = hostWithFiles({ '/r/pages/key.svg': bytesToBase64(utf16) })
+  const html = '<p><img src="key.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![鍵](key.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics).toEqual([
+    {
+      code: 'HANDOUT_SECRET',
+      message:
+        'page 3:1: the image key.svg carries a secret shape (aws-access-key-id); remove the value from the file',
+      page: 3,
+      line: 1,
+    },
+  ])
+})
+
+test('a key at the end of a PNG text chunk stops the export even when the CRC after it starts with a letter', async () => {
+  // Arrange
+  const text = new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)
+  const png = pngWith([['tEXt', text]])
+  // The chunk's real CRC (0x72EF62F0) starts with "r", which runs into the key read as text
+  png.set([0x72, 0xef, 0x62, 0xf0], 8 + 8 + text.length)
+  const host = hostWithFiles({ '/r/pages/shot.png': bytesToBase64(png) })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image shot.png carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+test('a key at the start of a GIF comment stops the export even when the length byte before it is a letter', async () => {
+  // Arrange
+  // The comment is 65 bytes long: its length byte is "A", which runs into the key read as text
+  const comment = Array.from(`${ACCESS_KEY_ID} is the deploy key`.padEnd(65, '.'), (character) =>
+    character.charCodeAt(0),
+  )
+  const screen = [0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00]
+  const gif = new Uint8Array([...screen, 0x21, 0xfe, comment.length, ...comment, 0x00, 0x3b])
+  const host = hostWithFiles({ '/r/pages/flow.gif': bytesToBase64(gif) })
+  const html = '<p><img src="flow.gif"></p>'
+
+  // Act
+  const result = await embedImages(page('![流れ](flow.gif)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image flow.gif carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})

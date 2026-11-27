@@ -49,3 +49,37 @@ test('a text saved under an image name is not an image', () => {
   // Assert
   expect(types).toEqual([null, null, null])
 })
+
+test('an SVG is told after a doctype holding declarations of its own', () => {
+  // Arrange
+  const bytes = new TextEncoder().encode(
+    '<?xml version="1.0"?>\n<!DOCTYPE svg [<!ELEMENT svg ANY>]>\n<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+  )
+
+  // Act
+  const mime = sniffImage(bytes)
+
+  // Assert
+  expect(mime).toBe('image/svg+xml')
+})
+
+test('an SVG saved as UTF-16 is told by its byte order mark, little or big endian', () => {
+  // Arrange
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>'
+  const littleEndian = new Uint8Array([
+    0xff,
+    0xfe,
+    ...Array.from(svg).flatMap((character) => [character.charCodeAt(0), 0]),
+  ])
+  const bigEndian = new Uint8Array([
+    0xfe,
+    0xff,
+    ...Array.from(svg).flatMap((character) => [0, character.charCodeAt(0)]),
+  ])
+
+  // Act
+  const mimes = [sniffImage(littleEndian), sniffImage(bigEndian)]
+
+  // Assert
+  expect(mimes).toEqual(['image/svg+xml', 'image/svg+xml'])
+})

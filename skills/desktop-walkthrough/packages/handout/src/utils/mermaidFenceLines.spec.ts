@@ -216,3 +216,25 @@ test('a fence ends where its quote or list item ends, so the diagram after it is
   // Assert
   expect(lines).toEqual([7])
 })
+
+test('a tab before a would-be closing fence is four columns: the fence stays open and hides the diagram after it', () => {
+  // Arrange
+  const markdown = ['```text', '\t```', '```mermaid', 'flowchart LR', '```'].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([])
+})
+
+test('a fence in a nested quote ends where the inner quote does: the diagram in the outer quote is found', () => {
+  // Arrange
+  const markdown = ['> > ```text', '> > 内側の引用', '> ```mermaid', '> flowchart LR', '> ```'].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([3])
+})

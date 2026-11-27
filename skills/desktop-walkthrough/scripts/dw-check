@@ -293,6 +293,16 @@ else
 fi
 rm -f "$DW_HOME/record_dir"
 
+# A tab before a would-be closing fence is four columns: it closes nothing, and a marker after it is code
+printf '```text\n\t```\n<!-- hud-only -->\n```\n' > "$scratch/tab-fence.md"
+: > "$scratch/tab-fence.problems"
+in_dw explain_filter hud "$scratch/tab-fence.md" "$scratch/tab-fence.problems"
+if [ "$code" = 0 ] && grep -q '<!-- hud-only -->' <<< "$out" && [ ! -s "$scratch/tab-fence.problems" ]; then
+  pass "a tab before a would-be closing fence counts four columns: the marker after it stays code"
+else
+  fail "tab before a closing fence (exit $code: $out): $(cat "$scratch/tab-fence.problems")"
+fi
+
 echo "== resume"
 dir="$RECORDS/resumed"
 mkdir -p "$dir/pages"
@@ -302,6 +312,13 @@ printf '# 二枚目\n\n<!-- hud-only -->\n閉じていない\n' > "$dir/pages/02
 printf '1\t\n2\t\n' > "$dir/pages/sections.tsv"
 rm -rf "$DW_HOME/explain"
 in_dw explain_restore "$dir"
+if [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ] \
+  && grep -q '解説 2' "$DW_HOME/explain/pages/002.html" 2>/dev/null \
+  && grep -q '対応が崩れているため表示できません' "$DW_HOME/explain/pages/002.html"; then
+  pass "on resume a page whose markers broke shows a stand-in under its number, saying what is wrong"
+else
+  fail "stand-in on resume (exit $code: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
+fi
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 printf '# 三枚目\n\n本文\n' > "$scratch/third.md"
 in_dw cmd_explain "$scratch/third.md"
@@ -909,6 +926,8 @@ echo "== HUD golden capture"
 # The committed baseline is what dw built before the Handout work: its template differs on purpose,
 # the data each page carries (number, title, section, Markdown) does not
 cp -R fixtures/hud-golden "$scratch/golden"
+# Stale pages first: only a capture that writes every page brings back the committed data
+for page in "$scratch/golden/baseline/pages/"*.html; do printf 'stale\n' > "$page"; done
 DW_GOLDEN_DIR="$scratch/golden" scripts/hud-golden capture > "$scratch/capture.out" 2>&1
 capture_code=$?
 committed=$(cat fixtures/hud-golden/baseline/pages/*.html | grep '^{"n":')

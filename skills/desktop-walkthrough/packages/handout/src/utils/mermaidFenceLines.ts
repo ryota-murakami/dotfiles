@@ -1,3 +1,5 @@
+import { MARKDOWN_TAB_STOP_COLUMNS } from '../constants'
+
 /** One quote or list marker an opening fence may follow on its line: `> `, `- `, `1. `. */
 const LINE_MARKER = /^ {0,3}(?:> ?|(?:[-*+]|\d{1,9}[.)])[ \t]+)/
 
@@ -30,14 +32,55 @@ function fenceOpening(text: string): { prefix: string; run: string; rest: string
 const QUOTE_MARKERS = /^(?: {0,3}> ?)+/
 
 /**
+ * The columns a line's indentation takes: a tab reaches the next tab stop, a space or a marker
+ * character takes one.
+ *
+ * @example
+ * columns('  ') // 2
+ * columns('\t')  // 4
+ */
+function columns(indentation: string): number {
+  let width = 0
+  for (const character of indentation) {
+    width =
+      character === '\t' ? width + MARKDOWN_TAB_STOP_COLUMNS - (width % MARKDOWN_TAB_STOP_COLUMNS) : width + 1
+  }
+  return width
+}
+
+/**
+ * How many quote markers start a line.
+ *
+ * @example
+ * quoteDepth('> > text') // 2
+ * quoteDepth('text')     // 0
+ */
+function quoteDepth(text: string): number {
+  return (QUOTE_MARKERS.exec(text)?.[0].match(/>/g) ?? []).length
+}
+
+/**
+ * A line without its first COUNT quote markers.
+ *
+ * @example
+ * withoutQuotes('> > ```', 2) // '```'
+ */
+function withoutQuotes(text: string, count: number): string {
+  let rest = text
+  for (let removed = 0; removed < count; removed++) rest = rest.replace(/^ {0,3}> ?/, '')
+  return rest
+}
+
+/**
  * Lines of the Handout's diagrams in a page's original source: the opening fence of each ```mermaid
  * block that is not inside a `<!-- hud-only -->` block, in reading order.
  *
  * Why it exists: page.html numbers diagrams in the filtered source it renders, and a message must
  * point at the original file. Fences follow the same rules as dw's marker filter: ``` or ~~~, also
  * on a list item's line (`- ````) or in a quote (`> ````), closed by the same character at least as
- * long, indented at most 3 spaces past the list item (quoted too in a quote); a line indented 4 or
- * more spaces is never a fence, and a backtick fence with a backtick after it on its line (```x```)
+ * long, indented at most 3 columns past the list item (a tab counts to its tab stop; quoted as deep
+ * in a quote), and ending where its quote or list item ends; a line indented 4 or more spaces is
+ * never a fence, and a backtick fence with a backtick after it on its line (```x```)
  * is code inside the text.
  *
  * @param markdown - A page's original source (both audiences).
@@ -49,32 +92,30 @@ const QUOTE_MARKERS = /^(?: {0,3}> ?)+/
  */
 export function mermaidFenceLines(markdown: string): number[] {
   const lines: number[] = []
-  let fence: { character: string; length: number; indent: number; quoted: boolean } | null = null
+  let fence: { character: string; length: number; indent: number; quotes: number } | null = null
   let hudOnly = false
   markdown.split('\n').forEach((line, index) => {
     // A page saved with Windows line endings: its fences and markers end in a carriage return
     const text = line.replace(/\r$/, '')
-    // A fence ends where its container does: a quote at a line without ">", a list item at a line
-    // (not blank) indented less than its text; the line is then read like any other
-    if (fence?.quoted && !/^ {0,3}>/.test(text)) fence = null
+    // A fence ends where its container does: a quote at a line with fewer quote markers, a list item
+    // at a line (not blank) indented less than its text; the line is then read like any other
+    if (fence && fence.quotes > 0 && quoteDepth(text) < fence.quotes) fence = null
     if (
       fence &&
-      !fence.quoted &&
+      fence.quotes === 0 &&
       fence.indent > 0 &&
       text.trim() !== '' &&
-      (/^[ \t]*/.exec(text)?.[0].length ?? 0) < fence.indent
+      columns(/^[ \t]*/.exec(text)?.[0] ?? '') < fence.indent
     )
       fence = null
-    // Inside a fence only its closing line matters: indented at most 3 past the list item it opened in
+    // Inside a fence only its closing line matters: indented at most 3 columns past the list item it
+    // opened in (a tab counts to its tab stop), quoted as deep as it opened
     if (fence) {
-      // A fence opened in a quote closes on a quoted line
-      const closing = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/.exec(
-        fence.quoted ? text.replace(QUOTE_MARKERS, '') : text,
-      )
+      const closing = /^([ \t]*)(`{3,}|~{3,})[ \t]*$/.exec(withoutQuotes(text, fence.quotes))
       if (
         closing?.[1] !== undefined &&
         closing[2] !== undefined &&
-        closing[1].length <= fence.indent + 3 &&
+        columns(closing[1]) <= fence.indent + 3 &&
         closing[2].charAt(0) === fence.character &&
         closing[2].length >= fence.length
       )
@@ -87,12 +128,12 @@ export function mermaidFenceLines(markdown: string): number[] {
     // "```x```" at the start of a line is code inside the text, not a fence
     if (opening && !(run.startsWith('`') && rest.includes('`'))) {
       const prefix = opening.prefix
-      const quoted = prefix.includes('>')
+      const quotes = (prefix.match(/>/g) ?? []).length
       fence = {
         character: run.charAt(0),
         length: run.length,
-        indent: (quoted ? prefix.replace(QUOTE_MARKERS, '') : prefix).length,
-        quoted,
+        indent: columns(quotes > 0 ? prefix.replace(QUOTE_MARKERS, '') : prefix),
+        quotes,
       }
       if (/^\s*mermaid(?:\s|$)/.test(rest) && !hudOnly) lines.push(index + 1)
       return
