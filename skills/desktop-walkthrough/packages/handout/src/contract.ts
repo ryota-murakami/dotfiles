@@ -34,7 +34,7 @@
  * | HANDOUT_TEMPLATE | builder | page.html lacks the markers around the CSS the Handout takes |
  * | HANDOUT_VERIFY | builder | the finished file, reopened under its own CSP, lost labels or its controller did not run |
  * | HANDOUT_RENDERER | host, dw | the host is unavailable, a time limit passed, its web content ended or the builder threw |
- * | HANDOUT_OUT_EXISTS | dw, host | the output path is a folder, or holds a file that is not a Handout |
+ * | HANDOUT_OUT_EXISTS | dw, host | the output path is a folder, holds a file that is not a Handout, or cannot be written |
  */
 import { z } from 'zod'
 
