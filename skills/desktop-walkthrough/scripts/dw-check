@@ -87,6 +87,15 @@ two_page_record() {
   printf '%s' "$dir"
 }
 
+# The names in folder DIR, hidden ones too, one per line, but the lock file every writer leaves there
+files_but_lock() {
+  local entry
+  for entry in "$1"/* "$1"/.[!.]*; do
+    [ -e "$entry" ] && [ "$(basename "$entry")" != .dw-lock ] && basename "$entry"
+  done
+  return 0
+}
+
 # The first bytes of every Handout (packages/handout/src/contract.ts HANDOUT_HEAD)
 handout_head() { printf '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">'; }
 
@@ -366,15 +375,87 @@ else
 fi
 
 holder=$(hold_like_another_dw "$dir/pages/.dw-lock")
-DW_LOCK_WAIT=1 in_dw cmd_explain "$scratch/waiting.md"
+DW_LOCK_WAIT=1 in_dw cmd_explain "$scratch/waiting.md" --title "it's"
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
-if [ "$code" = 1 ] && grep -q 'the record could not keep it' <<< "$out"; then
-  pass "a page the record cannot keep is said, never reported as shown and kept"
+retry=$(sed -n 's/.*record it with: dw explain //p' <<< "$out")
+if [ "$code" = 1 ] && grep -q 'the record could not keep it' <<< "$out" \
+  && [ "$retry" = "'$DW_HOME/explain/pages/001.md' --page 1 --title 'it'\\''s'" ]; then
+  pass "a page the record cannot keep is said, with the command that records that page (its title kept)"
 else
   fail "record failure after dw explain (exit $code: $out)"
 fi
+# The command given records the page shown, without adding another to the panel
+eval "in_dw cmd_explain $retry"
+if [ "$(jq '.pages | length' "$DW_HOME/explain/index.json")" = 1 ] \
+  && [ "$(ls "$dir/pages" | tr '\n' ' ')" = "01-it's.md 02-二枚目.md sections.tsv " ]; then
+  pass "the retry dw explain gives records page 1 in place: the panel still has one page"
+else
+  fail "retry of the record (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
 rm -f "$DW_HOME/record_dir"
 rm -rf "$DW_HOME/explain"
+
+# dw record backfills the pages already shown; one the record cannot keep is said and dw record fails
+mkdir -p "$DW_HOME/explain/pages" "$RECORDS/backfill/pages"
+printf '{"current":2,"pages":[{"n":1,"title":"一枚目","step":"","file":"pages/001.html"},{"n":2,"title":"二枚目","step":"","file":"pages/002.html"}]}\n' > "$DW_HOME/explain/index.json"
+printf '# 一枚目\n' > "$DW_HOME/explain/pages/001.md"
+printf '# 二枚目\n' > "$DW_HOME/explain/pages/002.md"
+holder=$(hold_like_another_dw "$RECORDS/backfill/pages/.dw-lock")
+DW_LOCK_WAIT=0 in_dw cmd_record backfill
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q '^recording: ' <<< "$out" && grep -q 'page(s) 1 2 of the panel could not be saved' <<< "$out"; then
+  pass "dw record says which pages shown so far it could not save, and fails"
+else
+  fail "backfill that cannot save (exit $code: $out)"
+fi
+in_dw cmd_record backfill
+if [ "$code" = 0 ] && [ "$(ls "$RECORDS/backfill/pages" | tr '\n' ' ')" = "01-一枚目.md 02-二枚目.md sections.tsv " ]; then
+  pass "dw record again saves the pages it could not save before"
+else
+  fail "second dw record (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
+# dw explain --rebuild holds the explainer's lock: a page added meanwhile is never dropped
+before=$(cat "$DW_HOME/explain/index.json")
+holder=$(hold_like_another_dw "$DW_HOME/explain/.dw-lock")
+DW_LOCK_WAIT=0 in_dw explain_rebuild
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q 'another dw' <<< "$out" && [ "$(cat "$DW_HOME/explain/index.json")" = "$before" ] \
+  && [ ! -e "$DW_HOME/explain/pages/001.html" ]; then
+  pass "dw explain --rebuild while another dw adds a page changes nothing and says so"
+else
+  fail "rebuild under the explainer lock (exit $code: $out)"
+fi
+in_dw explain_rebuild
+if [ "$code" = 0 ] && [ -f "$DW_HOME/explain/pages/001.html" ] && [ -f "$DW_HOME/explain/pages/002.html" ]; then
+  pass "dw explain --rebuild builds every page once the explainer is free"
+else
+  fail "rebuild (exit $code: $out)"
+fi
+rm -rf "$DW_HOME/explain"
+
+# A page rewritten under a new title replaces its earlier file; one that cannot be moved leaves all
+dir=$(two_page_record immutable-old)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 新しい題\n' > "$scratch/new-title.md"
+chflags uchg "$dir/pages/01-一枚目.md"
+before=$(files_but_lock "$dir/pages"; cat "$dir/pages/sections.tsv")
+in_dw record_page 1 "新しい題" "$scratch/new-title.md" "" quiet
+after=$(files_but_lock "$dir/pages"; cat "$dir/pages/sections.tsv")
+chflags nouchg "$dir/pages/01-一枚目.md"
+if [ "$code" = 1 ] && grep -q 'could not be replaced' <<< "$out" && [ "$after" = "$before" ]; then
+  pass "a rewritten page whose earlier file cannot be removed leaves the record as it was, and says so"
+else
+  fail "earlier page file that cannot go (exit $code: $out): $after"
+fi
+in_dw record_page 1 "新しい題" "$scratch/new-title.md" "" quiet
+if [ "$code" = 0 ] && [ "$(files_but_lock "$dir/pages" | tr '\n' ' ')" = "01-新しい題.md 02-二枚目.md sections.tsv " ]; then
+  pass "a rewritten page under a new title replaces its earlier file, nothing left aside"
+else
+  fail "page rewritten under a new title (exit $code: $out): $(ls -A "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
 
 dir=$(two_page_record uncopyable)
 printf '%s' "$dir" > "$DW_HOME/record_dir"

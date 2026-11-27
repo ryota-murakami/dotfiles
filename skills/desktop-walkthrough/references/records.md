@@ -5,7 +5,7 @@ Every walkthrough is recorded in a folder of its own under `~/.config/desktop-wa
 | Command | What it does |
 | --- | --- |
 | `$DW start --name <name>` | starts a walkthrough and names its record (without a name: the start time) |
-| `$DW record <name>` | names or renames the record later and takes the pages already shown |
+| `$DW record <name>` | names or renames the record later and takes the pages already shown; a page it cannot save now (another dw is writing the record) is named and `dw record` fails: run it again, the pages saved are skipped |
 | `$DW records` | lists the records |
 | `$DW resume <name>` | takes a paused walkthrough up again, in the same record |
 | `$DW handout [<name>]` | writes the record's pages as one HTML file to share, `handout.html` (SKILL.md, Handout). Without a name: the running walkthrough's record, else the last one started, resumed or named (`dw end` keeps that), else the one whose journal changed last |
@@ -17,7 +17,7 @@ Every walkthrough is recorded in a folder of its own under `~/.config/desktop-wa
 | `journal.md` | `dw`, as you work: sections (`step`), narration (`say`), commands and their results (`term run` / `term check`), questions with their answers, feedback buttons | repeating the walkthrough step by step |
 | `pages/NN-title.md`, `handbook.md` | `dw explain`: each page as written (both audiences' blocks), and all of them in reading order | reading again; `handbook.md` is the raw text, not the file to share |
 | `pages/sections.tsv` | `dw explain`: per page its number, its section and the title given with `--title` (tab-separated) | listing the pages the same way on resume and in a Handout |
-| `pages/.dw-lock` | `dw explain` while it changes the record's pages: the system's advisory lock on it, held by the writing dw | two writers at once never delete each other's page; the lock ends with its writer, however dw ends |
+| `pages/.dw-lock` | `dw explain` while it changes the record's pages, and `dw handout` while it copies them: the system's advisory lock on it, held by that dw | two writers at once never delete each other's page, and an export reads the pages as one moment held them; the lock ends with its holder, however dw ends. A page shown while another dw holds it is not recorded: dw says so and gives the command that records that page (`dw explain <its Markdown> --page N`) |
 | `pages/cleared-<time>/` | `dw explain --clear`: the pages shown before the clear, with their sections (a second clear within the same second gets `cleared-<time>-1/`). Every page and sections.tsv is copied and compared before anything leaves the record: a clear that cannot archive them removes nothing, in the panel either | keeping them; resume, the handbook and a Handout hold only the pages shown since |
 | `handout.html` | `dw handout`: every page as one checked, self-contained file | sharing with people who did not watch |
 | `notes/NNN-title.md` | `dw note`: each note, in the order shown | showing the same notes beside the same code in a repeat |

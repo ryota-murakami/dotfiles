@@ -125,7 +125,8 @@ test("a page's own style rules go, so they cannot reach another page's diagrams;
 
   // Assert
   expect(sanitized).toBe(
-    '<p>本文</p><div class="diagram"><svg id="p2-d1"><style>#p2-d1 .node { fill: #333; }</style></svg></div>',
+    // The rules stay as the CSS parser writes them back (a colour as rgb())
+    '<p>本文</p><div class="diagram"><svg id="p2-d1"><style>#p2-d1 .node { fill: rgb(51, 51, 51); }</style></svg></div>',
   )
 })
 
@@ -173,13 +174,13 @@ test('a template element goes: its contents would ship in the file without anyon
 test('a style a page hides inside a diagram label goes too: only the diagram’s own style stays', () => {
   // Arrange
   const html =
-    '<div class="diagram"><svg id="p1-d1" viewBox="0 0 10 10"><style>.node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg></div>'
+    '<div class="diagram"><svg id="p1-d1" viewBox="0 0 10 10"><style>#p1-d1 .node { fill: #5ccc9e }</style><foreignObject><style>h1 { display: none }</style><div>書き出す</div></foreignObject></svg></div>'
 
   // Act
   const sanitized = sanitizePage(html)
 
   // Assert
-  expect(sanitized).toContain('.node { fill: #5ccc9e }')
+  expect(sanitized).toContain('#p1-d1 .node { fill: rgb(92, 204, 158); }')
   expect(sanitized).not.toContain('display: none')
 })
 
@@ -206,4 +207,17 @@ test('a style in an SVG a page wrote inside its own .diagram goes: only the svg 
 
   // Assert
   expect(sanitized).not.toContain('display: none')
+})
+
+test("a rule in a diagram's style that reaches past its SVG goes, and the diagram's own rules stay", () => {
+  // Arrange
+  const html =
+    '<div class="diagram"><svg id="p2-d1" viewBox="0 0 10 10"><style>#p2-d1 .node{fill:#5ccc9e}#page-2{display:none}</style><rect class="node" width="10" height="10"></rect></svg></div>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  expect(sanitized).toContain('<style>#p2-d1 .node { fill: rgb(92, 204, 158); }</style>')
+  expect(sanitized).not.toContain('#page-2')
 })

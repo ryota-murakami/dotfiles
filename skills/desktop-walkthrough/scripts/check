@@ -49,7 +49,8 @@ workspace() {
 # committed, so a fix in a source that was never rebuilt would never run. Runs after the workspace build
 committed_builds() {
   local changed
-  changed=$(git status --porcelain -- packages/*/dist)
+  # A pathspec git expands, not the shell: a build folder that is gone entirely is matched too
+  changed=$(git status --porcelain -- ':(glob)packages/*/dist/**')
   [ -z "$changed" ] && return 0
   printf '%s\n' "$changed"
   echo "the committed build differs from a fresh one: commit packages/<name>/dist with its source (pnpm build rebuilds it)"

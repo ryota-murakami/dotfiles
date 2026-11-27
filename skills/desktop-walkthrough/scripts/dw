@@ -299,11 +299,23 @@ hold_lock() {
 }
 release_lock() { eval "exec $1>&-"; }
 
+# Put back the earlier page files record_page moved aside (each named as it was before the move)
+record_restore_aside() {
+  local old
+  for old in "$@"; do
+    mv "$(dirname "$old")/.$(basename "$old").aside.$$" "$old" 2>/dev/null \
+      || echo "dw: $(basename "$old") could not be put back: it is at $(dirname "$old")/.$(basename "$old").aside.$$" >&2
+  done
+}
+
+# WORD as one shell word, single-quoted, for a command a message tells the user to run
+shell_word() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
+
 # Keep an explainer page in the record as pages/NN-title.md and rebuild the handbook. GIVEN is the
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
 record_page() {
-  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows
+  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   mkdir -p "$dir/pages"
@@ -345,14 +357,35 @@ record_page() {
   # Written beside under a name of this process (two writers never share it), then renamed: a reader
   # (dw handout) never sees half a page, and a write that fails removes nothing
   part="$dir/pages/.$nn.md.part.$$"
-  if ! { cp "$md" "$part" && mv "$part" "$page"; }; then
+  if ! cp "$md" "$part" 2>/dev/null; then
     rm -f "$part" "$sections.part.$$"
     release_lock 8
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
-  # A replaced page keeps its number: an earlier file of that number under another title goes
-  for old in "$dir/pages/$nn-"*.md; do [ -f "$old" ] && [ "$old" != "$page" ] && rm -f "$old"; done
+  # A replaced page keeps its number: an earlier file of that number under another title is moved
+  # aside first (a hidden name no reader lists), so one that cannot be moved (locked, its permissions)
+  # leaves the record as it was; the files moved aside go once the new page is in place
+  aside=()
+  for old in "$dir/pages/$nn-"*.md; do
+    [ -f "$old" ] && [ "$old" != "$page" ] || continue
+    if ! mv "$old" "$dir/pages/.$(basename "$old").aside.$$" 2>/dev/null; then
+      record_restore_aside ${aside[@]+"${aside[@]}"}
+      rm -f "$part" "$sections.part.$$"
+      release_lock 8
+      echo "dw: page $n: its earlier file $(basename "$old") could not be replaced (check its permissions): the record was left as it was" >&2
+      return 1
+    fi
+    aside+=("$old")
+  done
+  if ! mv "$part" "$page" 2>/dev/null; then
+    record_restore_aside ${aside[@]+"${aside[@]}"}
+    rm -f "$part" "$sections.part.$$"
+    release_lock 8
+    echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
+    return 1
+  fi
+  for old in ${aside[@]+"${aside[@]}"}; do rm -f "$dir/pages/.$(basename "$old").aside.$$"; done
   if ! mv "$sections.part.$$" "$sections"; then
     rm -f "$sections.part.$$"
     release_lock 8
@@ -425,7 +458,7 @@ record_clear() {
 
 # Name the record of the running walkthrough, or start recording it; pages already shown are kept too
 cmd_record() {
-  local name="${1:-}" dir old n title file src given
+  local name="${1:-}" dir old n title file src given rows missing=""
   if [ -z "$name" ]; then
     dir=$(record_dir)
     if [ -n "$dir" ]; then echo "recording: $dir"; else echo "not recording: dw record <name>"; fi
@@ -440,16 +473,23 @@ cmd_record() {
   record_init "$dir"
   set_record_dir "$dir"
   if [ -f "$EXPLAIN/index.json" ]; then
-    jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json" | while IFS=$'\t' read -r n title file; do
+    rows=$(jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json")
+    while IFS=$'\t' read -r n title file; do
+      [ -n "$n" ] || continue
       ls "$dir/pages/$(printf '%02d' "$n")-"*.md >/dev/null 2>&1 && continue
       src="$EXPLAIN/${file%.html}.md"
       [ -f "$src" ] || continue
       # A title the page's own heading does not give was given with --title
       given=""; [ "$title" = "$(filtered_h1 hud "$src")" ] || given="$title"
-      record_page "$n" "$title" "$src" "$given" quiet
-    done
+      # A page the record cannot keep now is said; dw record again saves it (pages kept are skipped)
+      record_page "$n" "$title" "$src" "$given" quiet || missing="$missing $n"
+    done <<< "$rows"
   fi
   echo "recording: $dir"
+  if [ -n "$missing" ]; then
+    echo "dw record: page(s)$missing of the panel could not be saved in the record yet (see above): run dw record $name again to save them" >&2
+    return 1
+  fi
 }
 
 cmd_records() {
@@ -889,8 +929,11 @@ reading_brief() {
 # Build every page again from the Markdown kept beside it, so that pages already shown take up a
 # change of the page template. The HUD loads the page on screen again
 explain_rebuild() {
-  local md n title step current count=0 kept=0 problems
+  local md n title step current count=0 kept=0 failed=0 problems built
   [ -f "$EXPLAIN/index.json" ] || { echo "explainer: no pages to rebuild"; return 0; }
+  # Under the explainer's lock, from reading the index to its last update: a page added meanwhile
+  # would be dropped from the panel by an index this rebuild read before it
+  hold_lock "$EXPLAIN/.dw-lock" 7 || return 1
   current=$(jq -r '.current // 0' "$EXPLAIN/index.json")
   problems="$EXPLAIN/pages/.problems.$$"
   for md in "$EXPLAIN"/pages/[0-9][0-9][0-9].md; do
@@ -900,17 +943,20 @@ explain_rebuild() {
     step=$(jq -r --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json")
     [ -n "$title" ] || continue
     : > "$problems"
-    # A page whose markers do not pair keeps its previous build
-    if ! explain_build "$n" "$title" "$step" "$md" "$current" hud "$problems"; then
-      explain_problems "page $n" "$problems" >&2
-      kept=$((kept + 1))
-      continue
-    fi
-    count=$((count + 1))
+    explain_build "$n" "$title" "$step" "$md" "$current" hud "$problems"
+    built=$?
+    case "$built" in
+      0) count=$((count + 1)) ;;
+      # A page whose markers do not pair keeps its previous build
+      1) explain_problems "page $n" "$problems" >&2; kept=$((kept + 1)) ;;
+      *) echo "explainer: page $n could not be rebuilt (its HTML or the index could not be written): it keeps its previous build" >&2; failed=$((failed + 1)) ;;
+    esac
   done
   rm -f "$problems"
+  release_lock 7
   echo "explainer: $count page(s) rebuilt with the current template; the page on screen is loaded again"
   [ "$kept" = 0 ] || echo "explainer: $kept page(s) kept their previous build: fix their markers (dw explain <file> --page N)"
+  [ "$failed" = 0 ] || { echo "explainer: $failed page(s) could not be rebuilt: run dw explain --rebuild again" >&2; return 1; }
 }
 
 # Audience markers. A page can hold text for one audience only, between two lines that hold nothing
@@ -1072,7 +1118,7 @@ explain_build() {
 # Show a long explanation as a page in the HUD's explainer panel. Pages are numbered and kept, so the
 # user can page back; --replace rewrites the newest page (to fix a diagram) instead of adding one.
 cmd_explain() {
-  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label built
+  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label built retry
   while [ $# -gt 0 ]; do
     case "$1" in
       --title)   title="${2:?--title needs a value}"; shift 2 ;;
@@ -1095,7 +1141,7 @@ cmd_explain() {
         release_lock 7
         echo "explainer: every page removed"; return 0 ;;
       --progress) explain_progress; return 0 ;;
-      --rebuild)  explain_rebuild; return 0 ;;
+      --rebuild)  explain_rebuild; return $? ;;
       -)         src=/dev/stdin; shift ;;
       *)         src="$1"; shift ;;
     esac
@@ -1171,7 +1217,10 @@ cmd_explain() {
   # The page is shown either way; a record that could not keep it is said, never passed over
   if ! record_page "$n" "$title" "$md" "$given"; then
     release_lock 7
-    echo "explainer: page $n is shown, but the record could not keep it (see above): run the command again to record it"
+    # Running the same command again would add another page: the retry rewrites this one in place
+    retry="dw explain $(shell_word "$md") --page $n"
+    [ -n "$given" ] && retry="$retry --title $(shell_word "$given")"
+    echo "explainer: page $n is shown, but the record could not keep it (see above): record it with: $retry"
     return 1
   fi
   release_lock 7

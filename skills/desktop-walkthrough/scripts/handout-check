@@ -166,6 +166,16 @@ if [ "$code" = 0 ] && grep -q '(3 pages, 2 diagrams, 0 warnings)' <<< "$out" && 
 else
   fail "export: $out"
 fi
+# Each diagram keeps its own style: WebKit's CSS parser reads back the rules mermaid scoped to it
+# (sanitizePage keeps no other rule)
+# (a flowchart's <style> is its svg's first child, a sequence diagram's comes later)
+styled=$(perl -0ne 'my $doc = $_; my @ids = $doc =~ /<svg[^>]*\bid="(p\d+-d\d+)"/g;
+  my $kept = grep { $doc =~ /<style>#\Q$_\E[ {]/ } @ids; print scalar(@ids), "/", $kept' "$RECORDS/golden/handout.html")
+if [ "$styled" = 2/2 ]; then
+  pass "both diagrams keep the style mermaid scoped to them"
+else
+  fail "diagram styles (diagrams/styled: $styled)"
+fi
 export_record golden
 if [ "$code" = 0 ]; then pass "exporting again replaces the earlier Handout"; else fail "re-export: $out"; fi
 
@@ -401,6 +411,30 @@ if [ "$code" = 0 ] && [ "$(stat -f '%Lp' "$RECORDS/private/handout.html")" = 600
   pass "a re-exported Handout keeps the permissions of the one it replaces (0600 stays 0600)"
 else
   fail "permissions on re-export ($(stat -f '%Lp' "$RECORDS/private/handout.html")): $out"
+fi
+
+# The ACL a folder hands down: a new Handout gets it, like any new file there; a replaced one keeps
+# the earlier Handout's (none here), whatever the folder hands down since
+mkdir -p "$scratch/acl-new" "$scratch/acl-replaced"
+chmod +a "everyone allow read,file_inherit" "$scratch/acl-new"
+new_record acl
+export_record acl --out "$scratch/acl-new/handout.html"
+first=$code
+inherited=$(ls -le "$scratch/acl-new/handout.html" | sed -n 's/^ *[0-9]*: //p')
+if [ "$first" = 0 ] && [ "$inherited" = "group:everyone inherited allow read" ]; then
+  pass "a new Handout gets the ACL its folder hands down, like any new file there"
+else
+  fail "inherited ACL on a new Handout (exit $first): $inherited / $out"
+fi
+export_record acl --out "$scratch/acl-replaced/handout.html"
+first=$code
+chmod +a "everyone allow read,file_inherit" "$scratch/acl-replaced"
+export_record acl --out "$scratch/acl-replaced/handout.html"
+replaced=$(ls -le "$scratch/acl-replaced/handout.html" | sed -n 's/^ *[0-9]*: //p')
+if [ "$first" = 0 ] && [ "$code" = 0 ] && [ -z "$replaced" ]; then
+  pass "a replaced Handout keeps the earlier one's ACL (none), never the one its folder hands down"
+else
+  fail "ACL on a replaced Handout (exit $first/$code): $replaced / $out"
 fi
 
 new_record script

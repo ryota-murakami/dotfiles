@@ -135,6 +135,12 @@ func newFileMode() -> mode_t {
     return 0o666 & ~mask
 }
 
+/// Whether two looks at one file saw the same content: the same size and modification time.
+func sameContentStamp(_ first: stat, _ second: stat) -> Bool {
+    first.st_size == second.st_size && first.st_mtimespec.tv_sec == second.st_mtimespec.tv_sec
+        && first.st_mtimespec.tv_nsec == second.st_mtimespec.tv_nsec
+}
+
 /// Whether the file at `path` is still the one written (same device and inode) holding exactly `data`.
 /// Only then may cleanup remove it: anything else is a save another program made into it, and stays.
 func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
@@ -153,12 +159,13 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// swapped out is judged by descriptor and, when it does not start as a Handout (one that appeared
 /// meanwhile), swapped back. A replaced Handout's permissions, group and ACL are read from that file
 /// itself and set on the new one by descriptor: who could not read it cannot read the new one, and
-/// when they cannot be carried the earlier Handout goes back. dw's process is looked at before each
-/// rename (`parentAlive`). A file left at the temporary path is removed only when it holds exactly
-/// the bytes written, and a save made into the replaced Handout meanwhile is kept: another program's
-/// save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
+/// when they cannot be carried the earlier Handout goes back. The file is written without the ACL its
+/// folder hands down, so nobody reads it half written; a new Handout gets that ACL back. Before each
+/// rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
+/// temporary path is removed only when it holds exactly the bytes written, and a save made into the
+/// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
-func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Publication {
+func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -173,6 +180,19 @@ func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Public
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
     // The descriptor stays open across the renames: permissions are set on this file, wherever it is
     defer { close(descriptor) }
+    // An ACL the folder hands down would let others read the file while it is written: it is set aside
+    // before a byte is written, and given back to a new Handout only (a replaced one takes the earlier
+    // Handout's ACL). A volume without ACLs has none
+    let inherited = acl_get_fd(descriptor)
+    defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
+    let emptyAcl = acl_init(0)
+    let aclCleared = emptyAcl.map { acl_set_fd(descriptor, $0) == 0 || errno == ENOTSUP || errno == EOPNOTSUPP } ?? false
+    if let emptyAcl { acl_free(UnsafeMutableRawPointer(emptyAcl)) }
+    guard aclCleared else {
+        let reason = errnoText()
+        unlink(temporary)
+        return .failed("could not prepare the Handout in \(folder): its inherited ACL could not be removed (\(reason))")
+    }
     do {
         try FileHandle(fileDescriptor: descriptor, closeOnDealloc: false).write(contentsOf: data)
     } catch {
@@ -185,16 +205,19 @@ func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Public
         unlink(temporary)
         return .failed("could not write in \(folder): \(reason)")
     }
-    // dw may have ended while the file was written: nobody waits for it any more
-    guard parentAlive() else {
+    // dw may have ended, or the run's time may be up, while the file was written (a slow volume)
+    guard mayPublish() else {
         unlink(temporary)
         return .cancelled
     }
     // Nothing there yet: create it, failing if something appeared in the meantime
     if renamex_np(temporary, target, UInt32(RENAME_EXCL)) == 0 {
+        // What any new file there gets: the ACL its folder hands down, then the usual permissions. An
+        // ACL that cannot be given back may have denied someone: the file then stays its owner's alone
+        let aclRestored = inherited.map { acl_set_fd(descriptor, $0) == 0 } ?? true
         // Restrictive (0600) if this fails: never wider than intended
-        fchmod(descriptor, newFileMode())
-        return .published(warnings: [])
+        if aclRestored { fchmod(descriptor, newFileMode()) }
+        return .published(warnings: aclRestored ? [] : ["the ACL \(folder) gives its files could not be given to the Handout: only you can read it"])
     }
     let exclusiveError = errno
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
@@ -205,7 +228,7 @@ func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Public
         unlink(temporary)
         return .failed("could not create \(target): \(String(cString: strerror(exclusiveError)))")
     }
-    guard parentAlive() else {
+    guard mayPublish() else {
         unlink(temporary)
         return .cancelled
     }
@@ -219,22 +242,23 @@ func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Public
     var replaced = stat()
     if theirs >= 0, fstat(theirs, &replaced) == 0, startsAsHandout(theirs) {
         defer { close(theirs) }
-        // Its permissions, its group and its ACL, set on the published file by descriptor; a group this
-        // user cannot give leaves no group able to read it, rather than the folder's group
-        var carried = fchmod(descriptor, replaced.st_mode & 0o7777) == 0
-        if carried, fchown(descriptor, uid_t.max, replaced.st_gid) != 0 {
-            carried = fchmod(descriptor, replaced.st_mode & 0o7707) == 0
-        }
+        // Its group, its ACL, then its permissions, set on the published file by descriptor: the file
+        // stays readable by its owner alone until the group and the ACL are right. A group this user
+        // cannot give leaves no group able to read it, rather than the folder's group
+        let groupCarried = fchown(descriptor, uid_t.max, replaced.st_gid) == 0
         // A volume without ACLs has none to carry
-        if carried, fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) != 0, errno != ENOTSUP {
-            carried = false
+        var carried = fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 || errno == ENOTSUP
+        if carried {
+            carried = fchmod(descriptor, replaced.st_mode & (groupCarried ? 0o7777 : 0o7707)) == 0
         }
         if carried {
-            // A save another program made into the earlier Handout meanwhile stays where it is
+            // A save another program made into the earlier Handout meanwhile stays where it is: the file
+            // swapped out must be the one looked at before anything was written (`present`), unchanged
+            // since, and unchanged while its permissions were read
             var now = stat()
-            if fstat(theirs, &now) == 0, now.st_size != replaced.st_size
-                || now.st_mtimespec.tv_sec != replaced.st_mtimespec.tv_sec
-                || now.st_mtimespec.tv_nsec != replaced.st_mtimespec.tv_nsec {
+            let sameAsLookedAt = present.st_dev == replaced.st_dev && present.st_ino == replaced.st_ino
+                && sameContentStamp(present, replaced)
+            if !sameAsLookedAt || fstat(theirs, &now) != 0 || !sameContentStamp(now, replaced) {
                 return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
             }
             unlink(temporary)
@@ -268,13 +292,17 @@ func publishWithoutRenames(_ data: Data, to target: String) -> Publication {
     }
     let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, newFileMode())
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
+    var mine = stat()
+    fstat(created, &mine)
     let handle = FileHandle(fileDescriptor: created, closeOnDealloc: true)
     do {
         try handle.write(contentsOf: data)
         try handle.close()
     } catch {
-        // The file is this run's own (created exclusively): a partial one goes
-        unlink(target)
+        // A partial file goes, when the path still names this run's own (another program may have put
+        // its file there meanwhile)
+        var now = stat()
+        if lstat(target, &now) == 0, now.st_dev == mine.st_dev, now.st_ino == mine.st_ino { unlink(target) }
         return .failed("could not write \(target): \(describe(error))")
     }
     return .published(warnings: [])
@@ -314,6 +342,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     var pendingRender: PendingRender?
     var pendingVerify: PendingVerify?
     var logHandle: FileHandle?
+    /// When the run started: publication looks at the run's time itself (`pastDeadline`).
+    let startedAt = Date()
 
     init(input: [String: Any], explainDir: URL, distDir: URL, out: String, logPath: String,
          pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, builtPages: [Int: String]) {
@@ -401,6 +431,12 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
     }
 
+    /// Whether the run's time (runMs) is up: publishing on the main queue can outlast the run's timer,
+    /// which then could not fire, so publication looks at the clock itself.
+    func pastDeadline() -> Bool {
+        Date().timeIntervalSince(startedAt) * 1000 > Double(runLimitMs)
+    }
+
     /// Whether dw's process (input.json parentPid) is still there; true when there is none to watch.
     func parentIsAlive() -> Bool {
         guard let parent = input["parentPid"] as? Int, parent > 1 else { return true }
@@ -436,14 +472,15 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         guard let html = outcome["html"] as? String else { failRenderer("the builder returned no Handout") }
         // dw may have ended since the last look: nobody waits for this file any more
         stopIfParentGone()
-        switch publish(Data(html.utf8), to: out, parentAlive: { self.parentIsAlive() }) {
+        switch publish(Data(html.utf8), to: out, mayPublish: { self.parentIsAlive() && !self.pastDeadline() }) {
         case .published(let kept):
             log("published: \(out)")
             let warnings = (outcome["warnings"] as? [[String: Any]] ?? []) + kept.map { ["message": $0] }
             finish(["v": protocolVersion, "ok": true, "path": out, "pages": outcome["pages"] ?? 0,
                     "diagrams": outcome["diagrams"] ?? 0, "warnings": warnings], code: 0)
         case .cancelled:
-            failRenderer("dw ended before the export finished: nothing was published")
+            failRenderer(pastDeadline() ? "the export took longer than \(runLimitMs / 1000) s: nothing was published"
+                                        : "dw ended before the export finished: nothing was published")
         case .isFolder:
             finish(failure(code: "HANDOUT_OUT_EXISTS", message: "\(out) is a folder: name a file", log: logPath), code: 1)
         case .notAHandout:

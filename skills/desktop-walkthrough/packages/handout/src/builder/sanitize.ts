@@ -2,6 +2,7 @@ import createDOMPurify from 'dompurify'
 import type { Config } from 'dompurify'
 
 import { HANDOUT_DOM } from '../dom'
+import { scopedDiagramCss } from '../utils/scopedDiagramCss'
 
 /**
  * The allowlist of the assembled Handout (DX D14, eng A1). HTML and SVG as DOMPurify allows them by
@@ -77,12 +78,11 @@ function handoutPurifier(): ReturnType<typeof createDOMPurify> {
  */
 export function sanitizePage(html: string): string {
   const fragment = handoutPurifier().sanitize(html, { ...SANITIZE_CONFIG, RETURN_DOM_FRAGMENT: true })
-  // A page's own <style> would apply to every page of the one file a Handout is, though each page
-  // was measured alone; mermaid's styles sit inside its SVG, scoped by the diagram's id
-  // An SVG's style applies to the whole document, so only a diagram's own stays: a child of the svg
-  // page.html drew for a diagram (a .diagram holder, the svg's id p<page>-d<diagram>, its rules scoped
-  // by that id). One in an SVG the page wrote, or inside a diagram's HTML label (foreignObject), goes
-  // like the page's own styles
+  // A <style> applies to every page of the one file a Handout is, though each page was measured
+  // alone. Only a diagram's own stays: a child of the svg page.html drew for a diagram (a .diagram
+  // holder, the svg's id p<page>-d<diagram>), and of it only the rules that stay inside that svg, as
+  // mermaid scopes them (page.html's Handout mode already drops every <style> a page writes). One
+  // in an SVG the page wrote, or inside a diagram's HTML label (foreignObject), goes
   for (const style of Array.from(fragment.querySelectorAll('style'))) {
     const svg = style.parentElement
     const ownedByDiagram =
@@ -90,7 +90,9 @@ export function sanitizePage(html: string): string {
       DIAGRAM_SVG_ID.test(svg.id) &&
       svg.parentElement?.classList.contains('diagram') === true &&
       style.closest('foreignObject') === null
-    if (!ownedByDiagram) style.remove()
+    const scoped = ownedByDiagram ? scopedDiagramCss(style.textContent ?? '', svg.id, document) : ''
+    if (scoped === '') style.remove()
+    else style.textContent = scoped
   }
   // Read back in a document without a window: nothing in it loads (an image of a page fetches nothing)
   const holder = document.implementation.createHTMLDocument('').createElement('div')
