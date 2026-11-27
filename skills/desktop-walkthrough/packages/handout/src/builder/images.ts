@@ -349,7 +349,9 @@ function tooLarge(): EmbedFailure {
 
 /**
  * Whether some bytes may go into a Handout as an image: what image they are, or why not. A picture
- * an SVG carries as data is checked the same way, one level deeper.
+ * an SVG carries as data is checked the same way, one level deeper. Whether a picture decodes is
+ * checked where it is shown, once: the finished Handout is opened in the browser before it is
+ * published, and a broken or cut-off picture stops the export there ({@link judgeVerification}).
  *
  * @param bytes - A file's contents, or the data written into a page.
  * @param depth - How deep inside other pictures these bytes sit (0 for the picture a page names).

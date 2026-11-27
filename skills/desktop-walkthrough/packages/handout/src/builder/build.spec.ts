@@ -386,7 +386,8 @@ test('a Handout with screenshots tells the agent that what a picture shows is no
     files: {
       '/skill/explainer/page.html': base64(TEMPLATE),
       '/tmp/e/vendor/highlight.css': base64('.hljs { color: #c9d1d9; }'),
-      '/r/pages/shot.png': 'iVBORw0KGgo=',
+      '/r/pages/shot.png':
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
     },
   })
 

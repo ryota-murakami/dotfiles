@@ -28,7 +28,10 @@ const page = (markdown: string) => ({
 
 test('an image beside the page is embedded, so the Handout works as one file', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/r/pages/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = '<p><img src="shot.png" alt="一覧の画面"></p>'
 
   // Act
@@ -36,7 +39,7 @@ test('an image beside the page is embedded, so the Handout works as one file', a
 
   // Assert
   expect(result).toEqual({
-    html: '<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="一覧の画面"></p>',
+    html: '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" alt="一覧の画面"></p>',
     diagnostics: [],
   })
 })
@@ -250,7 +253,10 @@ test('an image path with a broken %-escape stops the export with a reason instea
 
 test('an image an inline SVG draws is embedded too, so the finished file shows it under its CSP', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/r/pages/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = '<svg viewBox="0 0 10 10"><image href="shot.png" width="10" height="10"></image></svg>'
 
   // Act
@@ -264,7 +270,7 @@ test('an image an inline SVG draws is embedded too, so the finished file shows i
 
   // Assert
   expect(result).toEqual({
-    html: '<svg viewBox="0 0 10 10"><image href="data:image/png;base64,iVBORw0KGgo=" width="10" height="10"></image></svg>',
+    html: '<svg viewBox="0 0 10 10"><image href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==" width="10" height="10"></image></svg>',
     diagnostics: [],
   })
 })
@@ -294,14 +300,20 @@ function pngWith(chunks: Array<[string, Uint8Array]>): Uint8Array {
 
 test('a picture without an image extension is embedded by what its bytes are', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/capture': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/r/pages/capture':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = '<p><img src="capture"></p>'
 
   // Act
   const result = await embedImages(page('![画面](capture)\n'), html, '/r', host, createImageLedger())
 
   // Assert
-  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+  expect(result).toEqual({
+    html: '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="></p>',
+    diagnostics: [],
+  })
 })
 
 test('an SVG that spells a key with character references stops the export, as the drawing shows it decoded', async () => {
@@ -463,7 +475,10 @@ test('an image written into the page as data larger than 20 MB stops the export 
 
 test('a picture shown on two pages is read once for the whole export', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/r/pages/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const ledger = createImageLedger()
   const html = '<p><img src="shot.png"></p>'
 
@@ -473,13 +488,21 @@ test('a picture shown on two pages is read once for the whole export', async () 
 
   // Assert
   expect(host.asked).toEqual(['/r/pages/shot.png'])
-  expect(second.html).toBe('<p><img src="data:image/png;base64,iVBORw0KGgo="></p>')
+  expect(second.html).toBe(
+    '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="></p>',
+  )
 })
 
 test('pictures past the export’s total stop it, naming the one that crossed the line', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/a.png': 'iVBORw0KGgo=', '/r/pages/b.png': 'iVBORw0KGgo=' })
-  const ledger = createImageLedger(12)
+  const host = hostWithFiles({
+    '/r/pages/a.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    '/r/pages/b.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
+  // Each picture is 67 bytes: the first fits in 100, the second crosses it
+  const ledger = createImageLedger(100)
   const html = '<p><img src="a.png"><img src="b.png"></p>'
 
   // Act
@@ -487,13 +510,16 @@ test('pictures past the export’s total stop it, naming the one that crossed th
 
   // Assert
   expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
-    'page 3:2: the image b.png would take the pictures of the Handout past 12 bytes in all: use fewer or smaller pictures',
+    'page 3:2: the image b.png would take the pictures of the Handout past 100 bytes in all: use fewer or smaller pictures',
   ])
 })
 
 test('a file link to another computer is refused without reading a local file of the same path', async () => {
   // Arrange
-  const host = hostWithFiles({ '/share/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/share/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = '<p><img src="file://fileserver/share/shot.png"></p>'
 
   // Act
@@ -515,7 +541,10 @@ test('a file link to another computer is refused without reading a local file of
 test('an SVG image naming its picture twice (href and xlink:href) has both checked', async () => {
   // Arrange
   const hidden = `<svg xmlns="http://www.w3.org/2000/svg"><desc>${ACCESS_KEY_ID}</desc></svg>`
-  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/r/pages/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = `<svg viewBox="0 0 10 10"><image href="shot.png" xlink:href="data:image/svg+xml;base64,${toBase64(hidden)}"></image></svg>`
 
   // Act
@@ -574,7 +603,8 @@ test('a screenshot an SVG carries inside it is checked like one on its own: a ke
 test('an image written into the page as data is embedded as its checked bytes alone: no other text of the source travels', async () => {
   // Arrange
   const host = hostWithFiles({})
-  const html = '<p><img src="data:image/png;name=&quot;x&quot;;base64,iVBORw0KGgo="></p>'
+  const html =
+    '<p><img src="data:image/png;name=&quot;x&quot;;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="></p>'
 
   // Act
   const result = await embedImages(
@@ -586,17 +616,24 @@ test('an image written into the page as data is embedded as its checked bytes al
   )
 
   // Assert
-  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+  expect(result).toEqual({
+    html: '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="></p>',
+    diagnostics: [],
+  })
 })
 
 test('once the pictures pass the total, the files after them are not read at all', async () => {
   // Arrange
   const host = hostWithFiles({
-    '/r/pages/a.png': 'iVBORw0KGgo=',
-    '/r/pages/b.png': 'iVBORw0KGgo=',
-    '/r/pages/c.png': 'iVBORw0KGgo=',
+    '/r/pages/a.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    '/r/pages/b.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    '/r/pages/c.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
   })
-  const ledger = createImageLedger(12)
+  // Each picture is 67 bytes: the first fits in 100, the second crosses it
+  const ledger = createImageLedger(100)
   const html = '<p><img src="a.png"><img src="b.png"><img src="c.png"></p>'
 
   // Act
@@ -675,7 +712,11 @@ test('a key in a PNG’s compressed color profile stops the export: the profile 
 
 test('the ledger counts the raster pictures embedded, whose pixels no check reads', async () => {
   // Arrange
-  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=', '/r/pages/flow.svg': 'PHN2Zy8+' })
+  const host = hostWithFiles({
+    '/r/pages/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+    '/r/pages/flow.svg': 'PHN2Zy8+',
+  })
   const ledger = createImageLedger()
   const html = '<p><img src="shot.png"><img src="flow.svg"><img src="shot.png"></p>'
 
@@ -688,7 +729,10 @@ test('the ledger counts the raster pictures embedded, whose pixels no check read
 
 test('a file: link with a single slash names a local file like file:///', async () => {
   // Arrange
-  const host = hostWithFiles({ '/tmp/shot.png': 'iVBORw0KGgo=' })
+  const host = hostWithFiles({
+    '/tmp/shot.png':
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  })
   const html = '<p><img src="file:/tmp/shot.png"></p>'
 
   // Act
@@ -701,7 +745,10 @@ test('a file: link with a single slash names a local file like file:///', async 
   )
 
   // Assert
-  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+  expect(result).toEqual({
+    html: '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="></p>',
+    diagnostics: [],
+  })
 })
 
 test('an SVG that draws a picture by linking it stops the export: a picture shown as an image loads no link', async () => {
@@ -762,7 +809,10 @@ test('a picture written as percent-encoded data (%89PNG…) is embedded as its b
   )
 
   // Assert
-  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+  expect(result).toEqual({
+    html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>',
+    diagnostics: [],
+  })
 })
 
 test('a key in the text of an SVG saved as UTF-16 stops the export like one in a UTF-8 SVG', async () => {

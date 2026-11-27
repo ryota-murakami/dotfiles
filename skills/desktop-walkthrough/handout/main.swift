@@ -264,6 +264,22 @@ func contentDigest(atPath path: String, keepGoing: () -> Bool = { true }) -> SHA
     return contentDigest(descriptor, keepGoing: keepGoing)
 }
 
+/// The digest of the file at `path` (`contentDigest`) only while it is the file `expected` describes,
+/// with the same stamps and change time before and after the read: anything else (a save made since,
+/// one made during the read) leaves the content unknown (nil).
+func stableDigest(atPath path: String, expected: stat, keepGoing: () -> Bool) -> SHA256.Digest? {
+    let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+    guard descriptor >= 0 else { return nil }
+    defer { close(descriptor) }
+    func stillExpected() -> Bool {
+        var now = stat()
+        return fstat(descriptor, &now) == 0 && sameFile(now, expected) && sameContentStamp(now, expected)
+            && sameChangeTime(now, expected)
+    }
+    guard stillExpected(), let digest = contentDigest(descriptor, keepGoing: keepGoing), stillExpected() else { return nil }
+    return digest
+}
+
 /// Remove the ACL a new file inherited from its folder, by descriptor, before a byte is written.
 /// Returns nil once it has none (or the volume has no ACLs), else why it could not be removed: errno
 /// is read right after the call that failed.
@@ -326,10 +342,10 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     var present = stat()
     let hadTarget = lstat(target, &present) == 0
     if hadTarget, !isHandout(atPath: target) { return .notAHandout }
-    // What the earlier Handout held when first looked at: a later change of its change time alone (an
-    // extended attribute, a chmod) is no save when the content is still this
+    // What the earlier Handout held when first looked at, read while it stays that file with those
+    // stamps (else unknown): the file swapped out is removed only when it holds exactly this
     let firstDigest = hadTarget && present.st_size <= off_t(digestLimitBytes)
-        ? contentDigest(atPath: target, keepGoing: keepGoing) : nil
+        ? stableDigest(atPath: target, expected: present, keepGoing: keepGoing) : nil
     let folder = (target as NSString).deletingLastPathComponent
     let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
@@ -439,11 +455,15 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
             // swapped out (the swap changed its change time), and unchanged since (change time too)
             let stampsKept = lookedAgain && sameFile(present, beforeSwap) && sameContentStamp(present, beforeSwap)
                 && sameFile(beforeSwap, replaced) && sameContentStamp(beforeSwap, replaced)
-                && fstat(theirs, &now) == 0 && sameContentStamp(now, replaced)
-            // A change time that moved with size and modification time kept: its content decides (a
-            // metadata change keeps it, a save that kept both stamps does not)
-            let changeTimesKept = sameChangeTime(present, beforeSwap) && sameChangeTime(now, replaced)
-            let unchanged = stampsKept && (changeTimesKept || (firstDigest != nil && contentDigest(theirs) == firstDigest))
+            // The content decides: the file swapped out must hold what the first look read (a save that
+            // kept size and modification time changes it, a metadata change does not), and nothing may
+            // change it after that read (its change time would move: no rename follows the swap)
+            guard firstDigest != nil else {
+                return .published(warnings: ["the earlier Handout could not be checked for a save made while it was replaced: it is kept at \(temporary)"])
+            }
+            let displacedDigest = stampsKept ? contentDigest(theirs) : nil
+            let unchanged = displacedDigest != nil && displacedDigest == firstDigest
+                && fstat(theirs, &now) == 0 && sameContentStamp(now, replaced) && sameChangeTime(now, replaced)
             if !unchanged {
                 return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
             }
