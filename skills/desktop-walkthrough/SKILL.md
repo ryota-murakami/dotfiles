@@ -143,7 +143,7 @@ $DW handout                          # the running walkthrough's record, else th
 $DW handout <record> --out <path>    # another record (dw records lists them), another file
 ```
 
-It reads the record's pages, checks them, renders them in a WebKit view nobody sees, opens the finished file again under its own security policy to confirm it works, and only then writes it: seconds for a dozen pages. It succeeds with `handout: written <path> (N pages, M diagrams, K warnings)` (exit 0) and a line in the record's journal. The file works alone, offline, in any browser: paging, `#N` links, table of contents, zoom, copying code, printing every page. Send that file; `handbook.md` is the raw text of every page.
+It reads the record's pages, checks them, renders them in a WebKit view nobody sees, opens the finished file again under its own security policy to confirm it works, and only then writes it: seconds for a dozen pages. A Handout it replaces keeps its permissions; when dw itself is stopped, the renderer stops too and writes nothing. It succeeds with `handout: written <path> (N pages, M diagrams, K warnings)` (exit 0) and a line in the record's journal. The file works alone, offline, in any browser: paging, `#N` links, table of contents, zoom, copying code, printing every page. Send that file; `handbook.md` is the raw text of every page.
 
 **Audience markers.** A page can hold text for one audience only, between two lines that hold nothing but the marker:
 
@@ -156,24 +156,26 @@ It reads the record's pages, checks them, renders them in a WebKit view nobody s
 <!-- /handout-only -->
 ```
 
-The HUD leaves out handout-only blocks and the Handout leaves out hud-only ones; a marker inside fenced code is shown as code. A marker without its partner stops `$DW explain` with its line and changes nothing. Wording about the HUD itself outside a hud-only block (「解説パネル」「読んだ ▼」) gives a warning with its line and does not stop the export: move it into a hud-only block or reword it, then export again.
+The HUD leaves out handout-only blocks and the Handout leaves out hud-only ones; a marker inside fenced code or a code span (`` `<!-- hud-only -->` ``) is shown as code. Write each marker exactly so, on a line of its own: a marker without its partner, or one written another way (`<!--hud-only-->`, capitals, beside text), stops `$DW explain` with its line and changes nothing. Wording about the HUD itself in text the Handout shows (「解説パネル」「読んだ ▼」, outside a hud-only block or inside a handout-only one) gives a warning with its line and does not stop the export: move it into a hud-only block or reword it, then export again. A page whose only heading is hud-only is titled 「解説 N」 in the Handout.
+
+**What a Handout carries.** Images (`![…](…)`, `<img>`, and the `<image>` of an inline SVG) are embedded: a local file relative to the record's `pages/`, an absolute path or a `file://` link, up to 20 MB, whose bytes are a png, jpeg, gif, webp, avif or svg whatever its name says. Responsive alternatives (`srcset`) are dropped for the embedded image. A page's own `<style>` is left out, so no page can restyle another; inline `style` attributes stay. Secret shapes are looked for in the pages as written, in every title and section name, in SVG images, and again in each page as rendered (a value spelled with `&amp;` or other escapes).
 
 **When it stops** it prints a code and where, exits 1, and writes nothing. A file that is not a Handout is never replaced, at either path.
 
 | Code | What stopped it | Fix |
 | --- | --- | --- |
 | `HANDOUT_EMPTY` | the record has no pages | show pages with `$DW explain` while it records, or name another record |
-| `HANDOUT_RECORD` | its pages changed while they were read, twice | export again once no page is being written |
-| `HANDOUT_MARKER` | an audience marker without its partner, at `pages/NN-*.md:LINE` | pair the markers in the record's page (and `$DW explain <file> --page N` for the running walkthrough's copy) |
+| `HANDOUT_RECORD` | its pages changed while they were read, twice; a page could not be read; two files share a page number | export again once no page is being written; check the page's permissions; keep one file per number in `pages/` |
+| `HANDOUT_MARKER` | an audience marker without its partner or written another way, at `page N:LINE` (the page's number, never its file name) | fix the markers in the record's page `pages/NN-*.md` (and `$DW explain <file> --page N` for the running walkthrough's copy) |
 | `HANDOUT_VENDOR` | a library of the Explainer is missing, changed, or did not load | `$DW doctor`; dw fetches the libraries, so check the network |
-| `HANDOUT_SECRET` | a secret shape at `pages/NN-*.md:LINE`, named by its shape (never its value) | take the value out of the page (say where it comes from instead, such as `op://…`), then export again |
+| `HANDOUT_SECRET` | a secret shape at `pages/NN-*.md:LINE` (or in a title, a section name, an SVG image, or the page as rendered), named by its shape (never its value) | take the value out of the page or the file (say where it comes from instead, such as `op://…`), then export again |
 | `HANDOUT_DIAGRAM` | a diagram did not render, or nothing was laid out to check | fix the diagram at the line given; when every diagram fails, `$DW doctor` |
-| `HANDOUT_OVERFLOW` | a diagram label lays out larger than the box mermaid made for it | a style on the page that changes text inside diagrams is the usual cause: remove it (or shorten the label) |
-| `HANDOUT_IMAGE` | an image could not be embedded | point it at a local png, jpg, gif, webp, avif or svg that exists (relative to the record's `pages/`, or absolute) |
+| `HANDOUT_OVERFLOW` | a diagram label lays out larger than the box mermaid made for it | an inline style around a diagram that changes its text is the usual cause: remove it (or shorten the label) |
+| `HANDOUT_IMAGE` | an image could not be embedded: missing, not local, not an image by its bytes, over 20 MB, or not a regular file | point it at a local png, jpg, gif, webp, avif or svg that exists (relative to the record's `pages/`, absolute, or `file://`) |
 | `HANDOUT_TEMPLATE` | `explainer/page.html` lacks its reading-marks markers | a skill bug: report it with the message |
 | `HANDOUT_VERIFY` | the finished file, opened under its own policy, lost diagram labels or its controls did not run | a skill bug: report it with the message; nothing was published |
 | `HANDOUT_RENDERER` | the renderer could not run, took too long (30 s for a page, 10 min in all) or crashed | read the log it names and run `$DW doctor`; a page that never finishes can be tried with `$DW explain` |
-| `HANDOUT_OUT_EXISTS` | the output is a folder, holds a file that is not a Handout, or cannot be written | choose another `--out` |
+| `HANDOUT_OUT_EXISTS` | the output is a folder, a symbolic link or not a regular file (a pipe), holds a file that does not start as a Handout, or cannot be written | choose another `--out` (name the file itself, not a link to it) |
 
 ## References
 

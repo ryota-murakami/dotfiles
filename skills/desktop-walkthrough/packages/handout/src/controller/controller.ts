@@ -30,6 +30,42 @@ function headingOf(entry: TocEntry): string {
   return entry.section ? `【${entry.section}】${entry.title}` : entry.title
 }
 
+/** Where arrow keys keep their own meaning: fields, editable text, and a page's code, tables and diagrams. */
+const ARROW_KEY_OWNERS = 'input, textarea, select, [contenteditable], pre, .table-wrap, .diagram'
+
+/** The blocks of a page that can be wider than their box and scroll sideways. */
+const SIDEWAYS_SCROLLERS = 'pre, .table-wrap, .diagram'
+
+/**
+ * Whether arrow keys typed at a target belong to it rather than to paging.
+ *
+ * @param target - The keydown event's target.
+ * @param view - The Handout's window, whose Element class the target belongs to.
+ * @returns true inside a field, editable text, a code block, a table or a diagram.
+ *
+ * @example
+ * keepsArrowKeys(document.querySelector('input'), window) // true
+ * keepsArrowKeys(document.body, window)                    // false
+ */
+function keepsArrowKeys(target: EventTarget | null, view: Window & typeof globalThis): boolean {
+  return target instanceof view.Element && target.closest(ARROW_KEY_OWNERS) !== null
+}
+
+/**
+ * Whether the reader pressed into a block that scrolls sideways (wider than its box): arrow keys
+ * scroll it there, as the browser does, instead of turning the page.
+ *
+ * @param pressed - Where the reader last pressed the pointer, or null.
+ * @returns true when that point lies in a code block, table or diagram wider than its box.
+ *
+ * @example
+ * scrollsSideways(document.querySelector('pre code')) // true for a code line longer than the panel
+ */
+function scrollsSideways(pressed: Element | null): boolean {
+  const block = pressed?.closest<HTMLElement>(SIDEWAYS_SCROLLERS)
+  return Boolean(block && block.scrollWidth > block.clientWidth)
+}
+
 /**
  * Create an element with a class, attributes and text.
  *
@@ -100,7 +136,11 @@ export async function copyText(doc: Document, text: string): Promise<boolean> {
 export function startHandout(doc: Document, store: WidthStore | null): void {
   const view = doc.defaultView
   const pagesHolder = doc.getElementById(HANDOUT_DOM.pagesId)
-  const pages = Array.from(doc.querySelectorAll<HTMLElement>(`.${HANDOUT_DOM.pageClass}`))
+  // The pages are the articles right under their holder: an element of a page's content sharing
+  // their class is never a page of its own
+  const pages = pagesHolder
+    ? Array.from(pagesHolder.querySelectorAll<HTMLElement>(`:scope > article.${HANDOUT_DOM.pageClass}`))
+    : []
   // Not a Handout this controller knows: leave the document as it is
   if (!view || !pagesHolder || pages.length === 0) return
   const toc: TocEntry[] = JSON.parse(doc.getElementById(HANDOUT_DOM.tocDataId)?.textContent ?? '[]')
@@ -124,14 +164,15 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
     text: '›',
     attributes: { 'aria-label': '次のページ', type: 'button' },
   })
+  // The zoom controls share a class: a narrow window hides them (handout.css), the title keeps the room
   const zoomOutButton = create(doc, 'button', {
-    className: 'btn',
+    className: 'btn zoom-control',
     text: '−',
     attributes: { 'aria-label': '縮小', type: 'button' },
   })
-  const zoomLabel = create(doc, 'span', { className: 'zoom' })
+  const zoomLabel = create(doc, 'span', { className: 'zoom zoom-control' })
   const zoomInButton = create(doc, 'button', {
-    className: 'btn',
+    className: 'btn zoom-control',
     text: '+',
     attributes: { 'aria-label': '拡大', type: 'button' },
   })
@@ -157,10 +198,16 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   progress.append(progressBar)
   const tocPanel = create(doc, 'nav', { className: 'toc', attributes: { 'aria-label': '目次' } })
   tocPanel.hidden = true
-  const scroller = create(doc, 'div', { className: 'scroller' })
+  // Focusable by script: a page opened from a control that it hides takes the keyboard focus here
+  const scroller = create(doc, 'div', { className: 'scroller', attributes: { tabindex: '-1' } })
+  // What a screen reader says when the page changes: its number and title
+  const announcer = create(doc, 'div', {
+    className: 'announcer',
+    attributes: { role: 'status', 'aria-live': 'polite' },
+  })
   pagesHolder.replaceWith(panel)
   scroller.append(pagesHolder)
-  panel.append(leftEdge, rightEdge, header, progress, tocPanel, scroller)
+  panel.append(leftEdge, rightEdge, header, progress, tocPanel, scroller, announcer)
 
   // ---- pages ----
   let current = 1
@@ -176,9 +223,11 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
     const entry = entryAt(n - 1)
     pageNumber.textContent = `${n}/${total}`
     title.textContent = headingOf(entry)
+    announcer.textContent = `${n}/${total} ${headingOf(entry)}`
     previousButton.disabled = n === 1
     nextButton.disabled = n === total
-    progressBar.style.width = `${(n / total) * 100}%`
+    // Scaled, not resized: the bar's width never changes, so nothing is laid out again
+    progressBar.style.transform = `scaleX(${n / total})`
     scroller.scrollTop = 0
     for (const item of tocPanel.querySelectorAll('button')) {
       if (Number(item.dataset.page) === n) item.setAttribute('aria-current', 'page')
@@ -204,7 +253,11 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
         create(doc, 'small', { text: label }),
         create(doc, 'span', { text: entryAt(to - 1).title }),
       )
-      button.addEventListener('click', () => show(to))
+      // The button goes with the page it sits under: the keyboard focus moves to the page it opens
+      button.addEventListener('click', () => {
+        show(to)
+        scroller.focus({ preventScroll: true })
+      })
       return button
     }
     if (n > 1) pager.append(link(n - 1, 'prev', `‹ 前のページ（${n - 1}/${total}）`))
@@ -220,9 +273,11 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
     if (entry.section) label.append(create(doc, 'small', { text: entry.section }))
     label.append(doc.createTextNode(entry.title))
     item.append(create(doc, 'b', { text: String(index + 1) }), label)
+    // The contents close with the choice: the keyboard focus moves to the page chosen
     item.addEventListener('click', () => {
       show(index + 1)
       setTocOpen(false)
+      scroller.focus({ preventScroll: true })
     })
     tocPanel.append(item)
   })
@@ -245,11 +300,25 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
 
   previousButton.addEventListener('click', () => show(current - 1))
   nextButton.addEventListener('click', () => show(current + 1))
+  // The element the reader last pressed the pointer in: arrow keys scroll it when it scrolls sideways
+  let pressedIn: Element | null = null
+  doc.addEventListener('pointerdown', (event) => {
+    pressedIn = event.target instanceof view.Element ? event.target : null
+  })
   doc.addEventListener('keydown', (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return
-    if (event.key === 'ArrowRight') show(current + 1)
-    else if (event.key === 'ArrowLeft') show(current - 1)
-    else if (event.key === 'Escape') setTocOpen(false)
+    if (event.key === 'Escape') {
+      // Closing the contents from inside them gives the focus back to the button that opened them
+      const focusInside = tocPanel.contains(doc.activeElement)
+      setTocOpen(false)
+      if (focusInside) tocButton.focus()
+      return
+    }
+    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    // Arrow keys belong to a field, to a code block, table or diagram they were typed in, and to one the
+    // reader pressed into that scrolls sideways; anywhere else they turn the page
+    if (event.defaultPrevented || keepsArrowKeys(event.target, view) || scrollsSideways(pressedIn)) return
+    show(event.key === 'ArrowRight' ? current + 1 : current - 1)
   })
   view.addEventListener('hashchange', () => {
     const requested = pageFromHash()
@@ -257,7 +326,7 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   })
 
   // ---- code copy ----
-  for (const code of doc.querySelectorAll<HTMLElement>(`.${HANDOUT_DOM.pageClass} pre > code`)) {
+  for (const code of pages.flatMap((page) => Array.from(page.querySelectorAll<HTMLElement>('pre > code')))) {
     const button = create(doc, 'button', {
       className: 'copy',
       text: COPY_LABELS.idle,
@@ -298,23 +367,26 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   const applyWidth = () => {
     panel.style.width = draggedWidth === null ? '' : `${clampWidth(draggedWidth)}px`
   }
+  // A drag ends however the pointer leaves it: released, cancelled by the system (a gesture, a
+  // window switch) or its capture lost; otherwise the edge would go on following a pointer no one holds
+  const dragEndEvents = ['pointerup', 'pointercancel', 'lostpointercapture'] as const
   for (const edge of [leftEdge, rightEdge]) {
     edge.addEventListener('pointerdown', (event) => {
       event.preventDefault()
       edge.setPointerCapture?.(event.pointerId)
       const box = panel.getBoundingClientRect()
       const center = box.left + box.width / 2
-      const move = (moved: PointerEvent) => {
-        draggedWidth = clampWidth(2 * Math.abs(moved.clientX - center))
+      const move = (dragEvent: PointerEvent) => {
+        draggedWidth = clampWidth(2 * Math.abs(dragEvent.clientX - center))
         applyWidth()
       }
       const end = () => {
         edge.removeEventListener('pointermove', move)
-        edge.removeEventListener('pointerup', end)
+        for (const type of dragEndEvents) edge.removeEventListener(type, end)
         if (draggedWidth !== null) store?.setItem(widthKey, String(Math.round(draggedWidth)))
       }
       edge.addEventListener('pointermove', move)
-      edge.addEventListener('pointerup', end)
+      for (const type of dragEndEvents) edge.addEventListener(type, end)
     })
     edge.addEventListener('dblclick', () => {
       draggedWidth = null

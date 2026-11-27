@@ -13,8 +13,9 @@ A personal Claude Code skill and plugin (macOS): the agent operates real apps th
 | `packages/handout` | `dw handout`'s contract (input, messages, codes), its builder (secret scan, render checks, images, sanitizing, assembly, verification) and the Handout's controller, built into the committed `dist/` (`builder.html`, `controller.js`, `purify.js`) |
 | `handout/main.swift` | The Handout renderer: web views in a window nobody sees, the builder's requests, time limits, publishing without replacing a file that is not a Handout. `dw handout` builds it on first use |
 | `fixtures/hud-golden/`, `scripts/hud-golden`, `scripts/handout-check` | A synthetic Record and the HUD's pages as built before the Handout work; the renderer-level checks of `dw handout` and the HUD regression check that `scripts/check` runs in a logged-in macOS session |
+| `scripts/dw-check` | dw's plumbing case by case (narration, records, resume, audience markers, what `dw handout` checks before rendering), with the HUD and the renderer replaced by stand-ins; `scripts/check` runs it on macOS |
 | `docs/claude-code-tui/` | How Claude Code 2.1.330 draws its terminal UI, in this project's own words: the reference the mirror's page follows |
-| `GLOSSARY.md`, `docs/adr/` | The project's words, and the decisions that would surprise a reader without their reasons |
+| `GLOSSARY.md`, `docs/adr/`, `TODOS.md` | The project's words, the decisions that would surprise a reader without their reasons, and work decided but deferred |
 | `package.json`, `pnpm-workspace.yaml`, `turbo.json` | The pnpm workspace and its tasks (`pnpm check`): `packages/*`, `hooks` and `hud` are its packages |
 | `scripts/dw` | Helper CLI: HUD lifecycle, narration, focus checks, non-blocking Terminal commands |
 | `scripts/check` | Static checks: bash 3.2 syntax and pitfalls, shellcheck, Swift typecheck, plugin validate, hooks tests and types, and the workspace's lint, types, tests and build when its dependencies are installed |

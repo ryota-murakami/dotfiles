@@ -29,7 +29,7 @@ import { embedImages } from './images'
 import { judgeRenderedPage, missingLibraries } from './judge'
 import { checkHandout, handoutCheckSchema, measurePage, pageMeasurementSchema, probeBody } from './probes'
 import { sanitizePage } from './sanitize'
-import { scanForSecrets } from './scan'
+import { scanForSecrets, scanRenderedPage } from './scan'
 import { handoutCss } from './template'
 import type { DiagramLabels } from './verify'
 import { judgeVerification } from './verify'
@@ -131,11 +131,17 @@ export async function buildHandout(
   }
   if (diagnostics.length > 0) return fail(diagnostics)
 
-  const pages = embedded.map(({ page, html }) => ({
+  const sanitized = embedded.map(({ page, html }) => ({ page, html: sanitizePage(html) }))
+  // The colleague receives the sanitized HTML: a value the source spelled with HTML entities or
+  // escapes passed the first scan in disguise and reads here in the clear
+  const disguised = sanitized.flatMap(({ page, html }) => scanRenderedPage(page, html))
+  if (disguised.length > 0) return fail(disguised)
+
+  const pages = sanitized.map(({ page, html }) => ({
     n: page.n,
     title: page.title,
     section: page.section,
-    html: sanitizePage(html),
+    html,
   }))
   const html = assembleHandout({
     pages,
@@ -148,6 +154,7 @@ export async function buildHandout(
   const checkProbe = probeBody(checkHandout, {
     readyAttribute: HANDOUT_DOM.readyAttribute,
     pageClass: HANDOUT_DOM.pageClass,
+    pagesId: HANDOUT_DOM.pagesId,
     pageIdPrefix: HANDOUT_DOM.pageIdPrefix,
     pageNumberId: HANDOUT_DOM.pageNumberId,
     readyLimitMs: VERIFY_READY_LIMIT_MS,

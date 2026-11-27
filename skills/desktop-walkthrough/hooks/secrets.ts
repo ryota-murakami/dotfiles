@@ -175,5 +175,8 @@ export function findSecrets(text: string): SecretFinding[] {
       findings.push({ pattern: name, index: start, line: text.slice(0, start).split('\n').length })
     }
   }
-  return findings.toSorted((first, second) => first.index - second.index)
+  // Sorted in place: the array is this call's own, and toSorted is newer than the WebKit the Handout's
+  // builder targets (Safari 15)
+  findings.sort((first, second) => first.index - second.index)
+  return findings
 }

@@ -10,6 +10,7 @@ const AsyncFunction = Object.getPrototypeOf(async () => undefined).constructor a
 const checkArgs = {
   readyAttribute: 'data-handout-ready',
   pageClass: 'page',
+  pagesId: 'handout-pages',
   pageIdPrefix: 'page-',
   pageNumberId: 'pageno',
   readyLimitMs: 500,
@@ -88,7 +89,7 @@ test('the measuring probe runs from its source text alone, as the host evaluates
 test('the verify probe sees the controller take over and open page 2 for #2', async () => {
   // Arrange
   document.body.innerHTML =
-    '<span id="pageno"></span><article class="page" id="page-1"></article><article class="page" id="page-2" hidden></article>' +
+    '<span id="pageno"></span><main id="handout-pages"><article class="page" id="page-1"></article><article class="page" id="page-2" hidden></article></main>' +
     '<div class="diagram"><svg id="p2-d1"><foreignObject><div>書き出す</div></foreignObject><text></text></svg></div>'
   addEventListener('hashchange', () => showPage(Number(location.hash.slice(1))), { once: true })
   setTimeout(() => {
@@ -112,11 +113,23 @@ test('the verify probe sees the controller take over and open page 2 for #2', as
 test('the verify probe reports a controller that never took over, without paging', async () => {
   // Arrange
   document.body.innerHTML =
-    '<article class="page" id="page-1"></article><article class="page" id="page-2"></article>'
+    '<main id="handout-pages"><article class="page" id="page-1"></article><article class="page" id="page-2"></article></main>'
 
   // Act
   const check = handoutCheckSchema.parse(await checkHandout(checkArgs))
 
   // Assert
   expect(check).toEqual({ ready: false, pages: 2, pageNumber: '', secondShown: null, diagrams: [] })
+})
+
+test("the verify probe counts the Handout's pages only, not a page's element that shares their class", async () => {
+  // Arrange
+  document.body.innerHTML =
+    '<main id="handout-pages"><article class="page" id="page-1"><div class="page">引用</div></article></main>'
+
+  // Act
+  const check = handoutCheckSchema.parse(await checkHandout(checkArgs))
+
+  // Assert
+  expect(check.pages).toBe(1)
 })

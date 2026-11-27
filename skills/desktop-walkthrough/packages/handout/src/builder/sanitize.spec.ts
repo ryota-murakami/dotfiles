@@ -89,3 +89,41 @@ test('a link to the web opens in a new tab, so the reader keeps their page', () 
     '<p><a href="https://example.com/notes" target="_blank" rel="noopener noreferrer">設計メモ</a></p>',
   )
 })
+
+test('responsive image alternatives go: only the embedded src reaches the Handout, whatever the screen', () => {
+  // Arrange
+  const content =
+    '<picture><source srcset="shot@2x.png 2x"><img src="data:image/png;base64,iVBORw0KGgo=" srcset="shot@2x.png 2x" alt="画面"></picture>'
+
+  // Act
+  const sanitized = sanitizePage(content)
+
+  // Assert
+  expect(sanitized).toBe('<picture><img src="data:image/png;base64,iVBORw0KGgo=" alt="画面"></picture>')
+})
+
+test("a page's own style rules go, so they cannot reach another page's diagrams; a diagram's own style stays", () => {
+  // Arrange
+  const content =
+    '<p>本文</p><style>.diagram .nodeLabel { font-size: 40px; }</style><div class="diagram"><svg id="p2-d1"><style>#p2-d1 .node { fill: #333; }</style></svg></div>'
+
+  // Act
+  const sanitized = sanitizePage(content)
+
+  // Assert
+  expect(sanitized).toBe(
+    '<p>本文</p><div class="diagram"><svg id="p2-d1"><style>#p2-d1 .node { fill: #333; }</style></svg></div>',
+  )
+})
+
+test("an element of a page cannot take an id the Handout's own page needs; other ids stay", () => {
+  // Arrange
+  const content =
+    '<div id="handout-toc">偽の目次</div><p id="page-2">偽のページ</p><span id="pageno">9/9</span><h2 id="setup">準備</h2>'
+
+  // Act
+  const sanitized = sanitizePage(content)
+
+  // Assert
+  expect(sanitized).toBe('<div>偽の目次</div><p>偽のページ</p><span>9/9</span><h2 id="setup">準備</h2>')
+})

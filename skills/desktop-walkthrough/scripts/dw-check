@@ -1,0 +1,435 @@
+#!/bin/bash
+# dw-check — the plumbing of scripts/dw, case by case, without the HUD or WebKit: narration, records,
+# resume, audience markers and what `dw handout` checks before its renderer starts. Every case calls
+# dw's own functions (everything but its dispatch) under a scratch DW_HOME and DW_CONFIG; the functions
+# that reach the HUD, the network or the renderer are replaced by stand-ins.
+#
+# Why it exists: dw is bash 3.2 under set -u, and a function broken by an edit still passes bash -n
+# and shellcheck: a block pasted into cmd_say stopped every `dw say` with "src: unbound variable".
+# These cases run the functions. dw uses BSD stat and date, so scripts/check runs this file on macOS.
+#
+# Usage: scripts/dw-check   exit 0 when every case passed
+set -u
+cd "$(dirname "$0")/.." || exit 1
+failures=0
+pass() { printf '  ✓ %s\n' "$1"; }
+fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
+
+scratch=$(mktemp -d)
+trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+export DW_HOME="$scratch/state" DW_CONFIG="$scratch/config" DW_CHECK_SEEN="$scratch/seen-input.json"
+RECORDS="$DW_CONFIG/walkthroughs"
+mkdir -p "$DW_HOME" "$RECORDS"
+# dw's own functions (everything but its dispatch)
+sed '/^case "\${1:-}" in$/,$d' scripts/dw > "$scratch/dwlib"
+
+# The renderer's stand-in: it keeps the input.json dw wrote and ends the export with a failure
+cat > "$scratch/fake-renderer" <<'EOF'
+#!/bin/bash
+cp "$1" "$DW_CHECK_SEEN"
+printf '{"v":1,"ok":false,"diagnostics":[{"code":"HANDOUT_RENDERER","message":"stand-in renderer"}]}'
+EOF
+chmod +x "$scratch/fake-renderer"
+
+# Run "$@" (a dw function and its arguments) in a subshell with dw's functions loaded; the HUD, the
+# network, the renderer and waiting are stand-ins. Both output streams in $out, the exit status in $code
+in_dw() {
+  out=$(
+    {
+      # shellcheck source=/dev/null
+      source "$scratch/dwlib"
+      gate() { :; }
+      note_owner() { :; }
+      ensure_hud() { :; }
+      explain_vendor() { :; }
+      handout_renderer() { :; }
+      sleep() { :; }
+      # Read by dw's functions sourced above: no library to verify, the renderer's stand-in
+      # shellcheck disable=SC2034
+      EXPLAIN_VENDOR=""
+      # shellcheck disable=SC2034
+      HANDOUT_BIN="$scratch/fake-renderer"
+      "$@"
+    } 2>&1
+  )
+  code=$?
+}
+
+# date as dw names an archive folder, fixed at one second; every other use of date as it is. Then "$@"
+fixed_clock() {
+  date() { if [ "${1:-}" = "+%Y%m%d-%H%M%S" ]; then printf '20261128-010000\n'; else command date "$@"; fi; }
+  "$@"
+}
+
+# A Record NAME under RECORDS with a journal, two pages and their sections; prints its folder
+two_page_record() {
+  local dir="$RECORDS/$1"
+  mkdir -p "$dir/pages"
+  printf '# 記録：%s\n' "$1" > "$dir/journal.md"
+  printf '# 一枚目\n\n本文 1\n' > "$dir/pages/01-一枚目.md"
+  printf '# 二枚目\n\n本文 2\n' > "$dir/pages/02-二枚目.md"
+  printf '1\t\n2\t\n' > "$dir/pages/sections.tsv"
+  printf '%s' "$dir"
+}
+
+# The first bytes of every Handout (packages/handout/src/contract.ts HANDOUT_HEAD)
+handout_head() { printf '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">'; }
+
+echo "== narration"
+in_dw cmd_say "準備ができました"
+if [ "$code" = 0 ] && [ "$(cat "$DW_HOME/status.txt" 2>/dev/null)" = "準備ができました" ]; then
+  pass "dw say puts the line on the status bar"
+else
+  fail "dw say puts the line on the status bar (exit $code: $out)"
+fi
+
+dir=$(two_page_record steps)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw cmd_step "設定"
+if [ "$code" = 0 ] && [ "$(cat "$DW_HOME/status.txt" 2>/dev/null)" = "【設定】 設定" ] && grep -qx '## 設定' "$dir/journal.md"; then
+  pass "dw step starts a section: the status bar prefix and a journal heading"
+else
+  fail "dw step starts a section (exit $code: $out)"
+fi
+rm -f "$DW_HOME/record_dir" "$DW_HOME/step"
+
+echo "== records"
+dir="$RECORDS/hundred"
+mkdir -p "$dir/pages"
+for n in 100 2 99 1 10; do printf '# p%s\n' "$n" > "$dir/pages/$(printf '%02d' "$n")-p$n.md"; done
+in_dw record_pages "$dir"
+if [ "$(printf '%s\n' "$out" | cut -f1 | tr '\n' ' ')" = "1 2 10 99 100 " ]; then
+  pass "pages are listed in reading order up to page 100 (numbers, not text)"
+else
+  fail "page order: $out"
+fi
+
+defaults="$scratch/config-defaults/walkthroughs"
+mkdir -p "$defaults/older" "$defaults/newer" "$defaults/pointed" "$defaults/running"
+for name in older newer pointed running; do printf '# 記録：%s\n' "$name" > "$defaults/$name/journal.md"; done
+touch -t 202611010000 "$defaults/older/journal.md" "$defaults/pointed/journal.md" "$defaults/running/journal.md"
+touch -t 202611020000 "$defaults/newer/journal.md"
+rm -f "$DW_HOME/record_dir" "$DW_HOME/last_record"
+DW_CONFIG="$scratch/config-defaults" in_dw handout_default_record
+newest="$out"
+printf '%s' "$defaults/pointed" > "$DW_HOME/last_record"
+DW_CONFIG="$scratch/config-defaults" in_dw handout_default_record
+pointed="$out"
+printf '%s' "$defaults/running" > "$DW_HOME/record_dir"
+DW_CONFIG="$scratch/config-defaults" in_dw handout_default_record
+running="$out"
+if [ "$newest" = "$defaults/newer" ] && [ "$pointed" = "$defaults/pointed" ] && [ "$running" = "$defaults/running" ]; then
+  pass "dw handout without a name exports the running record, else the last one, else the newest journal"
+else
+  fail "default record: newest=$newest pointed=$pointed running=$running"
+fi
+rm -f "$DW_HOME/record_dir" "$DW_HOME/last_record"
+
+dir="$RECORDS/tabs"
+mkdir -p "$dir/pages"
+printf '# 記録：tabs\n' > "$dir/journal.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '本文\n' > "$scratch/body.md"
+in_dw record_page 1 $'タブ\tの題' "$scratch/body.md" $'タブ\tの\n題' quiet
+if [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t\tタブ の 題')" ] && [ -f "$dir/pages/01-タブ-の題.md" ]; then
+  pass "a title with a tab or a line break keeps one sections.tsv row per page and a file name without them"
+else
+  fail "tab normalization: $(cat "$dir/pages/sections.tsv") / $(ls "$dir/pages")"
+fi
+
+mkdir -p "$DW_HOME/explain"
+printf '{"current":1,"pages":[{"n":1,"title":"題","step":"","file":"pages/001.html"}]}\n' > "$DW_HOME/explain/index.json"
+in_dw record_page 1 "題" "$scratch/body.md" "" quiet
+in_dw record_section "$dir" 1
+if [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t')" ] && [ -z "$out" ]; then
+  pass "a page shown before the first dw step has no section name (not a blank)"
+else
+  fail "section before the first step: [$(cat "$dir/pages/sections.tsv")] [$out]"
+fi
+printf '1\t \n' > "$dir/pages/sections.tsv"
+in_dw record_section "$dir" 1
+if [ -z "$out" ]; then pass "a record whose section is a lone space reads as no section"; else fail "lone-space section: [$out]"; fi
+rm -rf "$DW_HOME/explain"
+
+dir="$RECORDS/keep"
+mkdir -p "$dir/pages"
+printf '# 記録：keep\n' > "$dir/journal.md"
+printf '旧\n' > "$dir/pages/01-旧.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '新\n' > "$scratch/unreadable.md"
+chmod 000 "$scratch/unreadable.md"
+in_dw record_page 1 "新" "$scratch/unreadable.md" "" quiet
+chmod 644 "$scratch/unreadable.md"
+if [ "$code" != 0 ] && [ -f "$dir/pages/01-旧.md" ] && [ ! -e "$dir/pages/01-新.md" ]; then
+  pass "a page that cannot be written keeps its earlier version in the record"
+else
+  fail "failed page write (exit $code): $(ls "$dir/pages")"
+fi
+
+dir="$RECORDS/quiet-clear"
+mkdir -p "$dir/pages"
+printf '# 記録：quiet-clear\n' > "$dir/journal.md"
+printf '1\t章\n' > "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_clear
+if [ "$code" = 0 ] && [ -z "$(find "$dir/pages" -name 'cleared-*')" ] && [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t章')" ]; then
+  pass "dw explain --clear on a record without pages makes no archive and leaves its sections"
+else
+  fail "clear without pages (exit $code): $(ls "$dir/pages")"
+fi
+
+dir="$RECORDS/twice"
+mkdir -p "$dir/pages"
+printf '# 記録：twice\n' > "$dir/journal.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '一回目\n' > "$dir/pages/01-a.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+in_dw fixed_clock record_clear
+printf '二回目\n' > "$dir/pages/01-a.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+in_dw fixed_clock record_clear
+first="$dir/pages/cleared-20261128-010000/01-a.md"
+second="$dir/pages/cleared-20261128-010000-1/01-a.md"
+if [ "$(cat "$first" 2>/dev/null)" = "一回目" ] && [ "$(cat "$second" 2>/dev/null)" = "二回目" ]; then
+  pass "two clears within one second keep two archives: neither overwrites the other"
+else
+  fail "two clears in one second: $(find "$dir/pages" -type f | sort | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
+echo "== resume"
+dir="$RECORDS/resumed"
+mkdir -p "$dir/pages"
+printf '# 記録：resumed\n' > "$dir/journal.md"
+printf '# 一枚目\n\n本文\n' > "$dir/pages/01-一枚目.md"
+printf '# 二枚目\n\n<!-- hud-only -->\n閉じていない\n' > "$dir/pages/02-二枚目.md"
+printf '1\t\n2\t\n' > "$dir/pages/sections.tsv"
+rm -rf "$DW_HOME/explain"
+in_dw explain_restore "$dir"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 三枚目\n\n本文\n' > "$scratch/third.md"
+in_dw cmd_explain "$scratch/third.md"
+after_new=$(cat "$dir/pages/02-二枚目.md")
+printf '# 二枚目\n\n直した\n' > "$scratch/fixed.md"
+in_dw cmd_explain "$scratch/fixed.md" --page 2
+if [ -f "$DW_HOME/explain/pages/003.md" ] && grep -q '閉じていない' <<< "$after_new" \
+  && grep -q '直した' "$dir/pages/02-二枚目.md" 2>/dev/null; then
+  pass "a resumed page whose markers broke keeps its number: a new page becomes 3, and --page 2 repairs it"
+else
+  fail "resume with a broken page (exit $code: $out): $(ls "$DW_HOME/explain/pages" "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
+dir=$(two_page_record explain-error)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 壊れた\n\n<!-- hud-only -->\n' > "$scratch/broken.md"
+in_dw cmd_explain "$scratch/broken.md"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER' <<< "$out" && [ ! -e "$DW_HOME/explain/index.json" ] \
+  && [ "$(ls "$dir/pages" | tr '\n' ' ')" = "01-一枚目.md 02-二枚目.md sections.tsv " ]; then
+  pass "a marker error from dw explain leaves the panel and the record as they were"
+else
+  fail "dw explain marker error (exit $code: $out)"
+fi
+rm -f "$DW_HOME/record_dir"
+
+echo "== audience markers"
+printf '本文\r\n<!-- hud-only -->\r\nHUD だけの段落\r\n<!-- /hud-only -->\r\n' > "$scratch/crlf.md"
+in_dw explain_filter handout "$scratch/crlf.md" /dev/null
+if [ "$code" = 0 ] && grep -q '本文' <<< "$out" && ! grep -q 'HUD だけの段落' <<< "$out"; then
+  pass "a page with Windows line endings leaves its hud-only block out of a Handout"
+else
+  fail "CRLF page (exit $code): $out"
+fi
+
+missed=""
+for marker in '<!--hud-only-->|<!--/hud-only-->' '<!-- HUD-only -->|<!-- /HUD-only -->' \
+  '<!-- hud only -->|<!-- /hud only -->' '本文 <!-- hud-only -->|<!-- /hud-only --> 本文'; do
+  printf '%s\n秘密の段落\n%s\n' "${marker%%|*}" "${marker#*|}" > "$scratch/near.md"
+  in_dw explain_filter handout "$scratch/near.md" /dev/null
+  [ "$code" = 1 ] || missed="$missed [${marker%%|*}]"
+done
+printf '`<!-- hud-only -->` で囲んだ段落は HUD だけに出ます\n' > "$scratch/spoken.md"
+in_dw explain_filter handout "$scratch/spoken.md" /dev/null
+if [ -z "$missed" ] && [ "$code" = 0 ]; then
+  pass "a marker written another way stops like a marker without its partner; one shown as code does not"
+else
+  fail "marker written another way: missed$missed, code span exit $code"
+fi
+
+printf '```x```\n\n<!-- hud-only -->\nHUD だけの段落\n<!-- /hud-only -->\n' > "$scratch/inline-fence.md"
+in_dw explain_filter handout "$scratch/inline-fence.md" /dev/null
+if [ "$code" = 0 ] && ! grep -q 'HUD だけの段落' <<< "$out"; then
+  pass "a line like \`\`\`x\`\`\` is code in a line, not a fence: the hud-only block after it is still left out"
+else
+  fail "inline fence (exit $code): $out"
+fi
+
+printf '<!-- handout-only -->\nHUD の右上を押します\n<!-- /handout-only -->\n' > "$scratch/worded.md"
+: > "$scratch/worded.problems"
+in_dw explain_filter handout "$scratch/worded.md" "$scratch/worded.problems"
+if grep -q "$(printf '^warning\t2\tHUD$')" "$scratch/worded.problems"; then
+  pass "HUD wording inside a handout-only block gives a warning"
+else
+  fail "HUD wording in handout-only: $(cat "$scratch/worded.problems")"
+fi
+
+dir="$RECORDS/hud-title"
+mkdir -p "$dir/pages"
+printf '<!-- hud-only -->\n# HUD だけの見出し\n<!-- /hud-only -->\n\n本文\n' > "$dir/pages/01-HUD-だけの見出し.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+in_dw record_title "$dir" 1 "$dir/pages/01-HUD-だけの見出し.md" handout
+if [ "$out" = "解説 1" ]; then
+  pass "a page whose only heading is hud-only is titled by its number in a Handout, not by its file name"
+else
+  fail "hud-only heading title: $out"
+fi
+
+echo "== dw handout, before the renderer"
+dir=$(two_page_record unreadable)
+chmod 000 "$dir/pages/02-二枚目.md"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout unreadable
+chmod 644 "$dir/pages/02-二枚目.md"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "a page that cannot be read stops the export (HANDOUT_RECORD) before the renderer starts"
+else
+  fail "unreadable page (exit $code): $out"
+fi
+
+dir=$(two_page_record duplicate)
+printf '# 別の二枚目\n' > "$dir/pages/02-別の二枚目.md"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout duplicate
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD.*page 2' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "two files for one page number stop the export (HANDOUT_RECORD)"
+else
+  fail "duplicate page numbers (exit $code): $out"
+fi
+
+dir=$(two_page_record labelled)
+mv "$dir/pages/02-二枚目.md" "$dir/pages/02-題に書いた値.md"
+printf '\n<!-- hud-only -->\n閉じ忘れ\n' >> "$dir/pages/02-題に書いた値.md"
+in_dw cmd_handout labelled
+if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER page 2:5: <!-- hud-only --> is never closed' <<< "$out" && ! grep -q '題に書いた値' <<< "$out"; then
+  pass "a marker error names the page by its number, never by its file name (made from its title)"
+else
+  fail "marker error label (exit $code): $out"
+fi
+
+# Where mktemp makes scratch folders (macOS's does not follow TMPDIR): a stopped export must leave no
+# copy of a page there. The page carries a token of this run, so only this run's copies are looked for
+temp_root=$(dirname "$(mktemp -u)")
+token="dw-check-leftover-$$-$RANDOM"
+dir=$(two_page_record leftovers)
+printf '%s\n' "$token" >> "$dir/pages/01-一枚目.md"
+in_dw cmd_handout leftovers
+printf '\n<!-- hud-only -->\n' >> "$dir/pages/01-一枚目.md"
+in_dw cmd_handout leftovers
+left=$(grep -rl "$token" "$temp_root"/tmp.*/source 2>/dev/null)
+if [ "$code" = 1 ] && [ -z "$left" ]; then
+  pass "a stopped export leaves no scratch folder (with copies of the pages) behind"
+else
+  fail "scratch folders left (exit $code): $(printf '%s' "$left" | tr '\n' ' ')"
+  # This run's leftovers go: they hold its synthetic pages
+  for copy in $left; do rm -rf -- "$(dirname "$(dirname "$copy")")"; done
+fi
+
+dir="$RECORDS/race"
+mkdir -p "$dir/pages"
+printf '# 記録：race\n' > "$dir/journal.md"
+printf '# 競合\n\nAAAA\n' > "$dir/pages/01-競合.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+cp -p "$dir/pages/01-競合.md" "$scratch/race-reference"
+# A writer saves another version of the page, the same size within the same second, right after dw built it
+racing_build() {
+  eval "original_$(declare -f explain_build)"
+  explain_build() {
+    original_explain_build "$@"
+    local status=$?
+    printf '# 競合\n\nBBBB\n' > "$RECORDS/race/pages/01-競合.md"
+    touch -r "$scratch/race-reference" "$RECORDS/race/pages/01-競合.md"
+    return "$status"
+  }
+  "$@"
+}
+rm -f "$DW_CHECK_SEEN"
+in_dw racing_build cmd_handout race
+if grep -q 'AAAA' <<< "$(jq -r '.pages[0].markdown' "$DW_CHECK_SEEN" 2>/dev/null)"; then
+  pass "the secret scan reads the very copy of a page that was built, however the page changes meanwhile"
+else
+  fail "one read per page (exit $code): scanned $(jq -r '.pages[0].markdown' "$DW_CHECK_SEEN" 2>/dev/null | tr '\n' ' ')"
+fi
+
+dir=$(two_page_record staged)
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout staged
+if [ "$(jq '.pages | length' "$DW_CHECK_SEEN" 2>/dev/null)" = 2 ] && [ "$(jq '.parentPid' "$DW_CHECK_SEEN" 2>/dev/null)" = "$$" ]; then
+  pass "every listed page reaches input.json, with dw's process id for the renderer to watch"
+else
+  fail "input.json (exit $code: $out): $(cat "$DW_CHECK_SEEN" 2>/dev/null | head -c 300)"
+fi
+
+dir=$(two_page_record guarded)
+printf '<!doctype html>\n<form><input name="dw-handout"></form>\n' > "$scratch/form.html"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout guarded --out "$scratch/form.html"
+form_code="$code" form_out="$out" form_reached=$([ -e "$DW_CHECK_SEEN" ] && echo yes)
+{ handout_head; printf '\n</head><body></body></html>\n'; } > "$scratch/earlier-handout.html"
+in_dw cmd_handout guarded --out "$scratch/earlier-handout.html"
+if [ "$form_code" = 1 ] && grep -q 'HANDOUT_OUT_EXISTS' <<< "$form_out" && [ -z "$form_reached" ] \
+  && [ "$(cat "$scratch/form.html")" = "$(printf '<!doctype html>\n<form><input name="dw-handout"></form>')" ] && [ -e "$DW_CHECK_SEEN" ]; then
+  pass "--out never replaces a file that only mentions the marker; a file that starts as a Handout may be replaced"
+else
+  fail "overwrite guard (form exit $form_code: $form_out / Handout exit $code: $out)"
+fi
+
+dir=$(two_page_record piped)
+mkfifo "$scratch/out.fifo"
+out=$(perl -e 'alarm 10; exec @ARGV' scripts/dw handout piped --out "$scratch/out.fifo" 2>&1)
+code=$?
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OUT_EXISTS' <<< "$out"; then
+  pass "--out naming a pipe is refused at once, never read"
+else
+  fail "--out pipe (exit $code): $out"
+fi
+
+dir=$(two_page_record linked)
+{ handout_head; printf '\n</head><body></body></html>\n'; } > "$scratch/linked-target.html"
+ln -s "$scratch/linked-target.html" "$scratch/linked.html"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout linked --out "$scratch/linked.html"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OUT_EXISTS' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "--out naming a symbolic link is refused: name the file itself"
+else
+  fail "--out symlink (exit $code): $out"
+fi
+
+echo "== HUD golden capture"
+# The committed baseline is what dw built before the Handout work: its template differs on purpose,
+# the data each page carries (number, title, section, Markdown) does not
+cp -R fixtures/hud-golden "$scratch/golden"
+DW_GOLDEN_DIR="$scratch/golden" scripts/hud-golden capture > "$scratch/capture.out" 2>&1
+capture_code=$?
+committed=$(cat fixtures/hud-golden/baseline/pages/*.html | grep '^{"n":')
+captured=$(cat "$scratch/golden/baseline/pages/"*.html 2>/dev/null | grep '^{"n":')
+if [ "$capture_code" = 0 ] && [ -n "$captured" ] && [ "$captured" = "$committed" ] \
+  && [ "$(ls fixtures/hud-golden/baseline/pages)" = "$(ls "$scratch/golden/baseline/pages")" ]; then
+  pass "capture rebuilds every fixture page, each with the data the committed baseline carries"
+else
+  fail "capture (exit $capture_code): $(head -c 400 "$scratch/capture.out")"
+fi
+cp -R "$scratch/golden/baseline" "$scratch/baseline-before"
+printf '\n<!-- hud-only -->\n閉じ忘れ\n' >> "$(find "$scratch/golden/record/pages" -name '01-*.md' | head -1)"
+DW_GOLDEN_DIR="$scratch/golden" scripts/hud-golden capture > "$scratch/capture.out" 2>&1
+capture_code=$?
+if [ "$capture_code" != 0 ] && diff -r "$scratch/baseline-before" "$scratch/golden/baseline" > /dev/null; then
+  pass "a fixture page that cannot be built fails capture and leaves the baseline as it was"
+else
+  fail "capture of a broken page (exit $capture_code): $(head -c 400 "$scratch/capture.out")"
+fi
+
+echo
+if [ "$failures" = 0 ]; then echo "dw-check: every case passed"; else echo "dw-check: $failures case(s) failed"; fi
+[ "$failures" = 0 ]

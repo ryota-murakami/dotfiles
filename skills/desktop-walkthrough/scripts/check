@@ -21,12 +21,13 @@ run() {
 
 # The scripts parse under macOS /bin/bash 3.2
 bash_syntax() {
-  /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks && /bin/bash -n scripts/hud-golden && /bin/bash -n scripts/handout-check
+  /bin/bash -n scripts/dw && /bin/bash -n scripts/check && /bin/bash -n scripts/typecheck-hooks && /bin/bash -n scripts/hud-golden \
+    && /bin/bash -n scripts/handout-check && /bin/bash -n scripts/dw-check
 }
 
 # bash 3.2 reads "$name（" as a longer variable name and stops with "unbound variable": brace it
 multibyte_after_variable() {
-  perl -ne 'if (!/^\s*#/ && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/) { print "$ARGV:$.: $_"; $hit = 1 } close ARGV if eof; END { exit($hit ? 1 : 0) }' scripts/dw scripts/check scripts/hud-golden scripts/handout-check
+  perl -ne 'if (!/^\s*#/ && /\$[A-Za-z_][A-Za-z0-9_]*[^\x00-\x7F]/) { print "$ARGV:$.: $_"; $hit = 1 } close ARGV if eof; END { exit($hit ? 1 : 0) }' scripts/dw scripts/check scripts/hud-golden scripts/handout-check scripts/dw-check
 }
 
 # Manifest and hooks module as the engine reads them; only problems are printed
@@ -62,7 +63,7 @@ handout_contract() {
   enum=$(sed -n "/^export const handoutCodeSchema = z.enum(\[/,/^\])/p" packages/handout/src/contract.ts | grep -o 'HANDOUT_[A-Z_]*' | sort -u)
   table=$(grep -o '^| `HANDOUT_[A-Z_]*`' SKILL.md | grep -o 'HANDOUT_[A-Z_]*' | sort -u)
   used=$(cat scripts/dw handout/main.swift packages/handout/src/builder/*.ts | grep -o 'HANDOUT_[A-Z][A-Z0-9_]*' \
-    | grep -v -x -e HANDOUT_DOM -e HANDOUT_MARKER_META -e HANDOUT_MARKER_ATTRIBUTE -e HANDOUT_PROTOCOL_VERSION \
+    | grep -v -x -e HANDOUT_DOM -e HANDOUT_HEAD -e HANDOUT_PROTOCOL_VERSION \
       -e HANDOUT_HUD_WORDS -e HANDOUT_BIN -e HANDOUT_DIST -e HANDOUT_PAGE_LIMIT_MS -e HANDOUT_RUN_LIMIT_MS \
       -e HANDOUT_CONTROLLER_SOURCE -e HANDOUT_CONTROLLER_SHA256 | sort -u)
   if [ "$enum" != "$table" ]; then
@@ -71,9 +72,16 @@ handout_contract() {
   if [ -n "$(comm -23 <(printf '%s\n' "$used") <(printf '%s\n' "$enum"))" ]; then
     echo "codes raised but not in contract.ts: $(comm -23 <(printf '%s\n' "$used") <(printf '%s\n' "$enum") | tr '\n' ' ')"; status=1
   fi
-  for file in packages/handout/src/contract.ts handout/main.swift scripts/dw; do
-    grep -q 'name=\\\?"dw-handout\\\?"' "$file" || { echo "$file lacks the Handout marker name=\"dw-handout\""; status=1; }
-  done
+  # The first bytes of a Handout, as each side writes or requires them: one string, byte for byte
+  local head_ts head_swift head_dw
+  head_ts=$(sed -n "/^export const HANDOUT_HEAD =/,/'\$/p" packages/handout/src/contract.ts | tail -1 | sed "s/^ *'//; s/'\$//")
+  head_swift=$(sed -n 's/^let handoutHead = "\(.*\)"$/\1/p' handout/main.swift | sed 's/\\"/"/g')
+  head_dw=$(sed -n "/^HANDOUT_HEAD='/,/'\$/p" scripts/dw | sed "1s/^HANDOUT_HEAD='//; \$s/'\$//")
+  if [ -z "$head_dw" ] || [ "$(printf '%b' "$head_ts")" != "$head_dw" ] || [ "$(printf '%b' "$head_swift")" != "$head_dw" ]; then
+    echo "the Handout head differs between contract.ts, main.swift and dw:"
+    printf '  contract.ts: %s\n  main.swift:  %s\n  dw:          %s\n' "$head_ts" "$head_swift" "$(printf '%s' "$head_dw" | tr '\n' '|')"
+    status=1
+  fi
   return $status
 }
 
@@ -102,7 +110,7 @@ PY
 
 run "bash syntax (/bin/bash 3.2)" bash_syntax
 if command -v shellcheck >/dev/null 2>&1; then
-  run "shellcheck" shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks scripts/hud-golden scripts/handout-check
+  run "shellcheck" shellcheck -S warning scripts/dw scripts/check scripts/typecheck-hooks scripts/hud-golden scripts/handout-check scripts/dw-check
 else
   echo "== shellcheck: skipped (brew install shellcheck)"
 fi
@@ -132,6 +140,12 @@ if [ -d node_modules ] && command -v pnpm >/dev/null 2>&1; then
   run "committed builds match their sources (packages/*/dist)" committed_builds
 else
   echo "== workspace: skipped (run 'pnpm install' in this folder first)"
+fi
+# dw's plumbing, function by function (BSD stat and date: macOS)
+if [ "$(uname)" = Darwin ] && command -v jq >/dev/null 2>&1; then
+  run "dw: narration, records, resume, markers and the checks before the renderer" scripts/dw-check
+else
+  echo "== dw plumbing cases: skipped (they need macOS and jq)"
 fi
 # WebKit lays out only for the user logged in at the screen: elsewhere (CI, another user over ssh) the renderer cannot run
 if [ "$(uname)" = Darwin ] && [ "$(stat -f %Su /dev/console 2>/dev/null)" = "$(id -un)" ] && command -v jq >/dev/null 2>&1; then

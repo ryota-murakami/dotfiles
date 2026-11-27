@@ -268,3 +268,37 @@ test('a host reply that breaks the contract is the host’s failure, not the pag
   // Assert
   await expect(build).rejects.toThrow()
 })
+
+test('a signed link the source spelled with &amp; stops the export once the page is rendered, before anything is verified', async () => {
+  // Arrange
+  const signature = '0f3a'.repeat(16)
+  const disguised = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: {
+        html: `<h1>書き出しの流れ</h1><p><a href="https://docs.test/a?expires=1&amp;signature=${signature}">設計メモ</a></p>`,
+        diagrams: [],
+      },
+    },
+  }
+  const { host, requests } = fakeHost({ renders: disguised })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toEqual({
+    ok: false,
+    diagnostics: [
+      {
+        code: 'HANDOUT_SECRET',
+        message:
+          'pages/01-書き出しの流れ.md: a secret shape (signed-url-parameter) in the page as rendered (the source spells it with HTML entities or escapes); remove the value from the page',
+        page: 1,
+        pattern: 'signed-url-parameter',
+      },
+    ],
+  })
+  expect(requests.some((request) => request.type === 'verify')).toBe(false)
+})

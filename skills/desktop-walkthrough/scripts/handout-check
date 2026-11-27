@@ -83,6 +83,21 @@ handout_input() {
 echo "== HUD golden: marker-free pages render as they did before the Handout work (eng D5)"
 golden="$scratch/golden"
 mkdir -p "$golden/baseline/pages" "$golden/fresh/pages"
+# The libraries first, as dw fetches and verifies them: without them both sides would render the
+# same plain-Markdown fallback and match without testing anything
+(
+  # shellcheck source=/dev/null
+  source "$scratch/dwlib"
+  explain_vendor
+) > /dev/null 2>&1
+vendor_missing=$(
+  # shellcheck source=/dev/null
+  source "$scratch/dwlib"
+  while IFS='|' read -r vendor_name _ vendor_sum; do
+    [ -n "$vendor_name" ] || continue
+    [ "$(sha256_of "$EXPLAIN/vendor/$vendor_name")" = "$vendor_sum" ] || printf '%s ' "$vendor_name"
+  done <<< "$EXPLAIN_VENDOR"
+)
 cp -R "$DW_HOME/explain/vendor" "$golden/baseline/vendor"
 cp -R "$DW_HOME/explain/vendor" "$golden/fresh/vendor"
 cp fixtures/hud-golden/baseline/pages/*.html "$golden/baseline/pages/"
@@ -99,9 +114,20 @@ cp fixtures/hud-golden/baseline/pages/*.html "$golden/baseline/pages/"
 golden_pages=()
 for page in "$golden"/baseline/pages/*.html; do golden_pages+=("pages/$(basename "$page")"); done
 "$BIN" --hud "$golden/baseline" "${golden_pages[@]}" > "$golden/baseline.jsonl" 2> "$golden/baseline.err"
+baseline_code=$?
 "$BIN" --hud "$golden/fresh" "${golden_pages[@]}" > "$golden/fresh.jsonl" 2> "$golden/fresh.err"
-if [ -s "$golden/baseline.jsonl" ] && cmp -s "$golden/baseline.jsonl" "$golden/fresh.jsonl"; then
+fresh_code=$?
+# Both runs ended well, one report per fixture page, none with an error (a missing marked or mermaid
+# reports one), and the fixture's diagrams drawn
+reports=$(grep -c . "$golden/fresh.jsonl")
+clean=$(jq -s 'all(.[]; (.report.errors | length) == 0) and ([.[].report.diagrams] | add) > 0' "$golden/fresh.jsonl" 2>/dev/null)
+if [ -n "$vendor_missing" ]; then
+  fail "the explainer libraries are missing or not as dw expects ($vendor_missing): the golden would compare plain-Markdown fallbacks"
+elif [ "$baseline_code" = 0 ] && [ "$fresh_code" = 0 ] && [ "$reports" = "${#golden_pages[@]}" ] && [ "$clean" = true ] \
+  && cmp -s "$golden/baseline.jsonl" "$golden/fresh.jsonl"; then
   pass "${#golden_pages[@]} pages: the same #content, reading blocks and render report"
+elif [ "$baseline_code" != 0 ] || [ "$fresh_code" != 0 ] || [ "$reports" != "${#golden_pages[@]}" ] || [ "$clean" != true ]; then
+  fail "a HUD golden render failed (baseline exit $baseline_code, fresh exit $fresh_code, $reports of ${#golden_pages[@]} reports, clean: $clean): $(head -c 300 "$golden/fresh.err")"
 else
   fail "the HUD renders the fixture pages differently from the baseline (fixtures/hud-golden)"
   diff <(jq -c '{page, blocks, report}' "$golden/baseline.jsonl") <(jq -c '{page, blocks, report}' "$golden/fresh.jsonl") | head -10
@@ -169,8 +195,8 @@ fi
 new_record marker-error
 printf '\n<!-- hud-only -->\n閉じ忘れ\n' >> "$RECORDS/marker-error/pages/02-判定の仕組み.md"
 export_record marker-error
-if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER pages/02-判定の仕組み.md:23: <!-- hud-only --> is never closed' <<< "$out"; then
-  pass "an unmatched marker stops with HANDOUT_MARKER and its source line"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER page 2:23: <!-- hud-only --> is never closed' <<< "$out"; then
+  pass "an unmatched marker stops with HANDOUT_MARKER, its page number and source line"
 else
   fail "marker error: $out"
 fi
@@ -178,8 +204,8 @@ fi
 new_record worded
 printf '\nHUD の読んだ ▼ を押してください\n' >> "$RECORDS/worded/pages/03-実装と確認.md"
 export_record worded
-if [ "$code" = 0 ] && grep -q '2 warnings)' <<< "$out" && grep -q 'warning: pages/03-実装と確認.md:28: HUD wording outside a hud-only block: 「HUD」' <<< "$out"; then
-  pass "HUD wording outside a hud-only block gives a warning with its line, and the export goes on"
+if [ "$code" = 0 ] && grep -q '2 warnings)' <<< "$out" && grep -q 'warning: page 3:28: HUD wording in text a Handout shows: 「HUD」' <<< "$out"; then
+  pass "HUD wording a Handout shows gives a warning with its page and line, and the export goes on"
 else
   fail "HUD wording: $out"
 fi
@@ -204,11 +230,13 @@ else
 fi
 
 new_record overflow
-# mermaid measures a label outside the page's diagrams: a style that enlarges text inside them makes
-# every label lay out larger than the box it was given
-printf '\n<style>.diagram .nodeLabel { font-size: 40px; }</style>\n' >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
+# mermaid measures a label outside the page's diagrams: a style that widens text only inside them
+# (an inline style on the element around the diagram, which the sanitizer keeps; a page's own
+# <style> is removed before measuring) makes its labels lay out wider than the boxes they were given
+printf '\n<div style="letter-spacing: 0.6em">\n\n```mermaid\nflowchart LR\n  A[書き出しを始める] --> B[権限を確かめる]\n```\n\n</div>\n' \
+  >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
 export_record overflow
-if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:5: diagram 1: the label' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:25: diagram 3: the label' <<< "$out"; then
   pass "a label laid out larger than its node stops with HANDOUT_OVERFLOW (so the concealed window lays out)"
 else
   fail "overflow: $out"
@@ -229,6 +257,77 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/03-実装と確認.md:28: the
   pass "a missing image stops with HANDOUT_IMAGE and its line"
 else
   fail "missing image: $out"
+fi
+
+new_record file-image
+printf '%s' "$PNG_BASE64" | base64 -D > "$scratch/file-image.png"
+printf '\n![画面](file://%s)\n' "$scratch/file-image.png" >> "$RECORDS/file-image/pages/01-書き出しの流れ.md"
+export_record file-image
+if [ "$code" = 0 ] && grep -q "src=\"data:image/png;base64,$PNG_BASE64\"" "$RECORDS/file-image/handout.html"; then
+  pass "a file: image keeps its path through the page's sanitizer and is embedded"
+else
+  fail "file: image: $out"
+fi
+
+new_record fake-image
+printf '{"error":"the link expired"}' > "$RECORDS/fake-image/pages/shot.png"
+printf '\n![画面](shot.png)\n' >> "$RECORDS/fake-image/pages/01-書き出しの流れ.md"
+export_record fake-image
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image shot.png is not an image' <<< "$out" \
+  && [ ! -e "$RECORDS/fake-image/handout.html" ]; then
+  pass "a file named like an image whose bytes are not one stops with HANDOUT_IMAGE (its contents never ship)"
+else
+  fail "fake image: $out"
+fi
+
+new_record big-image
+mkfile -n 21m "$RECORDS/big-image/pages/big.png"
+printf '\n![大きい画面](big.png)\n' >> "$RECORDS/big-image/pages/01-書き出しの流れ.md"
+export_record big-image
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image big.png could not be read: larger than 20 MB' <<< "$out"; then
+  pass "an image over 20 MB stops with HANDOUT_IMAGE before it is read"
+else
+  fail "big image: $out"
+fi
+
+# A pipe named like an image: the renderer must not wait on it (its time limits run where it reads)
+new_record piped-image
+mkfifo "$RECORDS/piped-image/pages/piped.png"
+printf '\n![画面](piped.png)\n' >> "$RECORDS/piped-image/pages/01-書き出しの流れ.md"
+scripts/dw handout piped-image > "$scratch/piped.out" 2>&1 &
+exporter=$!
+waited=0
+while kill -0 "$exporter" 2>/dev/null && [ "$waited" -lt 60 ]; do sleep 1; waited=$((waited + 1)); done
+if kill -0 "$exporter" 2>/dev/null; then
+  pkill -P "$exporter"; kill "$exporter"; code=124
+else
+  wait "$exporter"; code=$?
+fi
+out=$(cat "$scratch/piped.out")
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image piped.png could not be read: not a regular file' <<< "$out"; then
+  pass "an image path naming a pipe stops with HANDOUT_IMAGE at once, never read"
+else
+  fail "piped image (exit $code after ${waited} s): $out"
+fi
+
+new_record entity-secret
+printf '\n<a href="https://docs.test/a?expires=1&amp;signature=%s">設計メモ</a>\n' "$SIGNATURE" >> "$RECORDS/entity-secret/pages/01-書き出しの流れ.md"
+export_record entity-secret
+if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET pages/01-書き出しの流れ.md: a secret shape (signed-url-parameter) in the page as rendered' <<< "$out" \
+  && ! grep -q "$SIGNATURE" <<< "$out" && [ ! -e "$RECORDS/entity-secret/handout.html" ]; then
+  pass "a signed link the source spells with &amp; stops with HANDOUT_SECRET once rendered, and is never printed"
+else
+  fail "entity-encoded secret: $out"
+fi
+
+new_record private
+export_record private
+chmod 600 "$RECORDS/private/handout.html"
+export_record private
+if [ "$code" = 0 ] && [ "$(stat -f '%Lp' "$RECORDS/private/handout.html")" = 600 ]; then
+  pass "a re-exported Handout keeps the permissions of the one it replaces (0600 stays 0600)"
+else
+  fail "permissions on re-export ($(stat -f '%Lp' "$RECORDS/private/handout.html")): $out"
 fi
 
 new_record script
@@ -297,6 +396,28 @@ if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null
 else
   fail "swap back: $result"
 fi
+printf '<!doctype html>\n<form><input name="dw-handout"></form>\n' > "$scratch/form.html"
+cp "$scratch/form.html" "$scratch/form.copy"
+handout_input "$RECORDS/direct" "$scratch/form.html" "$scratch/form-explain" "$scratch/form.json"
+result=$("$BIN" "$scratch/form.json" "$DIST")
+if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/form.html" "$scratch/form.copy"; then
+  pass "a file that only mentions the marker (a form field named dw-handout) is not taken for a Handout"
+else
+  fail "marker text is not a Handout: $result"
+fi
+handout_input "$RECORDS/direct" "$scratch/orphan.html" "$scratch/orphan-explain" "$scratch/orphan.json"
+# A process id that no longer exists, as dw's would be once dw was killed
+sleep 0 &
+gone=$!
+wait "$gone"
+jq --argjson pid "$gone" '. + {parentPid: $pid}' "$scratch/orphan.json" > "$scratch/orphan-parent.json"
+result=$("$BIN" "$scratch/orphan-parent.json" "$DIST")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/orphan.html" ]; then
+  pass "the renderer stops without publishing once dw's process is gone"
+else
+  fail "parent gone: $result"
+fi
 
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"
@@ -342,7 +463,10 @@ mkdir -p "$broken"
 cp "$DIST/builder.html" "$DIST/purify.js" "$broken/"
 handout_input "$RECORDS/direct" "$scratch/broken.html" "$scratch/broken-explain" "$scratch/broken.json"
 sha=$(shasum -a 256 "$DIST/controller.js" | cut -d' ' -f1 | xxd -r -p | base64)
-perl -pi -e "s/\Q$sha\E/AAAA$sha/" "$broken/builder.html"
+# The hash goes in through the environment: base64 holds "/" and "+", which a perl s/// written
+# around it would read as delimiters
+SHA="$sha" perl -pi -e 's/\Q$ENV{SHA}\E/AAAA$ENV{SHA}/' "$broken/builder.html"
+grep -q "AAAA$sha" "$broken/builder.html" || fail "the CSP case could not break the builder's hash (test setup)"
 result=$("$BIN" "$scratch/broken.json" "$broken")
 if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("controller did not run"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/broken.html" ]; then

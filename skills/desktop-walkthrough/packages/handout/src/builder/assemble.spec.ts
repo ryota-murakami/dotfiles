@@ -1,7 +1,5 @@
 import { expect, test } from 'vitest'
 
-import { MARKER_SCAN_BYTES } from '../constants'
-import { HANDOUT_MARKER_ATTRIBUTE } from '../contract'
 import { assembleHandout } from './assemble'
 
 const parts = {
@@ -18,16 +16,16 @@ const parts = {
   },
 }
 
-test('the Handout marker sits where dw and the host look for it before replacing a file', () => {
+test('a Handout starts with the exact head dw and the host require before they replace a file', () => {
   // Arrange
-  const encoder = new TextEncoder()
+  const expectedHead =
+    '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">\n'
 
   // Act
   const html = assembleHandout(parts)
 
   // Assert
-  const head = new TextDecoder().decode(encoder.encode(html).slice(0, MARKER_SCAN_BYTES))
-  expect(head).toContain(HANDOUT_MARKER_ATTRIBUTE)
+  expect(html.slice(0, expectedHead.length)).toBe(expectedHead)
 })
 
 test('the CSP lets only the controller run, by its hash, and loads nothing from outside', () => {

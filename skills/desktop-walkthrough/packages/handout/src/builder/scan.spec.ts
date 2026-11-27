@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest'
 
-import { scanForSecrets } from './scan'
+import { scanForSecrets, scanRenderedPage } from './scan'
 
 // Fake credentials are assembled at run time so secret scanners do not flag this public file.
 const SIGNATURE = '0f3a'.repeat(16)
@@ -153,6 +153,108 @@ test('a Record that only says where secrets come from passes the scan', () => {
 
   // Act
   const diagnostics = scanForSecrets(pages)
+
+  // Assert
+  expect(diagnostics).toEqual([])
+})
+
+test('a title given with --title is checked on its own, even when the page holds the value inside a longer word', () => {
+  // Arrange
+  const pages = [
+    {
+      n: 4,
+      title: GITHUB_TOKEN,
+      section: '',
+      source: 'pages/04-a.md',
+      markdown: `# 見出し\n\n識別子 x${GITHUB_TOKEN} を使います\n`,
+      built: 'pages/004.html',
+    },
+  ]
+
+  // Act
+  const diagnostics = scanForSecrets(pages)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_SECRET',
+      message: 'page 4: a secret shape (prefixed-api-key) in its title; give the page another title',
+      page: 4,
+      pattern: 'prefixed-api-key',
+    },
+  ])
+})
+
+test('a heading that gives the page its title is reported once, at its line', () => {
+  // Arrange
+  const pages = [
+    {
+      n: 6,
+      title: `設定 ${GITHUB_TOKEN}`,
+      section: '',
+      source: 'pages/06-設定.md',
+      markdown: `# 設定 ${GITHUB_TOKEN}\n\n本文\n`,
+      built: 'pages/006.html',
+    },
+  ]
+
+  // Act
+  const diagnostics = scanForSecrets(pages)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_SECRET',
+      message: 'pages/06-設定.md:1: a secret shape (prefixed-api-key); remove the value from the page',
+      page: 6,
+      line: 1,
+      pattern: 'prefixed-api-key',
+    },
+  ])
+})
+
+test('a signed link the source spelled with &amp; is caught in the page as rendered, where it works again', () => {
+  // Arrange
+  const page = {
+    n: 2,
+    title: '設計',
+    section: '',
+    source: 'pages/02-設計.md',
+    markdown: `<a href="https://docs.test/a?expires=1&amp;signature=${SIGNATURE}">設計メモ</a>\n`,
+    built: 'pages/002.html',
+  }
+  const html = `<p><a href="https://docs.test/a?expires=1&amp;signature=${SIGNATURE}">設計メモ</a></p>`
+
+  // Act
+  const diagnostics = scanRenderedPage(page, html)
+
+  // Assert
+  expect(scanForSecrets([page])).toEqual([])
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_SECRET',
+      message:
+        'pages/02-設計.md: a secret shape (signed-url-parameter) in the page as rendered (the source spells it with HTML entities or escapes); remove the value from the page',
+      page: 2,
+      pattern: 'signed-url-parameter',
+    },
+  ])
+})
+
+test('an embedded image is not read as text by the rendered-page scan', () => {
+  // Arrange
+  const page = {
+    n: 1,
+    title: '画面',
+    section: '',
+    source: 'pages/01-画面.md',
+    markdown: '',
+    built: 'pages/001.html',
+  }
+  const html = `<p><img src="data:image/png;base64,${'iVBORw0KGgo'.repeat(20)}" alt="一覧"></p>`
+
+  // Act
+  const diagnostics = scanRenderedPage(page, html)
 
   // Assert
   expect(diagnostics).toEqual([])

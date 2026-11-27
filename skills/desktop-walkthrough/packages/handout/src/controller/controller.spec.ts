@@ -21,9 +21,9 @@ const PAGES = [
 ]
 
 /** Put an assembled Handout's body into the test document, the way the browser would load it. */
-function loadHandout(): void {
+function loadHandout(pages: typeof PAGES = PAGES): void {
   const html = assembleHandout({
-    pages: PAGES,
+    pages,
     pageCss: '',
     highlightCss: '',
     handoutCss: '',
@@ -290,6 +290,25 @@ test('dragging an edge widens the panel on both sides and remembers the width fo
   expect([...store.values]).toEqual([[`dw-handout-width:${location.pathname}`, '1000']])
 })
 
+test('a drag the system cancels stops following the pointer and keeps the width reached', () => {
+  // Arrange
+  loadHandout()
+  const store = memoryStore()
+  startHandout(document, store)
+  const edge = document.querySelector<HTMLElement>('.edge.right')
+  const panel = document.querySelector<HTMLElement>('.panel')
+  edge?.dispatchEvent(new PointerEvent('pointerdown', { clientX: 450, pointerId: 1 }))
+  edge?.dispatchEvent(new PointerEvent('pointermove', { clientX: 500, pointerId: 1 }))
+
+  // Act
+  edge?.dispatchEvent(new PointerEvent('pointercancel', { pointerId: 1 }))
+  edge?.dispatchEvent(new PointerEvent('pointermove', { clientX: 400, pointerId: 1 }))
+
+  // Assert
+  expect(panel?.style.width).toBe('1000px')
+  expect([...store.values]).toEqual([[`dw-handout-width:${location.pathname}`, '1000']])
+})
+
 test('the remembered width comes back when the same file is opened again', () => {
   // Arrange
   loadHandout()
@@ -327,4 +346,79 @@ test('a double-click on an edge brings the panel back to its default width and f
   // Assert
   expect(document.querySelector<HTMLElement>('.panel')?.style.width).toBe('')
   expect(store.values.size).toBe(0)
+})
+
+test('an element of a page that shares the page class is not counted as a page of its own', () => {
+  // Arrange
+  loadHandout(
+    PAGES.map((page) =>
+      page.n === 1 ? { ...page, html: `${page.html}<div class="page">引用</div>` } : page,
+    ),
+  )
+
+  // Act
+  startHandout(document, memoryStore())
+
+  // Assert
+  expect(headerText()).toBe('1/3 【準備】書き出しの流れ')
+})
+
+test('the button under a page hands the keyboard focus to the reading area of the page it opens', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+  const next = document.querySelector<HTMLButtonElement>('#page-1 .pager .next')
+
+  // Act
+  next?.focus()
+  next?.click()
+
+  // Assert
+  expect(document.activeElement).toBe(document.querySelector('.scroller'))
+  expect(visiblePages()).toEqual(['page-2'])
+})
+
+test('a screen reader hears the page number and title each time the page changes', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+
+  // Act
+  press('ArrowRight')
+
+  // Assert
+  const announcer = document.querySelector('[aria-live="polite"]')
+  expect(announcer?.textContent).toBe('2/3 【仕組み】判定の仕組み')
+})
+
+test('Esc closes the table of contents and gives the focus back to its button', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+  const tocButton = document.querySelector<HTMLButtonElement>('.header .btn[aria-label="目次"]')
+  tocButton?.click()
+  document.querySelector<HTMLButtonElement>('.toc button')?.focus()
+
+  // Act
+  press('Escape')
+
+  // Assert
+  expect(document.querySelector<HTMLElement>('.toc')?.hidden).toBe(true)
+  expect(document.activeElement).toBe(tocButton)
+})
+
+test('arrow keys typed in a field or inside a code block stay there and do not turn the page', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+  const field = document.createElement('input')
+  document.querySelector('#page-1')?.append(field)
+  const code = document.querySelector<HTMLElement>('#page-1 pre')
+
+  // Act
+  field.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+  code?.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+
+  // Assert
+  expect(visiblePages()).toEqual(['page-1'])
 })

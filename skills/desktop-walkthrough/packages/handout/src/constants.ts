@@ -7,9 +7,6 @@ export const PAGE_RENDER_LIMIT_MS = 30_000
 /** Longest whole export, from the host's start to its result, before HANDOUT_RENDERER (eng D3). */
 export const RUN_LIMIT_MS = 600_000
 
-/** How far into a file the Handout marker is looked for: the builder writes it in the head, near the top. */
-export const MARKER_SCAN_BYTES = 4096
-
 /**
  * How much wider or taller than its box a diagram label may lay out before it counts as overflowing
  * (DX D9): sub-pixel rounding differs between the render and the measurement.
@@ -44,3 +41,26 @@ export const COPY_FEEDBACK_MS = 1_200
 
 /** How much larger than its viewBox a diagram shows at natural size, as in the Explainer. */
 export const DIAGRAM_NATURAL_SCALE = 1.25
+
+/**
+ * What the bytes of each image type a Handout embeds start with: the format's signature, at its offset
+ * (WebP and AVIF carry theirs inside a RIFF or ftyp box). A file named like an image whose bytes match
+ * none of these is not embedded, whatever its name says.
+ */
+export const IMAGE_SIGNATURES = [
+  { mime: 'image/png', parts: [{ offset: 0, bytes: [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a] }] },
+  { mime: 'image/jpeg', parts: [{ offset: 0, bytes: [0xff, 0xd8, 0xff] }] },
+  { mime: 'image/gif', parts: [{ offset: 0, bytes: [0x47, 0x49, 0x46, 0x38] }] },
+  {
+    mime: 'image/webp',
+    parts: [
+      { offset: 0, bytes: [0x52, 0x49, 0x46, 0x46] },
+      { offset: 8, bytes: [0x57, 0x45, 0x42, 0x50] },
+    ],
+  },
+  { mime: 'image/avif', parts: [{ offset: 4, bytes: [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x66] }] },
+  { mime: 'image/avif', parts: [{ offset: 4, bytes: [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x73] }] },
+] as const
+
+/** How far into a file an SVG's `<svg` element is looked for, after its XML declaration, comments and doctype. */
+export const SVG_SNIFF_BYTES = 4_096

@@ -89,6 +89,8 @@ export type HandoutCheck = z.infer<typeof handoutCheckSchema>
 export interface CheckArgs {
   readyAttribute: string
   pageClass: string
+  /** The holder of the pages: only its own article children are pages, never an element inside one. */
+  pagesId: string
   pageIdPrefix: string
   pageNumberId: string
   readyLimitMs: number
@@ -114,7 +116,7 @@ export async function checkHandout(args: CheckArgs): Promise<unknown> {
     await new Promise((resolve) => setTimeout(resolve, args.pollMs))
   }
   const ready = root.hasAttribute(args.readyAttribute)
-  const pages = document.querySelectorAll(`.${args.pageClass}`).length
+  const pages = document.querySelectorAll(`#${args.pagesId} > article.${args.pageClass}`).length
   const pageNumber = (document.getElementById(args.pageNumberId)?.textContent ?? '').trim()
   let secondShown: boolean | null = null
   if (ready && pages >= 2) {

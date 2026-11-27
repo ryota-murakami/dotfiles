@@ -132,3 +132,119 @@ test('an image with a short name is located at the line that writes it as an ima
   // Assert
   expect(result.diagnostics.map((diagnostic) => diagnostic.line)).toEqual([5])
 })
+
+/** Base64 of a text, as the host sends file contents. */
+function toBase64(text: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(text)))
+}
+
+// A fake signature is assembled at run time so secret scanners do not flag this public file.
+const SIGNATURE = '0f3a'.repeat(16)
+
+test('a file named like an image whose bytes are not one stops the export instead of shipping its contents', async () => {
+  // Arrange
+  const host = hostWithFiles({ '/r/pages/shot.png': toBase64('{"error":"the link expired"}') })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host)
+
+  // Assert
+  expect(result).toEqual({
+    html,
+    diagnostics: [
+      {
+        code: 'HANDOUT_IMAGE',
+        message:
+          'pages/03-画面.md:1: the image shot.png is not an image: its bytes are not png, jpeg, gif, webp, avif or svg',
+        page: 3,
+        line: 1,
+      },
+    ],
+  })
+})
+
+test('an image saved under the wrong extension is embedded as the type its bytes are', async () => {
+  // Arrange
+  const host = hostWithFiles({ '/r/pages/shot.png': '/9j/4AAQ' })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host)
+
+  // Assert
+  expect(result).toEqual({ html: '<p><img src="data:image/jpeg;base64,/9j/4AAQ"></p>', diagnostics: [] })
+})
+
+test('an SVG carrying a signed link in its metadata stops the export as a secret, never printing it', async () => {
+  // Arrange
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><metadata>https://docs.test/a?signature=${SIGNATURE}</metadata></svg>`
+  const host = hostWithFiles({ '/r/pages/flow.svg': toBase64(svg) })
+  const html = '<p><img src="flow.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![流れ](flow.svg)\n'), html, '/r', host)
+
+  // Assert
+  expect(result.diagnostics).toEqual([
+    {
+      code: 'HANDOUT_SECRET',
+      message:
+        'pages/03-画面.md:1: the image flow.svg carries a secret shape (signed-url-parameter); remove the value from the file',
+      page: 3,
+      line: 1,
+    },
+  ])
+  expect(JSON.stringify(result.diagnostics)).not.toContain(SIGNATURE)
+})
+
+test('an image written into the page as data is checked like a file: an SVG with a signed link stops the export', async () => {
+  // Arrange
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><desc>https://docs.test/a?signature=${SIGNATURE}</desc></svg>`
+  const source = `data:image/svg+xml;base64,${toBase64(svg)}`
+  const host = hostWithFiles({})
+  const html = `<p><img src="${source}"></p>`
+
+  // Act
+  const result = await embedImages(page(`<img src="${source}">\n`), html, '/r', host)
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.line])).toEqual([
+    ['HANDOUT_SECRET', 1],
+  ])
+})
+
+test('an image path with a broken %-escape stops the export with a reason instead of an exception', async () => {
+  // Arrange
+  const host = hostWithFiles({})
+  const html = '<p><img src="shot%zz.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot%zz.png)\n'), html, '/r', host)
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'pages/03-画面.md:1: the image shot%zz.png has a malformed %-escape in its path',
+  ])
+  expect(host.asked).toEqual([])
+})
+
+test('an image an inline SVG draws is embedded too, so the finished file shows it under its CSP', async () => {
+  // Arrange
+  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=' })
+  const html = '<svg viewBox="0 0 10 10"><image href="shot.png" width="10" height="10"></image></svg>'
+
+  // Act
+  const result = await embedImages(
+    page('<svg viewBox="0 0 10 10"><image href="shot.png"/></svg>\n'),
+    html,
+    '/r',
+    host,
+  )
+
+  // Assert
+  expect(result).toEqual({
+    html: '<svg viewBox="0 0 10 10"><image href="data:image/png;base64,iVBORw0KGgo=" width="10" height="10"></image></svg>',
+    diagnostics: [],
+  })
+})

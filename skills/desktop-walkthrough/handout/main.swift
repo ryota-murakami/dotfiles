@@ -17,23 +17,26 @@
 //     │  postMessage "host" with reply (only this view can ask):
 //     ├─ render N ─▶ page view: explain/pages/NNN.html (DOMPurify injected, report channel "dw")
 //     │               wait for report {page: N}, run the probe ──▶ reply rendered
-//     ├─ read path ─▶ the file's bytes ──▶ reply file | unreadable
+//     ├─ read path ─▶ a regular file up to imageLimitBytes, read off the main queue ──▶ reply file | unreadable
 //     └─ verify html ─▶ verify view (plain, like the colleague's browser): open, run the probe ──▶ reply verified
-//   limits: pageMs per page, runMs per run; a web content process that ends, a failed load or a
-//   builder exception ends the run at once ──▶ HANDOUT_RENDERER
-//   publish: no file there ─▶ exclusive create; a file there ─▶ RENAME_SWAP, check the swapped-out
-//            file for the Handout marker, swap back if it has none ──▶ HANDOUT_OUT_EXISTS
+//   limits: pageMs per page, runMs per run; a web content process that ends, a failed load, a
+//   builder exception or dw's process gone (input.json parentPid) ends the run at once ──▶ HANDOUT_RENDERER
+//   publish: no file there ─▶ exclusive create; a file there ─▶ RENAME_SWAP, check that the swapped-out
+//            file starts as a Handout, swap back if not ──▶ HANDOUT_OUT_EXISTS. The new file keeps the
+//            replaced one's permissions and ACL
 import AppKit
 import Darwin
 import WebKit
 
-/// What makes a file a Handout, looked for in its first `markerScanBytes` bytes before it is replaced.
-/// The same literal as HANDOUT_MARKER_ATTRIBUTE in packages/handout/src/contract.ts (scripts/check compares them).
-let handoutMarkerAttribute = "name=\"dw-handout\""
-/// MARKER_SCAN_BYTES in packages/handout/src/constants.ts.
-let markerScanBytes = 4096
+/// The first bytes of every Handout: a file is replaced only when it starts with exactly these.
+/// The same literal as HANDOUT_HEAD in packages/handout/src/contract.ts and scripts/dw (scripts/check compares them).
+let handoutHead = "<!doctype html>\n<html lang=\"ja\">\n<head>\n<meta charset=\"utf-8\">\n<meta name=\"dw-handout\" content=\"1\">"
 /// HANDOUT_PROTOCOL_VERSION in packages/handout/src/constants.ts.
 let protocolVersion = 1
+/// The largest file the builder may read (an image to embed), in bytes: more would fill memory as base64.
+let imageLimitBytes = 20 * 1024 * 1024
+/// How often the renderer looks whether dw's process is still there.
+let parentCheckMs = 1000
 
 /// Print the result line for dw and exit.
 func finish(_ result: [String: Any], code: Int32) -> Never {
@@ -68,12 +71,40 @@ enum Publication {
     case failed(String)
 }
 
-/// Whether the file at a path carries the Handout marker near its top.
+/// Whether the file at a path is a Handout: a regular file that starts with `handoutHead`. A link, a
+/// pipe or a device never is (a pipe would wait for a writer forever); the marker's text elsewhere
+/// near the top (a page about Handouts, a form field, a source file) is not enough.
 func isHandout(atPath path: String) -> Bool {
-    guard let handle = FileHandle(forReadingAtPath: path) else { return false }
+    var info = stat()
+    guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
+          let handle = FileHandle(forReadingAtPath: path) else { return false }
     defer { try? handle.close() }
-    let head = handle.readData(ofLength: markerScanBytes)
-    return String(decoding: head, as: UTF8.self).contains(handoutMarkerAttribute)
+    let expected = Data(handoutHead.utf8)
+    return handle.readData(ofLength: expected.count) == expected
+}
+
+/// A file the builder asked for, as the reply it gets: its bytes, or why not. Called off the main queue
+/// by the read request. Only a regular file of at most `imageLimitBytes` is read: a pipe would wait
+/// forever and a huge file would fill memory.
+func readForBuilder(atPath path: String) -> [String: Any] {
+    var info = stat()
+    guard stat(path, &info) == 0 else {
+        let reason = errno == ENOENT ? "no such file" : errno == EACCES ? "permission denied" : errnoText()
+        return ["type": "unreadable", "message": reason]
+    }
+    guard (info.st_mode & S_IFMT) == S_IFREG else { return ["type": "unreadable", "message": "not a regular file"] }
+    guard info.st_size <= off_t(imageLimitBytes) else {
+        return ["type": "unreadable", "message": "larger than \(imageLimitBytes / 1024 / 1024) MB, the most a Handout embeds"]
+    }
+    do {
+        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        return ["type": "file", "base64": data.base64EncodedString()]
+    } catch {
+        let code = (error as NSError).code
+        let reason = code == NSFileReadNoSuchFileError ? "no such file"
+            : code == NSFileReadNoPermissionError ? "permission denied" : describe(error)
+        return ["type": "unreadable", "message": reason]
+    }
 }
 
 /// The text of the current errno.
@@ -82,8 +113,9 @@ func errnoText() -> String { String(cString: strerror(errno)) }
 /// Publish the Handout at `target` without ever destroying a file that is not a Handout (eng D7).
 ///
 /// A missing target is created exclusively (RENAME_EXCL). An existing one is swapped with the new
-/// file in one step (RENAME_SWAP); the file swapped out is then checked for the marker and, when it
-/// has none, swapped back, so no moment exists in which another program's file is gone.
+/// file in one step (RENAME_SWAP); the file swapped out is then checked and, when it does not start
+/// as a Handout, swapped back, so no moment exists in which another program's file is gone. A
+/// replaced Handout's permissions and ACL carry over: who could not read it cannot read the new one.
 func publish(_ data: Data, to target: String) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
@@ -91,10 +123,33 @@ func publish(_ data: Data, to target: String) -> Publication {
     }
     let folder = (target as NSString).deletingLastPathComponent
     let temporary = (folder as NSString).appendingPathComponent(".handout-\(getpid())-\(UUID().uuidString).tmp")
+    // Created readable by its owner alone; its final permissions are set once it is complete
+    let descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+    guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
+    let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
     do {
-        try data.write(to: URL(fileURLWithPath: temporary), options: .withoutOverwriting)
+        try handle.write(contentsOf: data)
+        try handle.close()
     } catch {
+        unlink(temporary)
         return .failed("could not write in \(folder): \(describe(error))")
+    }
+    // The permissions and ACL of the Handout it replaces, else the usual ones for a new file (umask)
+    var existing = stat()
+    if lstat(target, &existing) == 0, (existing.st_mode & S_IFMT) == S_IFREG {
+        chmod(temporary, existing.st_mode & 0o7777)
+        copyfile(target, temporary, nil, copyfile_flags_t(COPYFILE_ACL))
+    } else {
+        let mask = umask(0)
+        umask(mask)
+        chmod(temporary, 0o666 & ~mask)
+    }
+    // The new file's identity: cleanup removes this file and never one another program saved meanwhile
+    var written = stat()
+    guard stat(temporary, &written) == 0 else {
+        let reason = errnoText()
+        unlink(temporary)
+        return .failed("could not write in \(folder): \(reason)")
     }
     // Nothing there yet: create it, failing if something appeared in the meantime
     if renamex_np(temporary, target, UInt32(RENAME_EXCL)) == 0 { return .published }
@@ -116,6 +171,11 @@ func publish(_ data: Data, to target: String) -> Publication {
     // Not a Handout: put it back where it was; the temporary path then holds the new file again
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(temporary)")
+    }
+    // Unless another program saved over the target in between: its save came back with the swap, and stays
+    var displaced = stat()
+    guard lstat(temporary, &displaced) == 0, displaced.st_dev == written.st_dev, displaced.st_ino == written.st_ino else {
+        return .failed("\(target) was saved again while the earlier file was put back: it holds the earlier file, and the newer save is kept at \(temporary)")
     }
     unlink(temporary)
     return .notAHandout
@@ -219,7 +279,20 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         _ = schedule(after: runLimitMs) {
             self.failRenderer("the export took longer than \(self.runLimitMs / 1000) s", page: self.pendingRender?.page)
         }
+        watchParent()
         builderView.loadFileURL(distDir.appendingPathComponent("builder.html"), allowingReadAccessTo: distDir)
+    }
+
+    /// Stop without publishing once dw's process (input.json parentPid) is gone: dw was killed or its
+    /// terminal closed, nobody waits for this export, and it must not write a file minutes later.
+    /// Runs on the main queue like publishing, so it never stops a publication halfway.
+    func watchParent() {
+        guard let parent = input["parentPid"] as? Int, parent > 1 else { return }
+        // Looked at once now (dw may be gone already), then every parentCheckMs
+        if kill(pid_t(parent), 0) != 0, errno == ESRCH {
+            failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
+        }
+        _ = schedule(after: parentCheckMs) { self.watchParent() }
     }
 
     func runBuilder() {
@@ -305,15 +378,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     }
 
     func read(path: String, reply: @escaping (Any?, String?) -> Void) {
-        do {
-            let data = try Data(contentsOf: URL(fileURLWithPath: path))
-            reply(["type": "file", "base64": data.base64EncodedString()], nil)
-        } catch {
-            let code = (error as NSError).code
-            let reason = code == NSFileReadNoSuchFileError ? "no such file"
-                : code == NSFileReadNoPermissionError ? "permission denied" : describe(error)
-            log("read failed: \(reason)")
-            reply(["type": "unreadable", "message": reason], nil)
+        // Off the main queue, where the time limits run: a slow volume cannot stop them
+        DispatchQueue.global(qos: .userInitiated).async {
+            let answer = readForBuilder(atPath: path)
+            DispatchQueue.main.async {
+                if let message = answer["message"] as? String { self.log("read failed: \(message)") }
+                reply(answer, nil)
+            }
         }
     }
 

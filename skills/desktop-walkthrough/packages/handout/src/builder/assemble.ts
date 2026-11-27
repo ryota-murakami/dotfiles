@@ -1,4 +1,4 @@
-import { HANDOUT_MARKER_META } from '../contract'
+import { HANDOUT_HEAD } from '../contract'
 import type { TocEntry } from '../dom'
 import { HANDOUT_DOM } from '../dom'
 import { escapeHtml } from '../utils/escapeHtml'
@@ -79,11 +79,8 @@ export function assembleHandout(parts: AssembleParts): string {
   // JSON inside a <script> element: "<" is escaped so no text can end the element early
   const tocJson = JSON.stringify(toc).replace(/</g, '\\u003c')
   return [
-    '<!doctype html>',
-    '<html lang="ja">',
-    '<head>',
-    '<meta charset="utf-8">',
-    HANDOUT_MARKER_META,
+    // The bytes dw and the host require at the top of a file before they replace it
+    HANDOUT_HEAD,
     `<meta http-equiv="Content-Security-Policy" content="${handoutCsp(parts.controller.sha256)}">`,
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${escapeHtml(title)}</title>`,

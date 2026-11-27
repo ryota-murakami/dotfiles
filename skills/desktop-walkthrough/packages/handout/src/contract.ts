@@ -58,14 +58,14 @@ export const handoutCodeSchema = z.enum([
 export type HandoutCode = z.infer<typeof handoutCodeSchema>
 
 /**
- * The tag that makes a file a Handout. The builder writes it in the head; before replacing a file,
- * dw and the host look for {@link HANDOUT_MARKER_ATTRIBUTE} in its first bytes and never replace a
- * file without it (DX D11, D16; eng D7). scripts/check requires the host to carry the same literal.
+ * The first bytes of every Handout, ending with the tag that makes a file one
+ * (`<meta name="dw-handout" content="1">`, DX D11, D16). Before replacing a file, dw and the host
+ * require it to start with exactly these bytes and never replace one that does not (eng D7): the
+ * marker's text elsewhere near the top (a page about Handouts, a form field, a source file) is not a
+ * Handout. scripts/check requires scripts/dw and handout/main.swift to carry the same literal.
  */
-export const HANDOUT_MARKER_META = '<meta name="dw-handout" content="1">'
-
-/** The part of {@link HANDOUT_MARKER_META} a guard looks for, whatever the attribute order around it. */
-export const HANDOUT_MARKER_ATTRIBUTE = 'name="dw-handout"'
+export const HANDOUT_HEAD =
+  '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">'
 
 /** A position in the Record that a message points at; every field the cause knows, nothing more. */
 const locationShape = {
@@ -146,6 +146,11 @@ export const handoutInputSchema = z.object({
   /** The host's log; HANDOUT_RENDERER names it. */
   log: z.string().min(1),
   limits: handoutLimitsSchema,
+  /**
+   * dw's process. The host stops without publishing once it is gone (dw killed, its terminal closed):
+   * nobody waits for that export. Absent when the host is run by hand or by a check.
+   */
+  parentPid: z.number().int().positive().optional(),
   /** At least one page: dw stops an empty Record with HANDOUT_EMPTY before the host starts. */
   pages: z.array(handoutPageSchema).min(1),
 })
@@ -224,7 +229,7 @@ export type HostReply = z.infer<typeof hostReplySchema>
 export const buildOutcomeSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
-    /** The whole Handout, verified under its own CSP, carrying {@link HANDOUT_MARKER_META}. */
+    /** The whole Handout, verified under its own CSP, starting with {@link HANDOUT_HEAD}. */
     html: z.string().min(1),
     pages: z.number().int().positive(),
     diagrams: z.number().int().nonnegative(),
