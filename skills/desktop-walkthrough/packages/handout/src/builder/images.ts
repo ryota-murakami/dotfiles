@@ -10,8 +10,10 @@ import { encodeBase64 } from '../utils/encodeBase64'
 import { excerpt } from '../utils/excerpt'
 import { inflateLimited } from '../utils/inflateLimited'
 import { gifExtensionTexts } from '../utils/gifExtensionTexts'
+import { jpegSegments } from '../utils/jpegSegments'
 import { pngChunks } from '../utils/pngChunks'
 import { pngCompressedTexts } from '../utils/pngCompressedTexts'
+import { riffChunks } from '../utils/riffChunks'
 import { resolvePath } from '../utils/resolvePath'
 import type { ImageMime } from '../utils/sniffImage'
 import { sniffImage } from '../utils/sniffImage'
@@ -426,21 +428,14 @@ async function inspectImage(
   // XMP with XML's escapes (`&amp;signature=`): read as stored and decoded
   const stored = metadataSecretShape(bytes)
   if (stored) return secretIn(stored, METADATA_ADVICE, ' in its metadata')
-  // A GIF keeps a comment in sub-blocks, each after a length byte that can be a letter a key would run
-  // into: each extension is read on its own too, its sub-blocks joined
-  if (mime === 'image/gif') {
-    for (const text of gifExtensionTexts(bytes)) {
-      const extensionSecret = metadataSecretShape(text)
-      if (extensionSecret) return secretIn(extensionSecret, METADATA_ADVICE, ' in its metadata')
-    }
+  // Each part of the container on its own too: the bytes around a text (a PNG chunk's CRC, a GIF
+  // sub-block's or a JPEG segment's length, the next WebP chunk's type) can be letters that a key would
+  // run into, and then no longer read as one
+  for (const part of containerParts(bytes, mime)) {
+    const partSecret = metadataSecretShape(part)
+    if (partSecret) return secretIn(partSecret, METADATA_ADVICE, ' in its metadata')
   }
   if (mime === 'image/png') {
-    // A PNG keeps a text chunk's text right before the chunk's CRC, whose bytes can be letters that a
-    // key would run into: each chunk but the image data is read on its own too
-    for (const chunk of pngChunks(bytes)) {
-      const chunkSecret = chunk.type === 'IDAT' ? null : metadataSecretShape(chunk.data)
-      if (chunkSecret) return secretIn(chunkSecret, METADATA_ADVICE, ' in its metadata')
-    }
     // ...or compressed: each such text is inflated (all of them within one limit) and read the same way
     let inflatedBytes = 0
     for (const compressed of pngCompressedTexts(bytes)) {
@@ -460,6 +455,28 @@ async function inspectImage(
     }
   }
   return { ok: true, mime }
+}
+
+/**
+ * The parts of a picture's container that hold data of their own, each to be read on its own: every
+ * PNG chunk but the image data, every GIF extension (its sub-blocks joined), every JPEG segment, every
+ * WebP chunk. An AVIF's metadata is EXIF (strings closed by a zero byte) and XMP (XML), whose text
+ * is bounded by other characters already.
+ *
+ * @param bytes - A raster picture's bytes.
+ * @param mime - What {@link sniffImage} told them to be.
+ * @returns The parts; empty for a format read as a whole only.
+ *
+ * @example
+ * containerParts(png, 'image/png') // [IHDR data, tEXt data, …]
+ */
+function containerParts(bytes: Uint8Array, mime: ImageMime): Uint8Array[] {
+  if (mime === 'image/png')
+    return pngChunks(bytes).flatMap(({ type, data }) => (type === 'IDAT' ? [] : [data]))
+  if (mime === 'image/gif') return gifExtensionTexts(bytes)
+  if (mime === 'image/jpeg') return jpegSegments(bytes)
+  if (mime === 'image/webp') return riffChunks(bytes)
+  return []
 }
 
 /**

@@ -828,3 +828,64 @@ test('a key at the start of a GIF comment stops the export even when the length 
     'page 3:1: the image flow.gif carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
   ])
 })
+
+test('a key at the start of a JPEG comment stops the export even when the length byte before it is a digit', async () => {
+  // Arrange
+  // 46 bytes of text: the segment's length (48, its own 2 bytes counted) ends in 0x30, "0"
+  const comment = Array.from(`${ACCESS_KEY_ID} rotate`.padEnd(46, '.'), (character) =>
+    character.charCodeAt(0),
+  )
+  const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xfe, 0x00, comment.length + 2, ...comment, 0xff, 0xd9])
+  const host = hostWithFiles({ '/r/pages/photo.jpg': bytesToBase64(jpeg) })
+  const html = '<p><img src="photo.jpg"></p>'
+
+  // Act
+  const result = await embedImages(page('![写真](photo.jpg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image photo.jpg carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+/** A WebP chunk: its type, its size (one byte of it used here, little endian) and its data. */
+function webpChunk(type: string, data: number[]): number[] {
+  return [...Array.from(type, (character) => character.charCodeAt(0)), data.length & 0xff, 0, 0, 0, ...data]
+}
+
+test('a key at the end of a WebP chunk stops the export even when the next chunk type follows it', async () => {
+  // Arrange
+  const text = Array.from(`key ${ACCESS_KEY_ID}`, (character) => character.charCodeAt(0))
+  const body = [
+    ...Array.from('WEBP', (character) => character.charCodeAt(0)),
+    ...webpChunk('XMP ', text),
+    ...webpChunk('EXIF', []),
+  ]
+  const webp = new Uint8Array([0x52, 0x49, 0x46, 0x46, body.length & 0xff, 0, 0, 0, ...body])
+  const host = hostWithFiles({ '/r/pages/shot.webp': bytesToBase64(webp) })
+  const html = '<p><img src="shot.webp"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.webp)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image shot.webp carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+test('a key at the start of a PNG chunk cut off by the end of the file still stops the export', async () => {
+  // Arrange
+  const png = pngWith([['tEXt', new TextEncoder().encode(`${ACCESS_KEY_ID}\0note`)]])
+  const cut = png.subarray(0, png.length - 12 - 6)
+  const host = hostWithFiles({ '/r/pages/shot.png': bytesToBase64(cut) })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image shot.png carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})

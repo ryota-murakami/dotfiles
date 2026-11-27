@@ -38,13 +38,13 @@ export function gifExtensionTexts(bytes: Uint8Array): Uint8Array[] {
     const block = bytes[offset]
     if (block === EXTENSION_INTRODUCER) {
       // The introducer and the label, then the sub-blocks
-      const extension = subBlocks(bytes, offset + 2)
-      texts.push(extension.data)
-      offset = extension.end
+      const end = subBlocksEnd(bytes, offset + 2)
+      texts.push(joinedSubBlocks(bytes, offset + 2, end))
+      offset = end
     } else if (block === IMAGE_SEPARATOR) {
       // The descriptor, its local color table, the LZW code size, then the image data's sub-blocks
       const packed = bytes[offset + IMAGE_DESCRIPTOR_BYTES - 1] ?? 0
-      offset = subBlocks(bytes, offset + IMAGE_DESCRIPTOR_BYTES + colorTableBytes(packed) + 1).end
+      offset = subBlocksEnd(bytes, offset + IMAGE_DESCRIPTOR_BYTES + colorTableBytes(packed) + 1)
     } else {
       // The trailer, or bytes that are no block: the walk ends
       break
@@ -65,22 +65,40 @@ function colorTableBytes(packed: number): number {
 }
 
 /**
- * Read the sub-blocks starting at OFFSET up to their terminator (a zero length byte).
- *
- * @returns Their data joined, and where the next block starts.
+ * Where the sub-blocks starting at OFFSET end: after their terminator (a zero length byte), or at the
+ * end of a file cut off before it.
  *
  * @example
- * subBlocks(new Uint8Array([2, 65, 66, 0]), 0) // { data: Uint8Array [65, 66], end: 4 }
+ * subBlocksEnd(new Uint8Array([2, 65, 66, 0]), 0) // 4
  */
-function subBlocks(bytes: Uint8Array, offset: number): { data: Uint8Array; end: number } {
-  const parts: number[] = []
+function subBlocksEnd(bytes: Uint8Array, offset: number): number {
   let position = offset
   while (position < bytes.length) {
     const size = bytes[position] ?? 0
-    position += 1
+    position += 1 + size
     if (size === 0) break
-    parts.push(...bytes.subarray(position, position + size))
-    position += size
   }
-  return { data: Uint8Array.from(parts), end: position }
+  return Math.min(position, bytes.length)
+}
+
+/**
+ * The data of the sub-blocks from OFFSET to END (as {@link subBlocksEnd} found it), joined: their
+ * length bytes left out.
+ *
+ * @example
+ * joinedSubBlocks(new Uint8Array([2, 65, 66, 1, 67, 0]), 0, 6) // Uint8Array [65, 66, 67]
+ */
+function joinedSubBlocks(bytes: Uint8Array, offset: number, end: number): Uint8Array {
+  const joined = new Uint8Array(end - offset)
+  let length = 0
+  let position = offset
+  while (position < end) {
+    const size = bytes[position] ?? 0
+    const data = bytes.subarray(position + 1, Math.min(position + 1 + size, end))
+    joined.set(data, length)
+    length += data.length
+    position += 1 + size
+    if (size === 0) break
+  }
+  return joined.slice(0, length)
 }

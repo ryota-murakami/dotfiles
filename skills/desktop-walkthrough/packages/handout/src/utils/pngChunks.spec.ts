@@ -41,13 +41,13 @@ test('every chunk before IEND comes with its type and its data alone, without it
   ])
 })
 
-test('a chunk cut off by the end of the file ends the walk without reading past it', () => {
+test('a chunk cut off by the end of the file comes with what is left of its data, and ends the walk', () => {
   // Arrange
-  const png = pngOf([['tEXt', [0x41]]]).slice(0, -6)
+  const png = pngOf([['tEXt', [0x41, 0x42, 0x43]]]).slice(0, -6)
 
   // Act
-  const chunks = pngChunks(png)
+  const chunks = pngChunks(png).map(({ type, data }) => [type, Array.from(data)])
 
   // Assert
-  expect(chunks).toEqual([])
+  expect(chunks).toEqual([['tEXt', [0x41]]])
 })

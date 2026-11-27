@@ -174,3 +174,16 @@ test('a style whose quoted url goes on past a backslash at the end of a line sti
     'page 4: a style loads image.png, which a Handout neither checks nor carries: show the picture with an image instead',
   ])
 })
+
+test('a hexadecimal escape swallows a form feed after it, as a browser does: the url( it spells is caught', () => {
+  // Arrange
+  const html = '<p><span style="background: u\\72\fl(x.png)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads x.png, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})

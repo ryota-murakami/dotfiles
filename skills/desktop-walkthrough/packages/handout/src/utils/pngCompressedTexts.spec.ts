@@ -55,7 +55,7 @@ test('an uncompressed iTXt chunk gives nothing: its text is read with the other 
   expect(texts).toEqual([])
 })
 
-test('a chunk cut off by the end of the file ends the walk without reading past it', () => {
+test('a chunk cut off by the end of the file gives what is left of it: inflating that fails, so the picture is refused unread', () => {
   // Arrange
   const whole = pngWith(
     [['zTXt', new Uint8Array([...encode('A'), 0, 0, ...deflateSync(encode('x'))])]],
@@ -64,10 +64,10 @@ test('a chunk cut off by the end of the file ends the walk without reading past 
   const cut = whole.subarray(0, whole.length - 6)
 
   // Act
-  const texts = pngCompressedTexts(cut)
+  const texts = pngCompressedTexts(cut).map((text) => Array.from(text))
 
   // Assert
-  expect(texts).toEqual([])
+  expect(texts).toEqual([[120, 156, 171, 0, 0, 0, 121]])
 })
 
 test('a zTXt chunk after IEND is not read: the picture ends there', () => {

@@ -151,21 +151,25 @@ function cssLoads(written: string): string[] {
  * swallowed), `\\l` (any other character as itself), and a backslash before a line break (both
  * removed, as a string continues on the next line).
  *
- * @param css - CSS as written.
+ * @param written - CSS as written.
  * @returns The same CSS as a browser reads its names and strings.
  *
  * @example
  * unescapeCss('u\\72l(x.png)') // 'url(x.png)'
  */
-function unescapeCss(css: string): string {
-  // A backslash before a line break continues a string on the next line: both go
-  return css.replace(
-    /\\(?:\r\n|[\n\r\f])|\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n\r\f0-9a-fA-F])/g,
-    (_written, hexadecimal?: string, character?: string) =>
-      hexadecimal
-        ? String.fromCodePoint(Math.min(Number.parseInt(hexadecimal, 16), 0x10ffff))
-        : (character ?? ''),
-  )
+function unescapeCss(written: string): string {
+  // As a browser reads CSS: CRLF, CR and form feed are line feeds before anything else. A backslash
+  // before a line feed continues a string on the next line (both go); a hexadecimal escape swallows
+  // one whitespace after it
+  return written
+    .replace(/\r\n|[\r\f]/g, '\n')
+    .replace(
+      /\\\n|\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n0-9a-fA-F])/g,
+      (_written, hexadecimal?: string, character?: string) =>
+        hexadecimal
+          ? String.fromCodePoint(Math.min(Number.parseInt(hexadecimal, 16), 0x10ffff))
+          : (character ?? ''),
+    )
 }
 
 /** The message of a style that loads TARGET. */
