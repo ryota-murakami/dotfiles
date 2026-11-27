@@ -215,3 +215,41 @@ test('an image-set string ending in an escaped backslash closes there: a later s
     'page 4: a style loads a\\, which a Handout neither checks nor carries: show the picture with an image instead',
   ])
 })
+
+test('a url whose name holds an escaped line feed stops the export, naming the file the browser loads', () => {
+  // Arrange
+  const html = '<p><span style="background-image: url(&quot;im\\a age.png&quot;)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads image.png, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
+
+test('an image-set string that holds an escaped line feed stops the export too', () => {
+  // Arrange
+  const html = '<p><span style="background: image-set(&quot;sh\\a ot.png&quot; 1x)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads shot.png, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
+
+test('a diagram reference to its own marker spelled with an escaped line feed still loads nothing', () => {
+  // Arrange
+  const html =
+    '<svg><defs><marker id="arrow"></marker></defs><path marker-end="url(&quot;\\a #arrow&quot;)"></path></svg>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics).toEqual([])
+})

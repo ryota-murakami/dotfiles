@@ -125,28 +125,34 @@ export function localLinks(page: HandoutPage, html: string): Warning[] {
 
 /**
  * What some CSS loads: the target of each `url(…)`, the strings of `image-set(…)`, and `@import`'s
- * string, quotes trimmed. A reference within the document (`url(#arrow)`, how a diagram points at
- * its own markers and gradients) loads nothing.
+ * string, quotes trimmed, without the tabs and line feeds a URL drops. A reference within the
+ * document (`url(#arrow)`, how a diagram points at its own markers and gradients) loads nothing.
  *
- * @param css - A style attribute, a presentation attribute or a style sheet.
+ * @param written - A style attribute, a presentation attribute or a style sheet, as written.
  * @returns The targets that load something.
  *
  * @example
  * cssLoads('fill: url(#gradient); background: image-set("bg.png" 1x)') // ['bg.png']
  * cssLoads('@import "theme.css";')                                     // ['theme.css']
+ * cssLoads('background: url("im\\a age.png")')                         // ['image.png']
  */
 function cssLoads(written: string): string[] {
   // CSS lets a name be spelled with escapes (`u\\72l(` is `url(`): read as the browser does
   const css = unescapeCss(written)
-  const targets = Array.from(css.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/gi), (match) => match[2] ?? '')
+  // Across lines: an escape may put a line feed inside a URL (`im\a age.png`)
+  const targets = Array.from(css.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/gis), (match) => match[2] ?? '')
   // An image-set is read to its own closing parenthesis: an option before a picture may be a function
   // of its own (a gradient)
   for (const set of css.matchAll(/image-set\(/gi)) {
     const contents = functionContents(css, (set.index ?? 0) + set[0].length)
-    for (const string of contents.matchAll(/(["'])(.*?)\1/g)) targets.push(string[2] ?? '')
+    for (const string of contents.matchAll(/(["'])(.*?)\1/gs)) targets.push(string[2] ?? '')
   }
-  for (const imported of css.matchAll(/@import\s+(["'])(.*?)\1/gi)) targets.push(imported[2] ?? '')
-  return targets.map((target) => target.trim()).filter((target) => target !== '' && !target.startsWith('#'))
+  for (const imported of css.matchAll(/@import\s+(["'])(.*?)\1/gis)) targets.push(imported[2] ?? '')
+  // A URL drops the tabs and line feeds it holds, as the browser's URL parser does: `im\a age.png`
+  // loads image.png, and `\a #arrow` is the marker #arrow
+  return targets
+    .map((target) => target.replace(/[\t\n\r]/g, '').trim())
+    .filter((target) => target !== '' && !target.startsWith('#'))
 }
 
 /**

@@ -18,10 +18,12 @@ pass() { printf '  ✓ %s\n' "$1"; }
 fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
 
 scratch=$(mktemp -d)
+# The disk image the FAT case mounts is detached however the run ends
+detach_fat() { if [ -d "$scratch/fat" ]; then hdiutil detach -quiet -force "$scratch/fat" 2>/dev/null; fi; return 0; }
 if [ -n "${DW_HANDOUT_CHECK_KEEP:-}" ]; then
-  trap 'echo "scratch kept: $scratch"' EXIT
+  trap 'detach_fat; echo "scratch kept: $scratch"' EXIT
 else
-  trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+  trap 'detach_fat; chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
 fi
 export DW_HOME="$scratch/state" DW_CONFIG="$scratch/config"
 RECORDS="$DW_CONFIG/walkthroughs"
@@ -440,6 +442,23 @@ if [ "$first" = 0 ] && [ "$code" = 0 ] && [ -z "$replaced" ]; then
 else
   fail "ACL on a replaced Handout (exit $first/$code): $replaced / $out"
 fi
+# Every kind of entry a folder hands down (to files, to files and subfolders, to subfolders only, to
+# its contents only, one generation only): a new Handout gets exactly what a file made there gets
+mkdir -p "$scratch/acl-kinds"
+for entry in "everyone allow read,file_inherit" "everyone allow readattr,file_inherit,directory_inherit" \
+  "everyone allow readextattr,directory_inherit" "everyone allow readsecurity,file_inherit,only_inherit" \
+  "everyone allow writeattr,file_inherit,limit_inherit"; do
+  chmod +a "$entry" "$scratch/acl-kinds"
+done
+touch "$scratch/acl-kinds/control"
+export_record acl --out "$scratch/acl-kinds/handout.html"
+expected=$(ls -le "$scratch/acl-kinds/control" | sed -n 's/^ *[0-9]*: //p')
+given=$(ls -le "$scratch/acl-kinds/handout.html" | sed -n 's/^ *[0-9]*: //p')
+if [ "$code" = 0 ] && [ -n "$expected" ] && [ "$given" = "$expected" ]; then
+  pass "a new Handout gets exactly the ACL a file made in its folder gets, whatever kinds of entry the folder hands down"
+else
+  fail "ACL kinds on a new Handout (exit $code): given [$given] / expected [$expected] / $out"
+fi
 
 new_record srcset
 printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/srcset/pages/shot@2x.png"
@@ -585,8 +604,9 @@ else
 fi
 
 # dw ends while the Handout is being written: the worker notices between two writes, removes its file
-# and reports dw's end; nothing is published, nothing is left beside the target. limits.writePauseMs
-# (test only) stands in for a slow volume
+# and its folder and reports dw's end; nothing is published, nothing is left beside the target. It is
+# written in a folder of the run's own, its owner's alone, never beside the target itself.
+# limits.writePauseMs (test only) stands in for a slow volume
 handout_input "$RECORDS/direct" "$scratch/mid-write.html" "$scratch/mid-write-explain" "$scratch/mid-write.json"
 sleep 60 &
 parent=$!
@@ -595,22 +615,26 @@ jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .li
 "$BIN" "$scratch/mid-write-parent.json" "$DIST" > "$scratch/mid-write.out" &
 writer=$!
 waited=0
-until [ -n "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp' 2>/dev/null)" ] || [ "$waited" -ge 1200 ]; do
+until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.mid-write.html.dw-handout-*/mid-write.html" 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
   sleep 0.05; waited=$((waited + 1))
 done
-seen=$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp' | head -1)
+seen=$(find "$scratch" -maxdepth 2 -path "$scratch/.mid-write.html.dw-handout-*/mid-write.html" | head -1)
+# While it is written: its folder is its owner's alone, and no file of it lies beside the target
+private=no
+[ -n "$seen" ] && [ "$(stat -f '%Lp' "${seen%/*}")" = 700 ] \
+  && [ -z "$(find "$scratch" -maxdepth 1 -type f -name '.mid-write.html.dw-handout-*')" ] && private=yes
 kill "$parent"; wait "$parent" 2>/dev/null
 wait "$writer"
 result=$(cat "$scratch/mid-write.out")
-if [ -n "$seen" ] && jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished: nothing was published$"))' <<< "$result" >/dev/null \
-  && [ ! -e "$scratch/mid-write.html" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*.tmp')" ]; then
-  pass "dw ending while the Handout is written: the worker removes its file, says dw ended, publishes nothing"
+if [ "$private" = yes ] && jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished: nothing was published$"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/mid-write.html" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*')" ]; then
+  pass "dw ending while the Handout is written in a folder of the run's own: the worker removes it, says dw ended, publishes nothing"
 else
-  fail "dw gone mid-write (file seen: ${seen:-none}): $result"
+  fail "dw gone mid-write (file seen: ${seen:-none}, its folder private: $private): $result"
 fi
 
 # A volume that stops answering mid-write: the worker cannot notice (limits.writePauseMs holds it 30 s
-# after its first write), so 5 s after dw ends the renderer ends the run itself, naming the file left.
+# after its first write), so 5 s after dw ends the renderer ends the run itself, naming the folder left.
 # Its first write is all the gate knows of (the bytes written before it: none), so the file is "partly
 # written"; a stall before the first write or after the last is worded otherwise, and has no knob here
 handout_input "$RECORDS/direct" "$scratch/stalled.html" "$scratch/stalled-explain" "$scratch/stalled.json"
@@ -622,23 +646,58 @@ jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .li
 writer=$!
 waited=0
 # Its first write done: the file holds bytes
-until [ -s "$(find "$scratch" -maxdepth 1 -name '.stalled.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.stalled.html.dw-handout-*/stalled.html" 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
   sleep 0.05; waited=$((waited + 1))
 done
-left=$(find "$scratch" -maxdepth 1 -name '.stalled.html.dw-handout-*.tmp' | head -1)
+left=$(find "$scratch" -maxdepth 2 -path "$scratch/.stalled.html.dw-handout-*/stalled.html" | head -1)
 started=$(date +%s)
 kill "$parent"; wait "$parent" 2>/dev/null
 wait "$writer"
 took=$(( $(date +%s) - started ))
 result=$(cat "$scratch/stalled.out")
 if [ -n "$left" ] && [ -f "$left" ] && [ ! -e "$scratch/stalled.html" ] && [ "$took" -lt 20 ] \
-  && jq -e --arg left "$left" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
-    and (.message | contains("the volume did not answer, so a partly written \($left) may remain: remove it"))' <<< "$result" >/dev/null; then
-  pass "a volume that stops answering mid-write: the run ends ${took} s after dw, naming the file that may remain"
+  && jq -e --arg holder "${left%/*}" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+    and (.message | contains("the volume did not answer, so a partly written Handout may remain in \($holder): remove that folder"))' <<< "$result" >/dev/null; then
+  pass "a volume that stops answering mid-write: the run ends ${took} s after dw, naming the folder that may remain"
 else
   fail "stalled write (file: ${left:-none}, ${took} s): $result"
 fi
-rm -f "$left"
+[ -n "$left" ] && rm -rf "${left%/*}"
+
+# A volume without exclusive renames (FAT, like some USB sticks and network shares): the Handout is
+# written at the target itself, after the copy in the run's folder could not be renamed there. dw ends
+# during that write: the file holds only what was written, so it is emptied through its descriptor
+# (the path is never removed there) and the run says so. A disk image stands in for the volume
+fat="$scratch/fat"
+mkdir -p "$fat"
+if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$scratch/fat.dmg" \
+  && hdiutil attach -quiet -nobrowse -mountpoint "$fat" "$scratch/fat.dmg"; then
+  handout_input "$RECORDS/direct" "$fat/handout.html" "$scratch/fat-explain" "$scratch/fat.json"
+  sleep 60 &
+  parent=$!
+  jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 2000' \
+    "$scratch/fat.json" > "$scratch/fat-parent.json"
+  "$BIN" "$scratch/fat-parent.json" "$DIST" > "$scratch/fat.out" &
+  writer=$!
+  waited=0
+  # The write at the target itself has begun
+  until [ -s "$fat/handout.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  kill "$parent"; wait "$parent" 2>/dev/null
+  wait "$writer"
+  result=$(cat "$scratch/fat.out")
+  if jq -e --arg target "$fat/handout.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+      and (.message | contains("\($target) was left empty (this volume cannot remove it safely): remove it"))' <<< "$result" >/dev/null \
+    && [ -f "$fat/handout.html" ] && [ ! -s "$fat/handout.html" ] && [ -z "$(find "$fat" -maxdepth 1 -name '.handout.html.dw-handout-*')" ]; then
+    pass "dw ending while a volume without exclusive renames is written: the file is emptied, and the run says so"
+  else
+    fail "dw gone mid-write on a FAT volume: $(ls -la "$fat" 2>&1) / $result"
+  fi
+  hdiutil detach -quiet "$fat" || hdiutil detach -quiet -force "$fat"
+else
+  fail "dw gone mid-write on a FAT volume: setup: a FAT disk image could not be made and mounted"
+fi
 
 # The earlier Handout changes while the new one is written (limits.writePauseMs holds the worker
 # after its first write). An extended attribute moves its change time alone: it is replaced as usual.
@@ -650,7 +709,7 @@ before=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
 "$BIN" "$scratch/meta-paused.json" "$DIST" > "$scratch/meta.out" &
 writer=$!
 waited=0
-until [ -s "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.meta.html.dw-handout-*/meta.html" 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
   sleep 0.05; waited=$((waited + 1))
 done
 xattr -w com.dw.check 1 "$scratch/meta.html"
@@ -673,7 +732,7 @@ jq '.limits.writePauseMs = 2000' "$scratch/resaved.json" > "$scratch/resaved-pau
 "$BIN" "$scratch/resaved-paused.json" "$DIST" > "$scratch/resaved.out" &
 writer=$!
 waited=0
-until [ -s "$(find "$scratch" -maxdepth 1 -name '.resaved.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.resaved.html.dw-handout-*/resaved.html" 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
   sleep 0.05; waited=$((waited + 1))
 done
 printf 'X' | dd of="$scratch/resaved.html" bs=1 seek=200 conv=notrunc 2>/dev/null
