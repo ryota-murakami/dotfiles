@@ -27,3 +27,20 @@ export const VERIFY_POLL_MS = 50
 
 /** How long the verify probe waits for the controller to answer `#2`. */
 export const VERIFY_HASHCHANGE_LIMIT_MS = 1_000
+
+/** The zoom the Handout's − and + buttons step through, 80% to 160% in steps of 10%. */
+export const ZOOM_MIN = 0.8
+export const ZOOM_MAX = 1.6
+export const ZOOM_STEP = 0.1
+
+/** The panel's narrowest width a drag can reach, before the window's own limit (viewport − margin). */
+export const PANEL_MIN_WIDTH_PX = 480
+
+/** Room kept between the panel and the window's sides: 16px on each. */
+export const PANEL_VIEWPORT_MARGIN_PX = 32
+
+/** How long a copy button says what happened before it reads コピー again. */
+export const COPY_FEEDBACK_MS = 1_200
+
+/** How much larger than its viewBox a diagram shows at natural size, as in the Explainer. */
+export const DIAGRAM_NATURAL_SCALE = 1.25

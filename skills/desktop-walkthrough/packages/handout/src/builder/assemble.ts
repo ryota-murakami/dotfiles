@@ -70,9 +70,10 @@ export function assembleHandout(parts: AssembleParts): string {
     title: pageTitle,
     section,
   }))
+  // Ids, `#N` and the header count positions 1..M: a Record whose numbers have gaps still pages 1, 2, 3
   const articles = parts.pages.map(
-    (page) =>
-      `<article class="${HANDOUT_DOM.pageClass}" id="${HANDOUT_DOM.pageIdPrefix}${page.n}" data-n="${page.n}">` +
+    (page, index) =>
+      `<article class="${HANDOUT_DOM.pageClass}" id="${HANDOUT_DOM.pageIdPrefix}${index + 1}" data-n="${page.n}">` +
       `<div class="${HANDOUT_DOM.sectionClass}">${escapeHtml(page.section)}</div>\n${page.html}\n</article>`,
   )
   // JSON inside a <script> element: "<" is escaped so no text can end the element early
@@ -93,7 +94,7 @@ export function assembleHandout(parts: AssembleParts): string {
     '</style>',
     '</head>',
     `<body class="${HANDOUT_DOM.bodyClass}">`,
-    '<main id="handout-pages">',
+    `<main id="${HANDOUT_DOM.pagesId}">`,
     ...articles,
     '</main>',
     `<script type="application/json" id="${HANDOUT_DOM.tocDataId}">${tocJson}</script>`,

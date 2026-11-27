@@ -6,10 +6,12 @@
  * the three would pass each one's own specs and break the file the colleague receives.
  */
 export const HANDOUT_DOM = {
-  /** Class of every page: `<article class="page" id="page-3" data-n="3">`. */
+  /** Class of every page: `<article class="page" id="page-3" data-n="7">` (3rd page, Record page 7). */
   pageClass: 'page',
-  /** Prefix of a page's id; the number follows. */
+  /** Prefix of a page's id; its position follows (1..M, as `#N` and the header count). */
   pageIdPrefix: 'page-',
+  /** Id of the `<main>` holding every page in reading order; the controller moves it into its panel. */
+  pagesId: 'handout-pages',
   /** Class of a page's section line, above its content. */
   sectionClass: 'section',
   /** Class on `<body>`: page.html's Handout-mode rules (pinned diagram text) apply under it. */

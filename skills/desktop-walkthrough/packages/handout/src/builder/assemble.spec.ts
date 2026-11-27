@@ -101,3 +101,29 @@ test('a controller that would cut its own script element short is refused', () =
   // Assert
   expect(assemble).toThrow('the controller source contains "</script"')
 })
+
+test('a Record whose page numbers have gaps is still addressed page 1, 2, 3 in the Handout', () => {
+  // Arrange
+  const withGaps = {
+    ...parts,
+    pages: [
+      { n: 1, title: 'A', section: '', html: '<p>a</p>' },
+      { n: 3, title: 'C', section: '', html: '<p>c</p>' },
+      { n: 7, title: 'G', section: '', html: '<p>g</p>' },
+    ],
+  }
+  const document = new DOMParser().parseFromString(assembleHandout(withGaps), 'text/html')
+
+  // Act
+  const pages = Array.from(document.querySelectorAll('article.page')).map((page) => [
+    page.id,
+    page.getAttribute('data-n'),
+  ])
+
+  // Assert
+  expect(pages).toEqual([
+    ['page-1', '1'],
+    ['page-2', '3'],
+    ['page-3', '7'],
+  ])
+})
