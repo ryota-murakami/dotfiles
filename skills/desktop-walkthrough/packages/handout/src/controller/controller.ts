@@ -395,7 +395,8 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
       event.stopPropagation()
       toggle()
     })
-    holder.append(button)
+    // Before the diagram, on a line of its own: it never covers a label, and is read before the drawing
+    holder.prepend(button)
   }
 
   // ---- width: dragged from either edge, symmetric, remembered for this file ----

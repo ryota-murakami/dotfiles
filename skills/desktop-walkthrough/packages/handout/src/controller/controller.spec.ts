@@ -500,3 +500,18 @@ test('after a click into a code block that scrolls sideways, Tab to a button giv
   expect(whileInBlock).toEqual(['page-1'])
   expect(visiblePages()).toEqual(['page-2'])
 })
+
+test('each diagram’s enlarge button comes before the drawing, on a line of its own: it never covers a label', () => {
+  // Arrange
+  loadHandout()
+
+  // Act
+  startHandout(document, memoryStore())
+
+  // Assert
+  const holders = Array.from(document.querySelectorAll<HTMLElement>('.diagram'))
+  expect(holders.length).toBeGreaterThan(0)
+  expect(holders.map((holder) => holder.firstElementChild?.className)).toEqual(
+    holders.map(() => 'diagram-toggle'),
+  )
+})

@@ -250,15 +250,12 @@ body.handout {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
-/* A diagram's own button, in its top right corner: the keyboard's and the screen reader's way to show
-   the diagram at natural size (a click on the diagram does the same) */
-body.handout .diagram {
-  position: relative;
-}
+/* A diagram's own button, on a line of its own above the drawing, at the right: the keyboard's and the
+   screen reader's way to show the diagram at natural size (a click on the diagram does the same).
+   Laid over the drawing, a finger-sized button would cover a label on a phone */
 .diagram-toggle {
-  position: absolute;
-  top: 6px;
-  right: 6px;
+  display: block;
+  margin: 0 0 8px auto;
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
