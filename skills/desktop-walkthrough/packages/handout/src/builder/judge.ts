@@ -9,6 +9,9 @@ import type { PageMeasurement } from './probes'
 /** A render-report error that names a diagram: `diagram 2: Parse error on line 3 …`. */
 const DIAGRAM_ERROR = /^diagram (\d+): ([\s\S]*)$/
 
+/** A render-report error of an audience marker the page met as HTML: `marker: …` (page.html, Handout mode). */
+const MARKER_ERROR = /^marker: /
+
 /**
  * The libraries a Handout-mode page did not report as loaded (eng C9).
  *
@@ -26,7 +29,8 @@ export function missingLibraries(report: RenderReport): PageLibrary[] {
 
 /**
  * Judge one rendered page: diagrams that failed, diagrams nothing was laid out for, labels that do
- * not fit their box (DX D9, eng C6a). Library problems are judged once per run by the caller.
+ * not fit their box (DX D9, eng C6a), and audience markers the page met as HTML, which dw's filter
+ * never read (HANDOUT_MARKER). Library problems are judged once per run by the caller.
  *
  * Why it exists: an agent fixes what the export names, so every problem carries the page, the
  * diagram and the line of its fence in the original source. Error texts and labels pass
@@ -39,23 +43,31 @@ export function missingLibraries(report: RenderReport): PageLibrary[] {
  *
  * @example
  * judgeRenderedPage(page, { …, errors: ['diagram 1: Parse error on line 2'] }, measurement)
- * // [{ code: 'HANDOUT_DIAGRAM', page: 2, diagram: 1, line: 5, message: 'pages/02-x.md:5: diagram 1 did not render: Parse error on line 2' }]
+ * // [{ code: 'HANDOUT_DIAGRAM', page: 2, diagram: 1, line: 5, message: 'page 2:5: diagram 1 did not render: Parse error on line 2' }]
  */
 export function judgeRenderedPage(
   page: HandoutPage,
   report: RenderReport,
   measurement: PageMeasurement,
 ): Diagnostic[] {
-  const source = maskSecrets(page.source)
   const fenceLines = mermaidFenceLines(page.markdown)
-  /** `pages/02-x.md:5` for diagram K when its fence was found, else the file alone. */
+  /** `page 2:5` for diagram K when its fence was found, else the page alone. */
   const at = (diagram: number) => {
     const line = fenceLines[diagram - 1]
-    return line === undefined ? { where: source } : { where: `${source}:${line}`, line }
+    return line === undefined ? { where: `page ${page.n}` } : { where: `page ${page.n}:${line}`, line }
   }
   const diagnostics: Diagnostic[] = []
   const failed = new Set<number>()
   for (const error of report.errors) {
+    // A marker the page met as HTML: its block would reach the wrong audience (page.html, Handout mode)
+    if (MARKER_ERROR.test(error)) {
+      diagnostics.push({
+        code: 'HANDOUT_MARKER',
+        message: `page ${page.n}: an audience marker reached the page as HTML: dw did not read it (a code fence that opens inside a list item or a quote, or a list that ends inside one, hides the markers after it); put each fence and marker at the left edge, then export again`,
+        page: page.n,
+      })
+      continue
+    }
     const match = DIAGRAM_ERROR.exec(error)
     // Errors that name no diagram are a missing library: the caller reports those once
     if (!match?.[1]) continue

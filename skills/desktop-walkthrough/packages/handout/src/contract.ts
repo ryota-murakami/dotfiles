@@ -77,7 +77,10 @@ const locationShape = {
   diagram: z.number().int().positive().optional(),
 }
 
-/** One reason an export stopped. Its message never contains a secret value or an unmasked file name. */
+/**
+ * One reason an export stopped. Its message names a page by its number (`page 7:12`), never by its
+ * file name, which dw makes from the page's title; it never contains a secret value.
+ */
 export const diagnosticSchema = z.object({
   code: handoutCodeSchema,
   message: z.string().min(1),
@@ -101,8 +104,6 @@ export const handoutPageSchema = z.object({
   title: z.string(),
   /** Section name from sections.tsv column 2; empty when the page has none. */
   section: z.string(),
-  /** Record-relative path of the source, the one messages name: `pages/07-設計.md`. */
-  source: z.string().min(1),
   /**
    * The page's original source, both audiences: what the secret scan reads and where an image's line
    * is found. Line numbers in every message count lines of this text.
@@ -117,6 +118,11 @@ export type HandoutPage = z.infer<typeof handoutPageSchema>
 export const handoutLimitsSchema = z.object({
   pageMs: z.number().int().positive(),
   runMs: z.number().int().positive(),
+  /**
+   * How often the host looks whether dw's process is still there (1000 when absent). A fixture
+   * lengthens it so only the look right before publishing can stop the export.
+   */
+  parentMs: z.number().int().positive().optional(),
 })
 export type HandoutLimits = z.infer<typeof handoutLimitsSchema>
 

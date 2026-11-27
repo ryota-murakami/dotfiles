@@ -1,39 +1,96 @@
 import { findSecrets, maskSecrets } from '../../../../hooks/secrets'
+import { IMAGE_LIMIT_BYTES, IMAGE_TOTAL_LIMIT_BYTES } from '../constants'
 import type { Diagnostic, HandoutPage } from '../contract'
+import { byteTexts } from '../utils/byteTexts'
+import { collectReadableText } from '../utils/collectReadableText'
 import { decodeBase64 } from '../utils/decodeBase64'
 import { excerpt } from '../utils/excerpt'
+import { inflateLimited } from '../utils/inflateLimited'
+import { pngCompressedTexts } from '../utils/pngCompressedTexts'
 import { resolvePath } from '../utils/resolvePath'
 import type { ImageMime } from '../utils/sniffImage'
 import { sniffImage } from '../utils/sniffImage'
 import type { HostPort } from './host'
 import { readFile } from './host'
 
-/** The file extensions a Handout embeds; what an image's bytes are decides its type ({@link sniffImage}). */
-const IMAGE_EXTENSIONS: ReadonlySet<string> = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'svg'])
-
-/** Where an `<img>` source points: an embedded image to keep, a local file to read, or something refused. */
+/** Where an image source points: an embedded image to keep, a local file to read, or something refused. */
 type ImageSource = { kind: 'embedded' } | { kind: 'file'; path: string } | { kind: 'refused'; reason: string }
+
+/** Why an image is not embedded, worded to follow "the image X", and the code it stops the export with. */
+interface EmbedFailure {
+  code: Extract<Diagnostic['code'], 'HANDOUT_IMAGE' | 'HANDOUT_SECRET'>
+  reason: string
+}
+
+/** A picture whose bytes passed every check, ready to embed. */
+interface CheckedImage {
+  mime: ImageMime
+  base64: string
+  /** Its size in bytes, before base64. */
+  size: number
+}
+
+/** What reading and checking one source came to: the picture, or why it is not embedded. */
+type CheckOutcome = { ok: true; image: CheckedImage } | { ok: false; failure: EmbedFailure }
+
+/**
+ * What one export's pictures have cost so far, shared by every page of it: each file read and
+ * checked once (a picture shown on several pages), and the bytes embedded, against a total.
+ */
+export interface ImageLedger {
+  /** Path → the outcome of reading and checking that file. */
+  readonly checked: Map<string, Promise<CheckOutcome>>
+  /** The most picture bytes the Handout embeds in all. */
+  readonly totalLimitBytes: number
+  /** Bytes embedded so far; a picture shown twice is in the file twice and counts twice. */
+  embeddedBytes: number
+}
+
+/**
+ * A fresh ledger for one export, created by {@link buildHandout} and handed to {@link embedImages}
+ * for every page.
+ *
+ * @param totalLimitBytes - The most picture bytes the Handout may embed in all.
+ * @returns A ledger with nothing read and nothing embedded.
+ *
+ * @example
+ * createImageLedger() // { checked: Map {}, totalLimitBytes: 104857600, embeddedBytes: 0 }
+ */
+export function createImageLedger(totalLimitBytes: number = IMAGE_TOTAL_LIMIT_BYTES): ImageLedger {
+  return { checked: new Map(), totalLimitBytes, embeddedBytes: 0 }
+}
 
 /**
  * Classify an image source as written in the page (DX D15): absolute paths and `file:` links as
  * they are, relative paths against the Record's `pages/` folder, `data:image/` kept, anything else
- * (the network) refused, since the Handout loads nothing from outside itself.
+ * (the network, a `file:` link to another computer) refused, since the Handout loads nothing from
+ * outside itself.
  *
- * @param source - The `src` attribute.
+ * @param source - The `src` (or SVG `href`) attribute.
  * @param pagesDir - The Record's `pages/` folder.
  * @returns Where the image comes from.
  *
  * @example
- * classifySource('shot.png', '/r/pages')                 // { kind: 'file', path: '/r/pages/shot.png' }
- * classifySource('https://cdn.test/a.png', '/r/pages')   // { kind: 'refused', reason: 'is not a local file' }
- * classifySource('shot%zz.png', '/r/pages')              // { kind: 'refused', reason: 'has a malformed %-escape in its path' }
+ * classifySource('shot.png', '/r/pages')                       // { kind: 'file', path: '/r/pages/shot.png' }
+ * classifySource('https://cdn.test/a.png', '/r/pages')         // { kind: 'refused', reason: 'is not a local file' }
+ * classifySource('file://fileserver/share/a.png', '/r/pages')  // { kind: 'refused', reason: 'names a file on another computer: …' }
+ * classifySource('shot%zz.png', '/r/pages')                    // { kind: 'refused', reason: 'has a malformed %-escape in its path' }
  */
 export function classifySource(source: string, pagesDir: string): ImageSource {
   if (/^data:image\//i.test(source)) return { kind: 'embedded' }
   // A "%" that starts no escape (shot%zz.png) names no file: refused with a reason, never thrown
   try {
-    if (/^file:\/\//i.test(source))
-      return { kind: 'file', path: decodeURIComponent(new URL(source).pathname) }
+    if (/^file:\/\//i.test(source)) {
+      const url = new URL(source)
+      // file://fileserver/share/a.png is another computer's file: the same path here is another picture
+      if (url.host !== '' && url.host !== 'localhost') {
+        return {
+          kind: 'refused',
+          reason: 'names a file on another computer: copy the picture to this Mac and point at it there',
+        }
+      }
+      return { kind: 'file', path: decodeURIComponent(url.pathname) }
+    }
     if (/^[a-z][a-z0-9+.-]*:/i.test(source) || source.startsWith('//'))
       return { kind: 'refused', reason: 'is not a local file' }
     const path = decodeURIComponent(source.replace(/[?#].*$/, ''))
@@ -48,19 +105,22 @@ export function classifySource(source: string, pagesDir: string): ImageSource {
  *
  * Why it exists: the colleague receives the HTML file alone; a path on this Mac means nothing on
  * theirs. An image that cannot be embedded stops the export (HANDOUT_IMAGE) with the line where the
- * page names it, rather than shipping a broken picture. Every picture's bytes must be an image (a
- * file named shot.png can hold anything), and an SVG's text must hold no secret shape
- * (HANDOUT_SECRET), whether it is read from a file or written into the page as data. Both `<img>`
- * and the `<image>` of an inline SVG are embedded. Called by {@link buildHandout} per page.
+ * page names it, rather than shipping a broken picture. What a picture's bytes are decides whether
+ * it is one, whatever its name (a file named shot.png can hold anything, and capture.bin can be a
+ * PNG). Its text must hold no secret shape (HANDOUT_SECRET): an SVG's as an XML reader decodes it,
+ * a raster picture's metadata as it is stored. Both `<img>` and the `<image>` of an inline SVG are
+ * embedded, each attribute that names a picture. Called by {@link buildHandout} per page, with one
+ * ledger for the whole export.
  *
  * @param page - The page as dw listed it (its source gives the line of each image).
  * @param html - The page's rendered content.
  * @param recordDir - The Record's folder.
  * @param host - Reads the files.
+ * @param ledger - What the export's pictures have cost so far ({@link createImageLedger}).
  * @returns The content with images embedded, and one diagnostic per image that could not be.
  *
  * @example
- * await embedImages(page, '<p><img src="shot.png" alt="画面"></p>', '/r', host)
+ * await embedImages(page, '<p><img src="shot.png" alt="画面"></p>', '/r', host, createImageLedger())
  * // { html: '<p><img src="data:image/png;base64,iVBOR…" alt="画面"></p>', diagnostics: [] }
  */
 export async function embedImages(
@@ -68,6 +128,7 @@ export async function embedImages(
   html: string,
   recordDir: string,
   host: HostPort,
+  ledger: ImageLedger,
 ): Promise<{ html: string; diagnostics: Diagnostic[] }> {
   const holder = document.createElement('template')
   holder.innerHTML = html
@@ -78,19 +139,28 @@ export async function embedImages(
   const sourceLines = page.markdown.split('\n')
   const diagnostics: Diagnostic[] = []
   for (const image of images) {
-    // An <img> names its picture in src; an SVG <image> in href (xlink:href in older drawings)
-    const attribute = image.localName === 'img' ? 'src' : image.hasAttribute('href') ? 'href' : 'xlink:href'
-    const source = image.getAttribute(attribute) ?? ''
-    const failure = await embedOne(image, attribute, classifySource(source, `${recordDir}/pages`), host)
-    if (failure === null) continue
-    const index = imageLine(sourceLines, source)
-    const where = index < 0 ? maskSecrets(page.source) : `${maskSecrets(page.source)}:${index + 1}`
-    diagnostics.push({
-      code: failure.code,
-      message: `${where}: the image ${excerpt(maskSecrets(source || '(no src)'))} ${failure.reason}`,
-      page: page.n,
-      ...(index < 0 ? {} : { line: index + 1 }),
-    })
+    // An <img> names its picture in src; an SVG <image> in href, xlink:href in older drawings, or both
+    const attributes =
+      image.localName === 'img' ? ['src'] : ['href', 'xlink:href'].filter((name) => image.hasAttribute(name))
+    for (const attribute of attributes.length > 0 ? attributes : ['href']) {
+      const source = image.getAttribute(attribute) ?? ''
+      const failure = await embedOne(
+        image,
+        attribute,
+        classifySource(source, `${recordDir}/pages`),
+        host,
+        ledger,
+      )
+      if (failure === null) continue
+      const index = imageLine(sourceLines, source)
+      const where = index < 0 ? `page ${page.n}` : `page ${page.n}:${index + 1}`
+      diagnostics.push({
+        code: failure.code,
+        message: `${where}: the image ${excerpt(maskSecrets(source || '(no src)'))} ${failure.reason}`,
+        page: page.n,
+        ...(index < 0 ? {} : { line: index + 1 }),
+      })
+    }
   }
   return { html: holder.innerHTML, diagnostics }
 }
@@ -115,56 +185,122 @@ function imageLine(lines: readonly string[], source: string): number {
   return asImage >= 0 ? asImage : lines.findIndex((text) => text.includes(source))
 }
 
-/** Why an image is not embedded, worded to follow "the image X", and the code it stops the export with. */
-interface EmbedFailure {
-  code: Extract<Diagnostic['code'], 'HANDOUT_IMAGE' | 'HANDOUT_SECRET'>
-  reason: string
-}
-
 /**
- * Put one image's bytes into its source attribute, once they proved to be an image.
+ * Put one image's bytes into its source attribute, once they proved to be an image without a secret
+ * and the export's total allows them.
  *
  * @param image - The `<img>` or SVG `<image>`.
  * @param attribute - Where it names its picture: `src`, `href` or `xlink:href`.
  * @param source - Where that picture is, as {@link classifySource} read it.
  * @param host - Reads the files.
+ * @param ledger - The export's files read so far and bytes embedded.
  * @returns
  * - null when the picture is embedded (or was written into the page as data and checks out)
  * - an {@link EmbedFailure} otherwise
  *
  * @example
- * await embedOne(image, 'src', { kind: 'file', path: '/r/pages/shot.png' }, host) // null; src is data:image/png;base64,…
- * await embedOne(image, 'src', { kind: 'refused', reason: 'is not a local file' }, host) // { code: 'HANDOUT_IMAGE', reason: 'is not a local file' }
+ * await embedOne(image, 'src', { kind: 'file', path: '/r/pages/shot.png' }, host, ledger) // null; src is data:image/png;base64,…
+ * await embedOne(image, 'src', { kind: 'refused', reason: 'is not a local file' }, host, ledger) // { code: 'HANDOUT_IMAGE', reason: 'is not a local file' }
  */
 async function embedOne(
   image: Element,
   attribute: string,
   source: ImageSource,
   host: HostPort,
+  ledger: ImageLedger,
 ): Promise<EmbedFailure | null> {
   if (source.kind === 'refused') return { code: 'HANDOUT_IMAGE', reason: source.reason }
   // Written into the page as data: kept as written, once its bytes check out like a file's
   if (source.kind === 'embedded') {
-    const bytes = dataUriBytes(image.getAttribute(attribute) ?? '')
-    if (bytes === null)
-      return { code: 'HANDOUT_IMAGE', reason: 'is not an image: its data cannot be decoded' }
-    const inspected = inspectImage(bytes)
-    return inspected.ok ? null : inspected.failure
+    const data = dataUriBytes(image.getAttribute(attribute) ?? '')
+    if (!data.ok) return { code: 'HANDOUT_IMAGE', reason: data.reason }
+    const inspected = await inspectImage(data.bytes)
+    if (!inspected.ok) return inspected.failure
+    return spend(ledger, data.bytes.length)
   }
-  const extension = /\.([A-Za-z0-9]+)$/.exec(source.path)?.[1]?.toLowerCase() ?? ''
-  if (!IMAGE_EXTENSIONS.has(extension))
+  // One read and one check per file for the whole export
+  let outcome = ledger.checked.get(source.path)
+  if (!outcome) {
+    outcome = readAndCheck(host, source.path)
+    ledger.checked.set(source.path, outcome)
+  }
+  const checked = await outcome
+  if (!checked.ok) return checked.failure
+  const overspent = spend(ledger, checked.image.size)
+  if (overspent) return overspent
+  // The type the bytes are, not the one the name claims: a JPEG saved as .png still shows
+  image.setAttribute(attribute, `data:${checked.image.mime};base64,${checked.image.base64}`)
+  return null
+}
+
+/**
+ * Read a picture's file through the host and check its bytes.
+ *
+ * @param host - Reads the file.
+ * @param path - The file's absolute path.
+ * @returns The checked picture, or why it is not embedded.
+ *
+ * @example
+ * await readAndCheck(host, '/r/pages/shot.png') // { ok: true, image: { mime: 'image/png', base64: 'iVBOR…', size: 8 } }
+ */
+async function readAndCheck(host: HostPort, path: string): Promise<CheckOutcome> {
+  const read = await readFile(host, path)
+  if (!read.ok)
+    return {
+      ok: false,
+      failure: { code: 'HANDOUT_IMAGE', reason: `could not be read: ${excerpt(maskSecrets(read.message))}` },
+    }
+  const bytes = decodeBase64(read.base64)
+  // The host refuses a larger file before reading it; a host that did not is refused here
+  if (bytes.length > IMAGE_LIMIT_BYTES) return { ok: false, failure: tooLarge() }
+  const inspected = await inspectImage(bytes)
+  if (!inspected.ok) return inspected
+  return { ok: true, image: { mime: inspected.mime, base64: read.base64, size: bytes.length } }
+}
+
+/**
+ * Count a picture's bytes against the export's total.
+ *
+ * @param ledger - The export's ledger; its `embeddedBytes` grows when the picture fits.
+ * @param size - The picture's size in bytes.
+ * @returns null when it fits, else the HANDOUT_IMAGE failure that names the total.
+ *
+ * @example
+ * spend(createImageLedger(12), 8) // null
+ * spend(ledgerWith8Spent, 8)      // { code: 'HANDOUT_IMAGE', reason: 'would take the pictures of the Handout past 12 bytes in all: …' }
+ */
+function spend(ledger: ImageLedger, size: number): EmbedFailure | null {
+  if (ledger.embeddedBytes + size > ledger.totalLimitBytes) {
     return {
       code: 'HANDOUT_IMAGE',
-      reason: 'is not a type the Handout embeds (png, jpg, gif, webp, avif, svg)',
+      reason: `would take the pictures of the Handout past ${sizeText(ledger.totalLimitBytes)} in all: use fewer or smaller pictures`,
     }
-  const read = await readFile(host, source.path)
-  if (!read.ok)
-    return { code: 'HANDOUT_IMAGE', reason: `could not be read: ${excerpt(maskSecrets(read.message))}` }
-  const inspected = inspectImage(decodeBase64(read.base64))
-  if (!inspected.ok) return inspected.failure
-  // The type the bytes are, not the one the name claims: a JPEG saved as .png still shows
-  image.setAttribute(attribute, `data:${inspected.mime};base64,${read.base64}`)
+  }
+  ledger.embeddedBytes += size
   return null
+}
+
+/**
+ * A byte count as a message says it: whole megabytes, else bytes.
+ *
+ * @param bytes - A limit in bytes.
+ * @returns `100 MB` for a whole number of megabytes, else `12 bytes`.
+ *
+ * @example
+ * sizeText(20 * 1024 * 1024) // '20 MB'
+ * sizeText(12)               // '12 bytes'
+ */
+function sizeText(bytes: number): string {
+  const megabytes = bytes / 1024 / 1024
+  return Number.isInteger(megabytes) ? `${megabytes} MB` : `${bytes} bytes`
+}
+
+/** The failure of a picture over {@link IMAGE_LIMIT_BYTES}, worded as the host words a larger file. */
+function tooLarge(): EmbedFailure {
+  return {
+    code: 'HANDOUT_IMAGE',
+    reason: `is larger than ${sizeText(IMAGE_LIMIT_BYTES)}, the most a Handout embeds`,
+  }
 }
 
 /**
@@ -172,15 +308,16 @@ async function embedOne(
  *
  * @param bytes - A file's contents, or the data written into a page.
  * @returns
- * - `{ ok: true, mime }` for png, jpeg, gif, webp, avif, and svg without a secret shape
- * - `{ ok: false, failure }` for other bytes (HANDOUT_IMAGE) and an SVG holding a secret shape (HANDOUT_SECRET)
+ * - `{ ok: true, mime }` for png, jpeg, gif, webp, avif and svg that carry no secret shape
+ * - `{ ok: false, failure }` for other bytes and a malformed SVG (HANDOUT_IMAGE), and for a picture
+ *   whose text holds a secret shape or cannot be read to check (HANDOUT_SECRET, HANDOUT_IMAGE)
  *
  * @example
- * inspectImage(new TextEncoder().encode('{"error":"expired"}')) // { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'is not an image: …' } }
+ * await inspectImage(new TextEncoder().encode('{"error":"expired"}')) // { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'is not an image: …' } }
  */
-function inspectImage(
+async function inspectImage(
   bytes: Uint8Array,
-): { ok: true; mime: ImageMime } | { ok: false; failure: EmbedFailure } {
+): Promise<{ ok: true; mime: ImageMime } | { ok: false; failure: EmbedFailure }> {
   const mime = sniffImage(bytes)
   if (mime === null) {
     return {
@@ -191,42 +328,102 @@ function inspectImage(
       },
     }
   }
-  // An SVG is text: a signed link in its metadata or one of its URLs would travel with the picture
+  // An SVG is text: a key in its text, or a signed link in one of its URLs, travels with the drawing.
+  // It is read as written and as an XML reader decodes it (`&#65;KIA…`, `&amp;signature=`)
   if (mime === 'image/svg+xml') {
-    const [finding] = findSecrets(new TextDecoder().decode(bytes))
-    if (finding) {
+    const text = new TextDecoder().decode(bytes)
+    const parsed = new DOMParser().parseFromString(text, 'image/svg+xml')
+    if (parsed.getElementsByTagName('parsererror').length > 0) {
       return {
         ok: false,
         failure: {
-          code: 'HANDOUT_SECRET',
-          reason: `carries a secret shape (${finding.pattern}); remove the value from the file`,
+          code: 'HANDOUT_IMAGE',
+          reason: 'is not a well-formed SVG: a browser would not show it either',
         },
+      }
+    }
+    const [finding] = findSecrets(`${text}\n${collectReadableText(parsed)}`)
+    if (finding) return secretIn(finding.pattern, 'remove the value from the file')
+    return { ok: true, mime }
+  }
+  // A raster picture's metadata (PNG text, EXIF, XMP, comments) is stored as ASCII or UTF-16 text
+  for (const text of byteTexts(bytes)) {
+    const [finding] = findSecrets(text)
+    if (finding) return secretIn(finding.pattern, METADATA_ADVICE, ' in its metadata')
+  }
+  // ...or compressed, in a PNG: each such text is inflated and read the same way
+  if (mime === 'image/png') {
+    for (const compressed of pngCompressedTexts(bytes)) {
+      const inflated = await inflateLimited(compressed, IMAGE_LIMIT_BYTES)
+      if (!inflated.ok) {
+        return {
+          ok: false,
+          failure: {
+            code: 'HANDOUT_IMAGE',
+            reason: `carries compressed text that cannot be checked for secrets (${inflated.reason}); save the picture again without its metadata`,
+          },
+        }
+      }
+      for (const text of byteTexts(inflated.bytes)) {
+        const [finding] = findSecrets(text)
+        if (finding) return secretIn(finding.pattern, METADATA_ADVICE, ' in its metadata')
       }
     }
   }
   return { ok: true, mime }
 }
 
+/** What to do about a secret shape in a raster picture's metadata. */
+const METADATA_ADVICE = 'save the picture again without it'
+
 /**
- * The bytes a `data:image/…` source holds: base64 decoded, or the URL-encoded text as UTF-8.
+ * The HANDOUT_SECRET failure of a picture, naming the shape and never the value.
  *
- * @param source - The source as written in the page.
- * @returns The bytes, or null when they cannot be decoded.
+ * @param pattern - The shape's name ({@link findSecrets}).
+ * @param advice - What to do about it.
+ * @param where - Where in the picture, after the shape (` in its metadata`), or nothing.
+ * @returns The failure, as {@link inspectImage} returns it.
  *
  * @example
- * dataUriBytes('data:image/svg+xml,%3Csvg%3E') // the bytes of '<svg>'
- * dataUriBytes('data:image/png;base64,@@')     // null
+ * secretIn('aws-access-key-id', 'save the picture again without it', ' in its metadata')
+ * // { ok: false, failure: { code: 'HANDOUT_SECRET', reason: 'carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it' } }
  */
-function dataUriBytes(source: string): Uint8Array | null {
+function secretIn(pattern: string, advice: string, where = ''): { ok: false; failure: EmbedFailure } {
+  return {
+    ok: false,
+    failure: { code: 'HANDOUT_SECRET', reason: `carries a secret shape (${pattern})${where}; ${advice}` },
+  }
+}
+
+/** Why data written into a page is no picture: it does not decode. */
+const UNDECODABLE = 'is not an image: its data cannot be decoded'
+
+/**
+ * The bytes a `data:image/…` source holds: base64 decoded, or the URL-encoded text as UTF-8. One
+ * larger than {@link IMAGE_LIMIT_BYTES} is refused before it is decoded.
+ *
+ * @param source - The source as written in the page.
+ * @returns The bytes, or why there are none to embed.
+ *
+ * @example
+ * dataUriBytes('data:image/svg+xml,%3Csvg%3E') // { ok: true, bytes: <the bytes of '<svg>'> }
+ * dataUriBytes('data:image/png;base64,@@')     // { ok: false, reason: 'is not an image: its data cannot be decoded' }
+ */
+function dataUriBytes(source: string): { ok: true; bytes: Uint8Array } | { ok: false; reason: string } {
   const comma = source.indexOf(',')
-  if (comma < 0) return null
+  if (comma < 0) return { ok: false, reason: UNDECODABLE }
   const header = source.slice(0, comma)
   const payload = source.slice(comma + 1)
+  const isBase64 = /;base64$/i.test(header)
+  // Base64 holds three bytes in four characters: its size is known before anything is decoded
+  if (isBase64 && Math.floor((payload.replace(/\s/g, '').length * 3) / 4) > IMAGE_LIMIT_BYTES)
+    return { ok: false, reason: tooLarge().reason }
   try {
-    return /;base64$/i.test(header)
+    const bytes = isBase64
       ? decodeBase64(payload.replace(/\s/g, ''))
       : new TextEncoder().encode(decodeURIComponent(payload))
+    return bytes.length > IMAGE_LIMIT_BYTES ? { ok: false, reason: tooLarge().reason } : { ok: true, bytes }
   } catch {
-    return null
+    return { ok: false, reason: UNDECODABLE }
   }
 }

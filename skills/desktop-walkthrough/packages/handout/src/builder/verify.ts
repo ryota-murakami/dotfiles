@@ -27,7 +27,8 @@ function locate(id: string): { page?: number; diagram?: number } {
  * @param expected - Each diagram's labels as measured in the rendered page, before sanitizing.
  * @param check - What {@link checkHandout} saw in the reopened file.
  * @param pageCount - Pages in the Handout.
- * @returns HANDOUT_VERIFY diagnostics; empty when the file works as checked.
+ * @returns HANDOUT_VERIFY diagnostics, and HANDOUT_IMAGE for a picture that does not decode; empty
+ * when the file works as checked.
  *
  * @example
  * judgeVerification([{ id: 'p2-d1', labels: ['書き出す'] }], { ready: true, pages: 3, pageNumber: '1/3', secondShown: true, diagrams: [{ id: 'p2-d1', labels: [] }] }, 3)
@@ -55,6 +56,14 @@ export function judgeVerification(
     if (pageCount >= 2 && check.secondShown !== true) {
       diagnostics.push({ code: 'HANDOUT_VERIFY', message: 'the finished Handout did not open page 2 for #2' })
     }
+  }
+  // A picture whose bytes passed every check before can still be cut off: it shows as a broken image
+  for (const broken of check.brokenImages) {
+    diagnostics.push({
+      code: 'HANDOUT_IMAGE',
+      message: `page ${broken.page}: picture ${broken.image} does not show in the finished Handout: its bytes are a broken or cut-off picture; save it again, then export again`,
+      page: broken.page,
+    })
   }
   for (const diagram of expected) {
     const location = locate(diagram.id)

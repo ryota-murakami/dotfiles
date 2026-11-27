@@ -9,6 +9,7 @@ const working = {
   pageNumber: '1/3',
   secondShown: true,
   diagrams: [{ id: 'p2-d1', labels: ['管理者', '閲覧者', '書き出す'] }],
+  brokenImages: [],
 }
 
 test('a Handout that works as checked passes verification', () => {
@@ -97,11 +98,36 @@ test('a header that does not count the pages fails verification', () => {
 
 test('a one-page Handout is not asked to open a page 2', () => {
   // Arrange
-  const check = { ready: true, pages: 1, pageNumber: '1/1', secondShown: null, diagrams: [] }
+  const check = {
+    ready: true,
+    pages: 1,
+    pageNumber: '1/1',
+    secondShown: null,
+    diagrams: [],
+    brokenImages: [],
+  }
 
   // Act
   const diagnostics = judgeVerification([], check, 1)
 
   // Assert
   expect(diagnostics).toEqual([])
+})
+
+test('a picture the finished file cannot show fails the export, naming its page and position', () => {
+  // Arrange
+  const check = { ...working, brokenImages: [{ page: 2, image: 3 }] }
+
+  // Act
+  const diagnostics = judgeVerification(expected, check, 3)
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_IMAGE',
+      message:
+        'page 2: picture 3 does not show in the finished Handout: its bytes are a broken or cut-off picture; save it again, then export again',
+      page: 2,
+    },
+  ])
 })

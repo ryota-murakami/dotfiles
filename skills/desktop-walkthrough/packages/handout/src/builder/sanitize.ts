@@ -36,9 +36,12 @@ let purifier: ReturnType<typeof createDOMPurify> | null = null
 function handoutPurifier(): ReturnType<typeof createDOMPurify> {
   if (purifier) return purifier
   const created = createDOMPurify(window)
-  // A link opens in a new tab: following it must not lose the reader's place in the Handout
+  // A link opens in a new tab: following it must not lose the reader's place in the Handout. An SVG
+  // link (a diagram's) is an `a` in lower case, its address in href or xlink:href
   created.addHook('afterSanitizeAttributes', (node) => {
-    if (node.nodeName !== 'A' || !/^https?:/i.test(node.getAttribute('href') ?? '')) return
+    if (node.localName !== 'a') return
+    const address = node.getAttribute('href') ?? node.getAttribute('xlink:href') ?? ''
+    if (!/^https?:/i.test(address)) return
     node.setAttribute('target', '_blank')
     node.setAttribute('rel', 'noopener noreferrer')
   })

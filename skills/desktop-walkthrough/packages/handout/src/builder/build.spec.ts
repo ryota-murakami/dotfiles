@@ -34,7 +34,6 @@ const input: HandoutInput = {
       n: 1,
       title: '書き出しの流れ',
       section: '準備',
-      source: 'pages/01-書き出しの流れ.md',
       markdown: '# 書き出しの流れ\n',
       built: 'pages/001.html',
     },
@@ -42,7 +41,6 @@ const input: HandoutInput = {
       n: 2,
       title: '判定の仕組み',
       section: '仕組み',
-      source: 'pages/02-判定の仕組み.md',
       markdown: '# 判定の仕組み\n\n```mermaid\nflowchart LR\n  A[書き出す]\n```\n',
       built: 'pages/002.html',
     },
@@ -71,6 +69,7 @@ const workingCheck = {
   pageNumber: '1/2',
   secondShown: true,
   diagrams: [{ id: 'p2-d1', labels: ['書き出す'] }],
+  brokenImages: [],
 }
 
 /** A host that answers from the given parts and records every request; `verify` keeps the HTML it got. */
@@ -140,8 +139,7 @@ test('a secret stops the export before a single page is rendered', async () => {
     diagnostics: [
       {
         code: 'HANDOUT_SECRET',
-        message:
-          'pages/01-書き出しの流れ.md:3: a secret shape (prefixed-api-key); remove the value from the page',
+        message: 'page 1:3: a secret shape (prefixed-api-key); remove the value from the page',
         page: 1,
         line: 3,
         pattern: 'prefixed-api-key',
@@ -202,7 +200,7 @@ test('a broken diagram stops the export after every page was rendered, and nothi
     diagnostics: [
       {
         code: 'HANDOUT_DIAGRAM',
-        message: 'pages/02-判定の仕組み.md:3: diagram 1 did not render: Parse error on line 2',
+        message: 'page 2:3: diagram 1 did not render: Parse error on line 2',
         page: 2,
         diagram: 1,
         line: 3,
@@ -294,11 +292,53 @@ test('a signed link the source spelled with &amp; stops the export once the page
       {
         code: 'HANDOUT_SECRET',
         message:
-          'pages/01-書き出しの流れ.md: a secret shape (signed-url-parameter) in the page as rendered (the source spells it with HTML entities or escapes); remove the value from the page',
+          'page 1: a secret shape (signed-url-parameter) in the page as rendered (the source spells it with HTML entities or escapes); remove the value from the page',
         page: 1,
         pattern: 'signed-url-parameter',
       },
     ],
   })
+  expect(requests.some((request) => request.type === 'verify')).toBe(false)
+})
+
+test('a link to a file on this Mac reaches the agent as a warning while the Handout is still written', async () => {
+  // Arrange
+  const linking = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: { html: '<h1>書き出しの流れ</h1><p><a href="02-設定.md">次のページ</a></p>', diagrams: [] },
+    },
+  }
+  const { host } = fakeHost({ renders: linking })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toMatchObject({
+    ok: true,
+    warnings: [
+      { message: "links to 02-設定.md, a file on this Mac: the colleague's copy cannot open it", page: 1 },
+    ],
+  })
+})
+
+test('a video stops the export before anything is verified: the colleague would get a dead player', async () => {
+  // Arrange
+  const withVideo = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: { html: '<h1>書き出しの流れ</h1><video src="demo.mov" controls></video>', diagrams: [] },
+    },
+  }
+  const { host, requests } = fakeHost({ renders: withVideo })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toMatchObject({ ok: false, diagnostics: [{ code: 'HANDOUT_IMAGE', page: 1 }] })
   expect(requests.some((request) => request.type === 'verify')).toBe(false)
 })

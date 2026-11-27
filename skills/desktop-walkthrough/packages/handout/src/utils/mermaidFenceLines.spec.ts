@@ -91,3 +91,64 @@ test('an indented code line that looks like a fence is no fence', () => {
   // Assert
   expect(lines).toEqual([4])
 })
+
+test('three backticks around a word inside a line are inline code, not a fence that would hide the diagrams after it', () => {
+  // Arrange
+  const markdown = ['```x``` のとおりに書きます', '', '```mermaid', 'flowchart LR', '```'].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([3])
+})
+
+test('a diagram whose fence opens on a list item’s line is found, and its indented closing fence closes it', () => {
+  // Arrange
+  const markdown = [
+    '- ```mermaid',
+    '  flowchart LR',
+    '  ```',
+    '',
+    '```mermaid',
+    'sequenceDiagram',
+    '```',
+  ].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([1, 5])
+})
+
+test('a fence inside a nested list item closes at its own indentation', () => {
+  // Arrange
+  const markdown = [
+    '1. 手順',
+    '   - ```bash',
+    '     echo 書き出す',
+    '     ```',
+    '',
+    '```mermaid',
+    'flowchart TB',
+    '```',
+  ].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([6])
+})
+
+test('a page saved with Windows line endings finds its diagrams the same way', () => {
+  // Arrange
+  const markdown = ['```mermaid', 'flowchart LR', '```', '', '```mermaid', 'flowchart TB', '```'].join('\r\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([1, 5])
+})

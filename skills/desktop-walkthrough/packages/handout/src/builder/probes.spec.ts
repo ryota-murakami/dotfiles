@@ -16,6 +16,7 @@ const checkArgs = {
   readyLimitMs: 500,
   pollMs: 10,
   hashChangeLimitMs: 200,
+  imageDecodeLimitMs: 200,
 }
 
 /** Lay out a label only while every <details> around it is open, as WebKit does. */
@@ -107,6 +108,7 @@ test('the verify probe sees the controller take over and open page 2 for #2', as
     pageNumber: '1/2',
     secondShown: true,
     diagrams: [{ id: 'p2-d1', labels: ['書き出す'] }],
+    brokenImages: [],
   })
 })
 
@@ -119,7 +121,14 @@ test('the verify probe reports a controller that never took over, without paging
   const check = handoutCheckSchema.parse(await checkHandout(checkArgs))
 
   // Assert
-  expect(check).toEqual({ ready: false, pages: 2, pageNumber: '', secondShown: null, diagrams: [] })
+  expect(check).toEqual({
+    ready: false,
+    pages: 2,
+    pageNumber: '',
+    secondShown: null,
+    diagrams: [],
+    brokenImages: [],
+  })
 })
 
 test("the verify probe counts the Handout's pages only, not a page's element that shares their class", async () => {
@@ -132,4 +141,30 @@ test("the verify probe counts the Handout's pages only, not a page's element tha
 
   // Assert
   expect(check.pages).toBe(1)
+})
+
+/** Decode a picture the way WebKit does for these specs: a source holding "broken" fails, any other succeeds. */
+function decodeUnlessBroken(): void {
+  vi.spyOn(HTMLImageElement.prototype, 'decode').mockImplementation(function (this: HTMLImageElement) {
+    return this.src.includes('broken') ? Promise.reject(new Error('EncodingError')) : Promise.resolve()
+  })
+}
+
+test('the verify probe names each embedded picture the browser cannot decode, by page and position', async () => {
+  // Arrange
+  decodeUnlessBroken()
+  document.body.innerHTML =
+    '<main id="handout-pages">' +
+    '<article class="page" id="page-1" data-n="2"><img src="data:image/png;base64,ok"><img src="data:image/png;base64,broken"></article>' +
+    '<article class="page" id="page-2" data-n="5"><svg><image href="data:image/png;base64,broken"></image></svg></article>' +
+    '</main>'
+
+  // Act
+  const check = handoutCheckSchema.parse(await checkHandout(checkArgs))
+
+  // Assert
+  expect(check.brokenImages).toEqual([
+    { page: 2, image: 2 },
+    { page: 5, image: 1 },
+  ])
 })

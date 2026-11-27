@@ -68,9 +68,9 @@ handout_input() {
       title=$(record_title "$dir" "$n" "$page" handout)
       section=$(record_section "$dir" "$n")
       explain_build "$n" "$title" "$section" "$page" "$n" handout
-      jq -cn --argjson n "$n" --arg title "$title" --arg section "$section" --arg source "pages/$(basename "$page")" \
+      jq -cn --argjson n "$n" --arg title "$title" --arg section "$section" \
         --rawfile markdown "$page" --arg built "$(printf 'pages/%03d.html' "$n")" \
-        '{n: $n, title: $title, section: $section, source: $source, markdown: $markdown, built: $built}' >> "$EXPLAIN/pages.jsonl"
+        '{n: $n, title: $title, section: $section, markdown: $markdown, built: $built}' >> "$EXPLAIN/pages.jsonl"
     done < <(record_pages "$dir")
     jq -n --slurpfile pages "$EXPLAIN/pages.jsonl" --arg dir "$dir" --arg explain "$EXPLAIN" \
       --arg template "$SKILL_DIR/explainer/page.html" --arg out "$target" --arg log "$explain/host.log" \
@@ -213,7 +213,7 @@ fi
 new_record secret
 printf '\n[設定](https://docs.test/a?signature=%s)\n' "$SIGNATURE" >> "$RECORDS/secret/pages/01-書き出しの流れ.md"
 export_record secret
-if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET pages/01-書き出しの流れ.md:16: a secret shape (signed-url-parameter)' <<< "$out" \
+if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET page 1:16: a secret shape (signed-url-parameter)' <<< "$out" \
   && ! grep -q "$SIGNATURE" <<< "$out" && [ ! -e "$RECORDS/secret/handout.html" ]; then
   pass "a signed link stops with HANDOUT_SECRET (page, line, shape) and the value is never printed"
 else
@@ -223,7 +223,7 @@ fi
 new_record bad-diagram
 printf '\n```mermaid\nflowchart LR\n  A --> \n```\n' >> "$RECORDS/bad-diagram/pages/02-判定の仕組み.md"
 export_record bad-diagram
-if [ "$code" = 1 ] && grep -q 'HANDOUT_DIAGRAM pages/02-判定の仕組み.md:23: diagram 3 did not render' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_DIAGRAM page 2:23: diagram 3 did not render' <<< "$out"; then
   pass "a broken diagram stops with HANDOUT_DIAGRAM (page, diagram, line)"
 else
   fail "bad diagram: $out"
@@ -236,7 +236,7 @@ new_record overflow
 printf '\n<div style="letter-spacing: 0.6em">\n\n```mermaid\nflowchart LR\n  A[書き出しを始める] --> B[権限を確かめる]\n```\n\n</div>\n' \
   >> "$RECORDS/overflow/pages/02-判定の仕組み.md"
 export_record overflow
-if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW pages/02-判定の仕組み.md:25: diagram 3: the label' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_OVERFLOW page 2:25: diagram 3: the label' <<< "$out"; then
   pass "a label laid out larger than its node stops with HANDOUT_OVERFLOW (so the concealed window lays out)"
 else
   fail "overflow: $out"
@@ -253,7 +253,7 @@ else
 fi
 printf '\n![消えた画面](/tmp/dw-handout-check-missing.png)\n' >> "$RECORDS/images/pages/03-実装と確認.md"
 export_record images
-if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/03-実装と確認.md:28: the image /tmp/dw-handout-check-missing.png could not be read' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 3:28: the image /tmp/dw-handout-check-missing.png could not be read' <<< "$out"; then
   pass "a missing image stops with HANDOUT_IMAGE and its line"
 else
   fail "missing image: $out"
@@ -273,7 +273,7 @@ new_record fake-image
 printf '{"error":"the link expired"}' > "$RECORDS/fake-image/pages/shot.png"
 printf '\n![画面](shot.png)\n' >> "$RECORDS/fake-image/pages/01-書き出しの流れ.md"
 export_record fake-image
-if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image shot.png is not an image' <<< "$out" \
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1:16: the image shot.png is not an image' <<< "$out" \
   && [ ! -e "$RECORDS/fake-image/handout.html" ]; then
   pass "a file named like an image whose bytes are not one stops with HANDOUT_IMAGE (its contents never ship)"
 else
@@ -284,7 +284,7 @@ new_record big-image
 mkfile -n 21m "$RECORDS/big-image/pages/big.png"
 printf '\n![大きい画面](big.png)\n' >> "$RECORDS/big-image/pages/01-書き出しの流れ.md"
 export_record big-image
-if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image big.png could not be read: larger than 20 MB' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1:16: the image big.png could not be read: larger than 20 MB' <<< "$out"; then
   pass "an image over 20 MB stops with HANDOUT_IMAGE before it is read"
 else
   fail "big image: $out"
@@ -304,7 +304,7 @@ else
   wait "$exporter"; code=$?
 fi
 out=$(cat "$scratch/piped.out")
-if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE pages/01-書き出しの流れ.md:16: the image piped.png could not be read: not a regular file' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1:16: the image piped.png could not be read: not a regular file' <<< "$out"; then
   pass "an image path naming a pipe stops with HANDOUT_IMAGE at once, never read"
 else
   fail "piped image (exit $code after ${waited} s): $out"
@@ -313,11 +313,74 @@ fi
 new_record entity-secret
 printf '\n<a href="https://docs.test/a?expires=1&amp;signature=%s">設計メモ</a>\n' "$SIGNATURE" >> "$RECORDS/entity-secret/pages/01-書き出しの流れ.md"
 export_record entity-secret
-if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET pages/01-書き出しの流れ.md: a secret shape (signed-url-parameter) in the page as rendered' <<< "$out" \
+if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET page 1: a secret shape (signed-url-parameter) in the page as rendered' <<< "$out" \
   && ! grep -q "$SIGNATURE" <<< "$out" && [ ! -e "$RECORDS/entity-secret/handout.html" ]; then
   pass "a signed link the source spells with &amp; stops with HANDOUT_SECRET once rendered, and is never printed"
 else
   fail "entity-encoded secret: $out"
+fi
+
+new_record marker-in-list
+printf '\n- 手順\n    <!-- hud-only -->\n    HUD だけの手順\n    <!-- /hud-only -->\n' >> "$RECORDS/marker-in-list/pages/01-書き出しの流れ.md"
+export_record marker-in-list
+if [ "$code" = 1 ] && grep -q 'HANDOUT_MARKER page 1: an audience marker reached the page as HTML' <<< "$out" \
+  && [ ! -e "$RECORDS/marker-in-list/handout.html" ]; then
+  pass "a marker dw's filter cannot see (indented inside a list item) stops with HANDOUT_MARKER instead of showing its block"
+else
+  fail "marker inside a list item: $out"
+fi
+
+new_record svg-image
+printf '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 10"><rect width="20" height="10" fill="#5ccc9e"/><text x="2" y="8">図</text></svg>\n' > "$RECORDS/svg-image/pages/figure.svg"
+printf '\n![図](figure.svg)\n' >> "$RECORDS/svg-image/pages/01-書き出しの流れ.md"
+export_record svg-image
+if [ "$code" = 0 ] && grep -q 'src="data:image/svg+xml;base64,' "$RECORDS/svg-image/handout.html"; then
+  pass "an SVG picture is embedded and decodes in the finished file"
+else
+  fail "SVG picture: $out"
+fi
+
+new_record cut-image
+printf '%s' "$PNG_BASE64" | base64 -D | head -c 40 > "$RECORDS/cut-image/pages/shot.png"
+printf '\n![切れた画面](shot.png)\n' >> "$RECORDS/cut-image/pages/01-書き出しの流れ.md"
+export_record cut-image
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1: picture 1 does not show in the finished Handout' <<< "$out" \
+  && [ ! -e "$RECORDS/cut-image/handout.html" ]; then
+  pass "a cut-off picture whose first bytes look right stops with HANDOUT_IMAGE: the finished file is decoded"
+else
+  fail "cut-off picture: $out"
+fi
+
+new_record metadata-key
+printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/metadata-key/pages/shot.png"
+# A key in the picture's text after its image data, assembled at run time
+printf 'tEXtComment\000%s%s' AKIA IOSFODNN7EXAMPLE >> "$RECORDS/metadata-key/pages/shot.png"
+printf '\n![画面](shot.png)\n' >> "$RECORDS/metadata-key/pages/01-書き出しの流れ.md"
+export_record metadata-key
+if [ "$code" = 1 ] && grep -q 'HANDOUT_SECRET page 1:16: the image shot.png carries a secret shape (aws-access-key-id) in its metadata' <<< "$out" \
+  && ! grep -q 'IOSFODNN7EXAMPLE' <<< "$out" && [ ! -e "$RECORDS/metadata-key/handout.html" ]; then
+  pass "a key in a picture's metadata stops with HANDOUT_SECRET, never printed"
+else
+  fail "key in picture metadata: $out"
+fi
+
+new_record video
+printf '\n<video src="demo.mov" controls></video>\n' >> "$RECORDS/video/pages/01-書き出しの流れ.md"
+export_record video
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1: a video cannot go into a Handout' <<< "$out" && [ ! -e "$RECORDS/video/handout.html" ]; then
+  pass "a video stops with HANDOUT_IMAGE: the colleague's copy would hold a dead player"
+else
+  fail "video: $out"
+fi
+
+new_record local-link
+printf '\n[手元のメモ](/Users/dw-check/notes.md)\n' >> "$RECORDS/local-link/pages/01-書き出しの流れ.md"
+export_record local-link
+if [ "$code" = 0 ] && grep -q 'warning: page 1: links to /Users/dw-check/notes.md, a file on this Mac' <<< "$out" \
+  && [ -f "$RECORDS/local-link/handout.html" ]; then
+  pass "a link to a file on this Mac is a warning: the Handout is still written"
+else
+  fail "local link: $out"
 fi
 
 new_record private
@@ -392,9 +455,9 @@ handout_input "$RECORDS/direct" "$scratch/other.html" "$scratch/direct" "$scratc
 result=$("$BIN" "$scratch/direct.json" "$DIST")
 if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/other.html" "$scratch/other.copy" \
   && [ -z "$(find "$scratch" -maxdepth 1 -name '.handout-*.tmp')" ]; then
-  pass "a non-Handout file found at write time is swapped back byte-identical (eng D7)"
+  pass "a non-Handout file found at write time is left byte-identical, nothing written beside it (eng D7)"
 else
-  fail "swap back: $result"
+  fail "non-Handout at write time: $result"
 fi
 printf '<!doctype html>\n<form><input name="dw-handout"></form>\n' > "$scratch/form.html"
 cp "$scratch/form.html" "$scratch/form.copy"
@@ -419,6 +482,28 @@ else
   fail "parent gone: $result"
 fi
 
+# dw ends while the pages render; the renderer looks every 10 minutes (parentMs), so only its look right
+# before publishing can stop it
+handout_input "$RECORDS/direct" "$scratch/late-orphan.html" "$scratch/late-orphan-explain" "$scratch/late-orphan.json"
+sleep 60 &
+parent=$!
+jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 600000' "$scratch/late-orphan.json" > "$scratch/late-orphan-parent.json"
+"$BIN" "$scratch/late-orphan-parent.json" "$DIST" > "$scratch/late-orphan.out" &
+late=$!
+waited=0
+until grep -q 'builder loaded' "$scratch/late-orphan-explain/host.log" 2>/dev/null || [ "$waited" -ge 600 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+kill "$parent"; wait "$parent" 2>/dev/null
+wait "$late"
+result=$(cat "$scratch/late-orphan.out")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/late-orphan.html" ]; then
+  pass "dw ending while the pages render stops the renderer right before it would publish"
+else
+  fail "parent gone during the export: $result"
+fi
+
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"
 mkdir -p "$limits/pages"
@@ -431,7 +516,7 @@ late_page() { # N DELAY_MS (none: never reports)
 limits_input() { # PAGE_MS RUN_MS N...
   local page_ms="$1" run_ms="$2"
   shift 2
-  printf '%s\n' "$@" | jq -R 'tonumber | {n: ., title: "p", section: "", source: "pages/0\(.)-p.md", markdown: "p", built: ("pages/" + ("00" + tostring)[-3:] + ".html")}' \
+  printf '%s\n' "$@" | jq -R 'tonumber | {n: ., title: "p", section: "", markdown: "p", built: ("pages/" + ("00" + tostring)[-3:] + ".html")}' \
     | jq -s --arg explain "$limits" --arg template "$SKILL_DIR/explainer/page.html" --arg out "$scratch/limits.html" \
       --argjson pageMs "$page_ms" --argjson runMs "$run_ms" \
       '{v: 1, record: {name: "limits", dir: $explain}, explainDir: $explain, template: $template, out: $out,

@@ -82,6 +82,8 @@ export const handoutCheckSchema = z.object({
   /** Whether page 2 showed after `#2`; null when there is no page 2 or the controller never took over. */
   secondShown: z.boolean().nullable(),
   diagrams: z.array(z.object({ id: z.string(), labels: z.array(z.string()) })),
+  /** Embedded pictures the browser could not decode: the page's number (`data-n`) and the picture's position on it, from 1. */
+  brokenImages: z.array(z.object({ page: z.number(), image: z.number() })),
 })
 export type HandoutCheck = z.infer<typeof handoutCheckSchema>
 
@@ -96,18 +98,22 @@ export interface CheckArgs {
   readyLimitMs: number
   pollMs: number
   hashChangeLimitMs: number
+  /** How long one picture may take to decode before it counts as broken. */
+  imageDecodeLimitMs: number
 }
 
 /**
  * Probe run in the finished Handout, opened under its own CSP (eng D10): did the controller take
- * over, does `#2` open page 2, and which label texts does each diagram carry after sanitizing.
+ * over, does `#2` open page 2, which label texts does each diagram carry after sanitizing, and
+ * which embedded pictures does the browser fail to decode (a cut-off screenshot passes every check
+ * of its bytes but shows as a broken image).
  *
- * @param args - The names the controller uses and how long to wait for it.
+ * @param args - The names the controller uses and how long to wait for it and for each picture.
  * @returns A {@link HandoutCheck}, compared by the builder with what it measured before sanitizing.
  *
  * @example
  * await checkHandout({ readyAttribute: 'data-handout-ready', … })
- * // { ready: true, pages: 3, pageNumber: '1/3', secondShown: true, diagrams: [{ id: 'p2-d1', labels: ['書き出す', …] }] }
+ * // { ready: true, pages: 3, pageNumber: '1/3', secondShown: true, diagrams: [{ id: 'p2-d1', labels: ['書き出す', …] }], brokenImages: [] }
  */
 export async function checkHandout(args: CheckArgs): Promise<unknown> {
   const root = document.documentElement
@@ -136,7 +142,31 @@ export async function checkHandout(args: CheckArgs): Promise<unknown> {
       .map((label) => (label.textContent ?? '').trim())
       .filter((text) => text !== ''),
   }))
-  return { ready, pages, pageNumber, secondShown, diagrams }
+  // Every picture is decoded on its own, so a hidden page's pictures are checked too
+  const brokenImages: Array<{ page: number; image: number }> = []
+  for (const article of Array.from(
+    document.querySelectorAll(`#${args.pagesId} > article.${args.pageClass}`),
+  )) {
+    const pictures = Array.from(article.querySelectorAll('img, svg image'))
+    for (const [index, picture] of pictures.entries()) {
+      const source =
+        picture.getAttribute('src') ??
+        picture.getAttribute('href') ??
+        picture.getAttribute('xlink:href') ??
+        ''
+      const probe = new Image()
+      probe.src = source
+      const decoded = await Promise.race([
+        probe.decode().then(
+          () => true,
+          () => false,
+        ),
+        new Promise<boolean>((resolve) => setTimeout(() => resolve(false), args.imageDecodeLimitMs)),
+      ])
+      if (!decoded) brokenImages.push({ page: Number(article.getAttribute('data-n')), image: index + 1 })
+    }
+  }
+  return { ready, pages, pageNumber, secondShown, diagrams, brokenImages }
 }
 
 /**

@@ -11,23 +11,32 @@
  *   libraries missing ──────────────────────────▶ HANDOUT_VENDOR   (once per run)
  *   diagram failed / nothing laid out ──────────▶ HANDOUT_DIAGRAM
  *   label larger than its box ──────────────────▶ HANDOUT_OVERFLOW
- * embed local images ───────────────────────────▶ HANDOUT_IMAGE
- * sanitize, assemble (CSS, controller, CSP, marker)
+ * embed local images (bytes, secrets, sizes) ────▶ HANDOUT_IMAGE, HANDOUT_SECRET
+ * sanitize; scan each page as rendered ──────────▶ HANDOUT_SECRET
+ * media, styles that load files ─────────────────▶ HANDOUT_IMAGE   (links to local files: warnings)
+ * assemble (CSS, controller, CSP, marker)
  * host reopens the file under its CSP: labels equal, controller runs ─▶ HANDOUT_VERIFY
+ *   a picture that does not decode ─────────────▶ HANDOUT_IMAGE
  * ```
  *
  * Each stage reports every problem it found, then the export stops: the agent fixes them in one pass.
  */
 import type { BuildOutcome, Diagnostic, HandoutInput } from '../contract'
-import { VERIFY_HASHCHANGE_LIMIT_MS, VERIFY_POLL_MS, VERIFY_READY_LIMIT_MS } from '../constants'
+import {
+  VERIFY_HASHCHANGE_LIMIT_MS,
+  VERIFY_IMAGE_DECODE_LIMIT_MS,
+  VERIFY_POLL_MS,
+  VERIFY_READY_LIMIT_MS,
+} from '../constants'
 import { HANDOUT_DOM } from '../dom'
 import { decodeBase64 } from '../utils/decodeBase64'
 import { assembleHandout } from './assemble'
 import type { HostPort } from './host'
 import { readFile, renderPage, verifyInHost } from './host'
-import { embedImages } from './images'
+import { createImageLedger, embedImages } from './images'
 import { judgeRenderedPage, missingLibraries } from './judge'
 import { checkHandout, handoutCheckSchema, measurePage, pageMeasurementSchema, probeBody } from './probes'
+import { checkReferences } from './references'
 import { sanitizePage } from './sanitize'
 import { scanForSecrets, scanRenderedPage } from './scan'
 import { handoutCss } from './template'
@@ -124,8 +133,10 @@ export async function buildHandout(
   if (diagnostics.length > 0) return fail(diagnostics)
 
   const embedded: Array<{ page: HandoutInput['pages'][number]; html: string }> = []
+  // One ledger for the export: a picture on several pages is read once, and all count toward one total
+  const ledger = createImageLedger()
   for (const { page, html } of rendered) {
-    const result = await embedImages(page, html, input.record.dir, host)
+    const result = await embedImages(page, html, input.record.dir, host, ledger)
     diagnostics.push(...result.diagnostics)
     embedded.push({ page, html: result.html })
   }
@@ -136,6 +147,10 @@ export async function buildHandout(
   // escapes passed the first scan in disguise and reads here in the clear
   const disguised = sanitized.flatMap(({ page, html }) => scanRenderedPage(page, html))
   if (disguised.length > 0) return fail(disguised)
+  // What a page loads besides its embedded pictures would not work in the colleague's copy
+  const references = sanitized.map(({ page, html }) => checkReferences(page, html))
+  const unembeddable = references.flatMap((reference) => reference.diagnostics)
+  if (unembeddable.length > 0) return fail(unembeddable)
 
   const pages = sanitized.map(({ page, html }) => ({
     n: page.n,
@@ -160,10 +175,17 @@ export async function buildHandout(
     readyLimitMs: VERIFY_READY_LIMIT_MS,
     pollMs: VERIFY_POLL_MS,
     hashChangeLimitMs: VERIFY_HASHCHANGE_LIMIT_MS,
+    imageDecodeLimitMs: VERIFY_IMAGE_DECODE_LIMIT_MS,
   })
   const check = handoutCheckSchema.parse(await verifyInHost(host, html, checkProbe))
   const verification = judgeVerification(expectedLabels, check, pages.length)
   if (verification.length > 0) return fail(verification)
 
-  return { ok: true, html, pages: pages.length, diagrams: diagramCount, warnings: [] }
+  return {
+    ok: true,
+    html,
+    pages: pages.length,
+    diagrams: diagramCount,
+    warnings: references.flatMap((reference) => reference.warnings),
+  }
 }

@@ -72,4 +72,4 @@ jobs:
 
       # macOS ships bash 3.2: the scripts must parse there
       - name: The scripts parse under /bin/bash
-        run: for script in dw check typecheck-hooks hud-golden handout-check; do /bin/bash -n "scripts/$script" || exit 1; done
+        run: for script in dw dw-check check typecheck-hooks hud-golden handout-check; do /bin/bash -n "scripts/$script" || exit 1; done

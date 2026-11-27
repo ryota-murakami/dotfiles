@@ -6,7 +6,6 @@ const page = {
   n: 2,
   title: '判定の仕組み',
   section: '仕組み',
-  source: 'pages/02-判定の仕組み.md',
   markdown: [
     '# 判定の仕組み',
     '',
@@ -48,8 +47,7 @@ test('a diagram that failed to render names its page, number and fence line', ()
   expect(diagnostics).toEqual([
     {
       code: 'HANDOUT_DIAGRAM',
-      message:
-        'pages/02-判定の仕組み.md:8: diagram 2 did not render: Parse error on line 1: flowchart TB ----^',
+      message: 'page 2:8: diagram 2 did not render: Parse error on line 1: flowchart TB ----^',
       page: 2,
       diagram: 2,
       line: 8,
@@ -80,7 +78,7 @@ test('a label wider than its node stops the export, quoting the label and both s
     {
       code: 'HANDOUT_OVERFLOW',
       message:
-        'pages/02-判定の仕組み.md:3: diagram 1: the label 「利用者が書き出しを押す」 needs 168×24 px in a 120×24 px box: a style on the page changes diagram text, or a font loaded late; remove the style or shorten the label',
+        'page 2:3: diagram 1: the label 「利用者が書き出しを押す」 needs 168×24 px in a 120×24 px box: a style on the page changes diagram text, or a font loaded late; remove the style or shorten the label',
       page: 2,
       diagram: 1,
       line: 3,
@@ -145,8 +143,7 @@ test('a diagram whose labels have no size fails closed instead of passing the ov
   expect(diagnostics).toEqual([
     {
       code: 'HANDOUT_DIAGRAM',
-      message:
-        'pages/02-判定の仕組み.md:3: diagram 1 has no label with a size: nothing was laid out to check',
+      message: 'page 2:3: diagram 1 has no label with a size: nothing was laid out to check',
       page: 2,
       diagram: 1,
       line: 3,
@@ -176,4 +173,28 @@ test('a page rendered in the HUD’s way (no library list) counts every library 
 
   // Assert
   expect(missing).toEqual(['marked', 'highlight', 'highlight-http', 'mermaid', 'purify'])
+})
+
+test('an audience marker that reached the page as HTML stops the export: dw’s filter never read it', () => {
+  // Arrange
+  const report = {
+    type: 'rendered' as const,
+    page: 2,
+    diagrams: 0,
+    errors: ['marker: <!-- hud-only --> reached the page as HTML'],
+    libs: [...allLibraries],
+  }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, { html: '', diagrams: [] })
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_MARKER',
+      message:
+        'page 2: an audience marker reached the page as HTML: dw did not read it (a code fence that opens inside a list item or a quote, or a list that ends inside one, hides the markers after it); put each fence and marker at the left edge, then export again',
+      page: 2,
+    },
+  ])
 })

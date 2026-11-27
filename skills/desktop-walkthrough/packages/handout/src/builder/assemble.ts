@@ -55,15 +55,27 @@ export function handoutCsp(controllerSha256: string): string {
  *
  * @param parts - The pages and the styles and script around them.
  * @returns The whole file.
- * @throws When the controller's source contains `</script`, which would cut it short.
+ * @throws When the controller's source contains `</script` or `<!--`, or a style sheet `</style`:
+ * each would end its element early. None comes from a page: they are the skill's own files.
  *
  * @example
  * assembleHandout({ pages: [{ n: 1, title: '書き出しの流れ', section: '準備', html: '<h1>書き出しの流れ</h1>' }], … })
  * // '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">…'
  */
 export function assembleHandout(parts: AssembleParts): string {
-  // The controller is inlined as it is: a "</script" in it would end the element and void its hash
+  // The controller is inlined as it is: a "</script" in it would end the element and void its hash,
+  // and a "<!--" (with a "<script" after it) moves where the browser ends the element
   if (/<\/script/i.test(parts.controller.source)) throw new Error('the controller source contains "</script"')
+  if (parts.controller.source.includes('<!--')) throw new Error('the controller source contains "<!--"')
+  // The style sheets are inlined in one <style>: a "</style" in one would turn the CSS after it into markup
+  const sheets: Array<[name: string, css: string]> = [
+    ['the highlight.js theme', parts.highlightCss],
+    ["page.html's CSS", parts.pageCss],
+    ["the Handout's CSS", parts.handoutCss],
+  ]
+  for (const [name, css] of sheets) {
+    if (/<\/style/i.test(css)) throw new Error(`${name} contains "</style"`)
+  }
   const title = parts.pages[0]?.title ?? ''
   const toc: TocEntry[] = parts.pages.map(({ n, title: pageTitle, section }) => ({
     n,

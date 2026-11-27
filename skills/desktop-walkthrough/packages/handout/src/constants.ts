@@ -64,3 +64,19 @@ export const IMAGE_SIGNATURES = [
 
 /** How far into a file an SVG's `<svg` element is looked for, after its XML declaration, comments and doctype. */
 export const SVG_SNIFF_BYTES = 4_096
+
+/**
+ * The largest picture a Handout embeds (20 MB), whether read from a file or written into a page as
+ * data: more fills memory once base64 adds its third. The same limit as `imageLimitBytes` in
+ * handout/main.swift, which refuses a larger file before reading it.
+ */
+export const IMAGE_LIMIT_BYTES = 20 * 1024 * 1024
+
+/**
+ * The most picture bytes one Handout embeds in all (100 MB), a picture shown twice counted twice:
+ * the finished file, and each copy the export makes of it, stay in memory until it is published.
+ */
+export const IMAGE_TOTAL_LIMIT_BYTES = 100 * 1024 * 1024
+
+/** How long the verify probe waits for one embedded picture to decode before it counts as broken. */
+export const VERIFY_IMAGE_DECODE_LIMIT_MS = 5_000

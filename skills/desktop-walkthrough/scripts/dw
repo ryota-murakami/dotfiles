@@ -264,6 +264,33 @@ record_handbook() {
   } > "$dir/handbook.md"
 }
 
+# Hold the lock of the record in DIR while its pages and sections change (pages/.lock, holding the
+# writer's process id): two writers (parallel dw explain calls) would each delete the other's page
+# of the same number and lose a sections row. A lock whose writer is gone is taken over; one held
+# longer than about 10 s gives up, changing nothing. Called by record_page and record_clear
+record_lock() {
+  local lock="$1/pages/.lock" tries=0 holder
+  mkdir -p "$1/pages"
+  until mkdir "$lock" 2>/dev/null; do
+    # No lock there: the folder itself refused it (its permissions), and waiting would not help
+    if [ ! -d "$lock" ]; then
+      echo "dw: the record $1 cannot be changed: pages/.lock could not be made (check the folder's permissions); nothing changed" >&2
+      return 1
+    fi
+    holder=$(cat "$lock/pid" 2>/dev/null)
+    # Its writer ended without unlocking (killed): the lock is stale
+    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then rm -rf "$lock"; continue; fi
+    tries=$((tries + 1))
+    if [ "$tries" -ge 100 ]; then
+      echo "dw: the record $1 is being changed by another dw (process ${holder:-?}, pages/.lock): nothing changed; run the command again" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+  printf '%s' "$$" > "$lock/pid"
+}
+record_unlock() { rm -rf "$1/pages/.lock"; }
+
 # Keep an explainer page in the record as pages/NN-title.md and rebuild the handbook. GIVEN is the
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
@@ -273,14 +300,17 @@ record_page() {
   [ -n "$dir" ] || return 0
   mkdir -p "$dir/pages"
   nn=$(printf '%02d' "$n")
-  # A file name from the title: no path separators, code-span backticks, tabs or line breaks; spaces as hyphens
-  slug=$(printf '%s' "$title" | tr -d '`\r\n' | tr '/:\t' '---' | tr -s ' ' '-')
+  # A file name from the title: no path separators, code-span backticks or control characters (tabs,
+  # line breaks, a terminal's escapes); spaces as hyphens
+  slug=$(printf '%s' "$title" | tr -d '`' | tr '/:\t' '---' | tr -d '\000-\037\177' | tr -s ' ' '-')
   page="$dir/pages/$nn-${slug}.md"
+  record_lock "$dir" || return 1
   # Written beside under a name of this process (two writers never share it), then renamed: a reader
   # (dw handout) never sees half a page, and a write that fails removes nothing
   part="$dir/pages/.$nn.md.part.$$"
   if ! { cp "$md" "$part" && mv "$part" "$page"; }; then
     rm -f "$part"
+    record_unlock "$dir"
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
@@ -294,8 +324,9 @@ record_page() {
   {
     grep -v "^$n	" "$dir/pages/sections.tsv" 2>/dev/null
     if [ -n "$given" ]; then printf '%s\t%s\t%s\n' "$n" "$step" "$given"; else printf '%s\t%s\n' "$n" "$step"; fi
-  } | sort -n > "$dir/pages/sections.tsv.part" && mv "$dir/pages/sections.tsv.part" "$dir/pages/sections.tsv"
+  } | sort -n > "$dir/pages/sections.tsv.part.$$" && mv "$dir/pages/sections.tsv.part.$$" "$dir/pages/sections.tsv"
   record_handbook "$dir"
+  record_unlock "$dir"
   [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
 }
 
@@ -307,6 +338,7 @@ record_clear() {
   [ -n "$dir" ] || return 0
   # No pages: no archive, the sections stay as they are
   [ -n "$(record_pages "$dir")" ] || return 0
+  record_lock "$dir" || return 1
   # A folder made for this clear alone: a second clear within the same second takes the next free
   # name and never moves its pages over the first one's
   base="$dir/pages/cleared-$(date +%Y%m%d-%H%M%S)"
@@ -314,6 +346,7 @@ record_clear() {
   until mkdir "$archive" 2>/dev/null; do
     tries=$((tries + 1))
     if [ "$tries" -ge 100 ]; then
+      record_unlock "$dir"
       echo "dw: explain --clear: no archive folder could be made in $dir/pages: the record's pages stay" >&2
       return 1
     fi
@@ -322,6 +355,7 @@ record_clear() {
   # Every move must succeed before the sections empty: a page left behind keeps its row
   while IFS=$'\t' read -r n page; do
     if ! mv "$page" "$archive/"; then
+      record_unlock "$dir"
       echo "dw: explain --clear: page $n could not be moved to pages/$(basename "$archive")/: the pages moved so far are there, sections.tsv is unchanged" >&2
       return 1
     fi
@@ -330,6 +364,7 @@ record_clear() {
   [ -f "$dir/pages/sections.tsv" ] && mv "$dir/pages/sections.tsv" "$archive/sections.tsv"
   : > "$dir/pages/sections.tsv"
   record_handbook "$dir"
+  record_unlock "$dir"
   journal "🧹 解説をすべて消去：${moved} 枚を pages/$(basename "$archive")/ に移した"
 }
 
@@ -835,28 +870,58 @@ HANDOUT_HUD_WORDS="HUD|解説パネル|このパネル|右のパネル|左のパ
 # Print SRC's text for AUDIENCE (hud or handout) and append one line per problem to the file PROBLEMS:
 # "error<TAB>LINE<TAB>text" for a marker without its partner or written another way, and for the
 # Handout "warning<TAB>LINE<TAB>word" for HUD wording. LINE counts lines of SRC. Exits 1 on an error.
-# Fences are ``` or ~~~, closed by the same character at least as long; a backtick fence has no
-# backtick after it on its line (as Markdown has them). Lines end without a carriage return (CRLF pages)
+# Fences are ``` or ~~~, at the left edge or on a list item's line ("- ```"), closed by the same
+# character at least as long, indented at most 3 spaces past where the list item's text starts; a
+# backtick fence has no backtick after it on its line (as Markdown has them). The same rules as
+# packages/handout/src/utils/mermaidFenceLines.ts. Lines end without a carriage return (CRLF pages).
+# A fence this misreads (a list that ends inside one) is caught when the Handout's page meets a marker
+# as HTML (page.html, HANDOUT_MARKER)
 explain_filter() {
   awk -v audience="$1" -v problems="$3" -v words="$HANDOUT_HUD_WORDS" '
-    BEGIN { fence = ""; open = ""; opened = 0; failed = 0; count = (audience == "handout") ? split(words, word, "|") : 0 }
+    BEGIN { fence = ""; indent = 0; open = ""; opened = 0; failed = 0; count = (audience == "handout") ? split(words, word, "|") : 0 }
     function problem(kind, line, text) { printf "%s\t%d\t%s\n", kind, line, text >> problems }
     function shown() { return open == "" || open == audience }
+    # TEXT without its code spans, as Markdown reads them: a run of N backticks opens one and the next
+    # run of exactly N closes it; a run without such a partner is backticks shown as they are
+    function without_code_spans(text,    out, start, run, rest, scan, used, found) {
+      out = ""
+      while (match(text, /`+/)) {
+        start = RSTART; run = RLENGTH
+        out = out substr(text, 1, start - 1)
+        rest = substr(text, start + run)
+        scan = rest; used = 0; found = 0
+        while (match(scan, /`+/)) {
+          used += RSTART + RLENGTH - 1
+          if (RLENGTH == run) { found = 1; break }
+          scan = substr(scan, RSTART + RLENGTH)
+        }
+        if (found) text = substr(rest, used + 1)
+        else { out = out substr(text, start, run); text = rest }
+      }
+      return out text
+    }
     {
       # A page saved with Windows line endings: its markers and fences end in a carriage return
       sub(/\r$/, "")
       # Inside a fence only its closing line matters: a marker there is an example, shown as code
       if (fence != "") {
-        if (match($0, /^ ? ? ?(```+|~~~+)[ \t]*$/)) {
-          mark = substr($0, RSTART, RLENGTH); gsub(/[ \t]/, "", mark)
-          if (substr(mark, 1, 1) == substr(fence, 1, 1) && length(mark) >= length(fence)) fence = ""
+        if ($0 ~ /^[ \t]*(```+|~~~+)[ \t]*$/) {
+          match($0, /^[ \t]*/); lead = RLENGTH
+          mark = $0; gsub(/[ \t]/, "", mark)
+          if (lead <= indent + 3 && substr(mark, 1, 1) == substr(fence, 1, 1) && length(mark) >= length(fence)) fence = ""
         }
         if (shown()) print
         next
       }
-      # "```x```" is code inside a line of text, not a fence: it would hide every marker after it
-      if (match($0, /^ ? ? ?(```+|~~~+)/) && !(substr($0, RSTART + RLENGTH - 1, 1) == "`" && index(substr($0, RSTART + RLENGTH), "`"))) {
-        fence = substr($0, RSTART, RLENGTH); gsub(/ /, "", fence)
+      # A fence may open on a list item'"'"'s line ("- ```", "1. ```"); its closing fence is then indented
+      # like the item'"'"'s text. "```x```" is code inside a line of text, not a fence: it would hide every
+      # marker after it
+      prefix = ""
+      if (match($0, /^( ? ? ?([-*+]|[0-9][0-9]*[.)])[ \t][ \t]*)+/)) prefix = substr($0, 1, RLENGTH)
+      rest = substr($0, length(prefix) + 1)
+      if (match(rest, /^ ? ? ?(```+|~~~+)/) && !(substr(rest, RSTART + RLENGTH - 1, 1) == "`" && index(substr(rest, RSTART + RLENGTH), "`"))) {
+        fence = substr(rest, RSTART, RLENGTH); gsub(/ /, "", fence)
+        indent = length(prefix)
         if (shown()) print
         next
       }
@@ -876,7 +941,7 @@ explain_filter() {
       # A marker written another way (no spaces, capitals, "hud only", beside text) would read as text
       # and show its block to both audiences: it stops like a marker without its partner. One inside a
       # code span (`<!-- hud-only -->`) or an indented code block is an example
-      probe = $0; gsub(/`[^`]*`/, "", probe); probe = tolower(probe)
+      probe = tolower(without_code_spans($0))
       if ($0 !~ /^(    |\t)/ && probe ~ /<!--[ \t]*\/?[ \t]*(hud|handout)[-_ ]?only[ \t]*-->/) {
         problem("error", NR, "an audience marker is written <!-- hud-only --> … <!-- /hud-only --> (or handout-only), each on a line of its own")
         failed = 1
@@ -923,11 +988,11 @@ explain_build() {
     | sed 's/</\\u003c/g' > "$data"
   rm -f "$shown"
   awk -v data="$data" '/<!--DW_DATA-->/ { while ((getline line < data) > 0) print line; next } { print }' \
-    "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part" && mv "$EXPLAIN/$file.part" "$EXPLAIN/$file"
+    "$SKILL_DIR/explainer/page.html" > "$EXPLAIN/$file.part.$$" && mv "$EXPLAIN/$file.part.$$" "$EXPLAIN/$file"
   rm -f "$data"
   jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$file" --argjson current "$current" \
     '.pages = ([.pages[] | select(.n != $n)] + [{n: $n, title: $title, step: $step, file: $file}] | sort_by(.n)) | .current = $current' \
-    "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part" && mv "$EXPLAIN/index.json.part" "$EXPLAIN/index.json"
+    "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part.$$" && mv "$EXPLAIN/index.json.part.$$" "$EXPLAIN/index.json"
 }
 
 # Show a long explanation as a page in the HUD's explainer panel. Pages are numbered and kept, so the
@@ -945,9 +1010,11 @@ cmd_explain() {
         # the app: the code stays in front and the page is one click away
         request="${1#--}"; shift ;;
       --clear)
+        # The record's pages are archived first: when that fails nothing is removed, and the next page
+        # goes on counting after the last one (no new page takes an old one's number and replaces it)
+        record_clear || die "explain --clear: nothing was removed: the panel and the record keep every page"
         rm -rf "$EXPLAIN/pages" "$EXPLAIN/rendered.json"
         mkdir -p "$EXPLAIN"; printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
-        record_clear
         echo "explainer: every page removed"; return 0 ;;
       --progress) explain_progress; return 0 ;;
       --rebuild)  explain_rebuild; return 0 ;;
@@ -967,9 +1034,13 @@ cmd_explain() {
   # changes: a marker without its partner, or written another way, leaves the page, its build and
   # the record as they were
   staged=$(mktemp); problems=$(mktemp)
-  cat "$src" > "$staged"
+  label="$src"; [ "$src" = /dev/stdin ] && label="(standard input)"
+  # A source that cannot be read (its permissions) is no empty page: nothing changes
+  if ! cat "$src" > "$staged"; then
+    rm -f "$staged" "$problems"
+    die "$label could not be read: nothing changed"
+  fi
   if ! explain_filter hud "$staged" "$problems" > /dev/null; then
-    label="$src"; [ "$src" = /dev/stdin ] && label="(standard input)"
     explain_problems "$label" "$problems" >&2
     rm -f "$staged" "$problems"
     die "an audience marker without its partner or written another way (HANDOUT_MARKER): nothing changed; fix the markers and run the command again"
@@ -991,7 +1062,7 @@ cmd_explain() {
   fi
   file=$(printf 'pages/%03d.html' "$n")
   md="$EXPLAIN/$(printf 'pages/%03d.md' "$n")"
-  mv "$staged" "$md"
+  if ! mv "$staged" "$md"; then rm -f "$staged"; die "the page could not be written to $md: page $n stays as it was"; fi
   # Title: the one given, else the first level-1 heading the HUD shows, else the page number
   [ -n "$title" ] || title=$(filtered_h1 hud "$md")
   [ -n "$title" ] || title="解説 $n"
@@ -1021,7 +1092,7 @@ cmd_explain() {
   if [ "$errors" != 0 ]; then
     hidden_note "the page"
     echo "explainer: page $n shown with $errors problem(s): fix the source, then dw explain <file> --replace"
-    jq -r '.errors[] | "  - " + .' "$EXPLAIN/rendered.json"; return 1
+    jq -r '.errors[] | "  - " + . | gsub("[[:cntrl:]]"; "")' "$EXPLAIN/rendered.json"; return 1
   fi
   hidden_note "the page"
   echo "explainer: page $n shown (${title}; diagrams: $diagrams)"
@@ -1244,9 +1315,15 @@ explain_restore() {
       explain_problems "page $n" "$problems" >&2
       # The page keeps its number and its place in the index with a stand-in saying what is wrong:
       # a new page never takes the number (and replaces the recorded Markdown), and --page N repairs it
-      printf '# %s\n\nこのページは、目印（`<!-- hud-only -->` など）の対応が崩れているため表示できません。直したページを `dw explain <file> --page %s` で表示し直します。\n' \
-        "$title" "$n" > "$stand_in"
-      explain_build "$n" "$title" "$step" "$stand_in" "$n"
+      # Headed by its number: the title (a given one may hold a marker) stays the page's title only
+      printf '# 解説 %s\n\nこのページは、目印（`<!-- hud-only -->` など）の対応が崩れているため表示できません。直したページを `dw explain <file> --page %s` で表示し直します。\n' \
+        "$n" "$n" > "$stand_in"
+      if ! explain_build "$n" "$title" "$step" "$stand_in" "$n"; then
+        # Not even the stand-in could be built: the number is listed all the same
+        jq --argjson n "$n" --arg title "$title" --arg step "$step" --arg file "$(printf 'pages/%03d.html' "$n")" \
+          '.pages = ([.pages[] | select(.n != $n)] + [{n: $n, title: $title, step: $step, file: $file}] | sort_by(.n)) | .current = $n' \
+          "$EXPLAIN/index.json" > "$EXPLAIN/index.json.part.$$" && mv "$EXPLAIN/index.json.part.$$" "$EXPLAIN/index.json"
+      fi
       echo "dw: resume: page $n shows a stand-in until its markers are fixed (dw explain <file> --page $n)" >&2
       continue
     fi
@@ -1350,12 +1427,14 @@ handout_default_record() {
   printf '%s' "$dir"
 }
 
-# What the pages of the record in DIR are right now: name, size and time of every page and of sections.tsv.
-# Read before and after the pages are read: any difference means they changed in between (eng D9)
+# What the pages of the record in DIR are right now: name, file number (inode), size and modification
+# time to the nanosecond of every page and of sections.tsv. Read before and after the pages are read:
+# any difference means they changed in between (eng D9). A page saved again keeps neither: dw writes a
+# new file and renames it over the page, and an editor's save moves the time
 handout_listing() {
   local n page
-  while IFS=$'\t' read -r n page; do stat -f '%N %z %m' "$page"; done < <(record_pages "$1")
-  stat -f '%N %z %m' "$1/pages/sections.tsv" 2>/dev/null
+  while IFS=$'\t' read -r n page; do stat -f '%N %i %z %Fm' "$page"; done < <(record_pages "$1")
+  stat -f '%N %i %z %Fm' "$1/pages/sections.tsv" 2>/dev/null
 }
 
 # Build the renderer when it is missing or its source is newer (like the HUD)
@@ -1419,11 +1498,6 @@ cmd_handout() (
   if [ -z "$(record_pages "$dir")" ]; then
     handout_fail HANDOUT_EMPTY "$name has no pages: pages shown with dw explain while it records end up here"; exit 1
   fi
-  # Two files of one number would both become page N: which one the colleague reads is not guessed
-  duplicate=$(record_pages "$dir" | cut -f1 | uniq -d | head -1)
-  if [ -n "$duplicate" ]; then
-    handout_fail HANDOUT_RECORD "$name has two files for page $duplicate in pages/: keep one, then export again"; exit 1
-  fi
   # Every library present and as digested, copied into the scratch folder (a script reached through a
   # symlink out of the renderer's read-access folder does not load)
   explain_vendor 2>/dev/null
@@ -1445,6 +1519,13 @@ LIST
   # Read every page for the Handout audience; pages that changed meanwhile are read once more
   for attempt in 1 2; do
     listing=$(handout_listing "$dir")
+    # The pages this reading stages, listed once. Two files of one number would both become page N:
+    # which one the colleague reads is not guessed, on this reading's own list
+    record_pages "$dir" > "$tmp/manifest.tsv"
+    duplicate=$(cut -f1 "$tmp/manifest.tsv" | uniq -d | head -1)
+    if [ -n "$duplicate" ]; then
+      handout_fail HANDOUT_RECORD "$name has two files for page $duplicate in pages/: keep one, then export again"; exit 1
+    fi
     : > "$tmp/pages.jsonl"; : > "$tmp/problems.tsv"
     listed=0
     while IFS=$'\t' read -r n page; do
@@ -1465,12 +1546,13 @@ LIST
       fi
       # Named by number: the file name is made from the page's title, which is not printed unchecked
       awk -F '\t' -v where="page $n" '{ printf "%s\t%s:%s: %s\n", $1, where, $2, $3 }' "$problems" >> "$tmp/problems.tsv"
-      if ! jq -cn --argjson n "$n" --arg title "$title" --arg section "$section" --arg source "pages/$(basename "$page")" \
+      # No file name: messages name a page by its number (the name is made from the title)
+      if ! jq -cn --argjson n "$n" --arg title "$title" --arg section "$section" \
         --rawfile markdown "$copy" --arg built "$(printf 'pages/%03d.html' "$n")" \
-        '{n: $n, title: $title, section: $section, source: $source, markdown: $markdown, built: $built}' >> "$tmp/pages.jsonl"; then
+        '{n: $n, title: $title, section: $section, markdown: $markdown, built: $built}' >> "$tmp/pages.jsonl"; then
         handout_fail HANDOUT_RECORD "page $n of $name could not be staged for the renderer: export again"; exit 1
       fi
-    done < <(record_pages "$dir")
+    done < "$tmp/manifest.tsv"
     # Every page listed is in input.json, or the export does not go on
     if [ "$(grep -c . "$tmp/pages.jsonl")" != "$listed" ]; then
       handout_fail HANDOUT_RECORD "$listed page(s) were listed but $(grep -c . "$tmp/pages.jsonl") staged: export again"; exit 1
@@ -1503,13 +1585,14 @@ LIST
     handout_fail HANDOUT_RENDERER "the renderer ended without a result (exit $status): see $DW_HOME/handout.log"; exit 1
   fi
   if [ "$(printf '%s' "$result" | jq -r '.ok')" != true ]; then
-    printf '%s' "$result" | jq -r '.diagnostics[] | "handout: \(.code) \(.message)"'
+    # A message quotes the pages (an image's path, a label): no control character reaches the terminal
+    printf '%s' "$result" | jq -r '.diagnostics[] | "handout: \(.code) \(.message)" | gsub("[[:cntrl:]]"; "")'
     if printf '%s' "$result" | jq -e 'any(.diagnostics[]; .code == "HANDOUT_RENDERER")' >/dev/null; then
       echo "  log: $(printf '%s' "$result" | jq -r '.log')"
     fi
     exit 1
   fi
-  printf '%s' "$result" | jq -r '.warnings[] | (if .page then "page \(.page): " else "" end) + .message' >> "$tmp/warnings.txt"
+  printf '%s' "$result" | jq -r '.warnings[] | (if .page then "page \(.page): " else "" end) + .message | gsub("[[:cntrl:]]"; "")' >> "$tmp/warnings.txt"
   # Publication is the success: a journal that cannot be written is a warning, never a failure
   if ! { printf -- '- %s 📤 Handout → %s\n' "$(date +%H:%M:%S)" "$out" >> "$dir/journal.md"; } 2>/dev/null; then
     echo "$dir/journal.md could not be written: the export is not in the journal" >> "$tmp/warnings.txt"

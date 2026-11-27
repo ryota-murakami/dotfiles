@@ -125,3 +125,25 @@ test('a Record whose page numbers have gaps is still addressed page 1, 2, 3 in t
     ['page-3', '7'],
   ])
 })
+
+test('a style sheet that would end the style element early is refused, so no CSS text turns into page markup', () => {
+  // Arrange
+  const broken = { ...parts, highlightCss: '.hljs { color: red } </style><p>外</p>' }
+
+  // Act
+  const assemble = () => assembleHandout(broken)
+
+  // Assert
+  expect(assemble).toThrow('the highlight.js theme contains "</style"')
+})
+
+test('a controller holding "<!--" is refused: next to "<script" it changes where the browser ends the element', () => {
+  // Arrange
+  const broken = { ...parts, controller: { source: 'const a = "<!--"', sha256: 'eA==' } }
+
+  // Act
+  const assemble = () => assembleHandout(broken)
+
+  // Assert
+  expect(assemble).toThrow('the controller source contains "<!--"')
+})

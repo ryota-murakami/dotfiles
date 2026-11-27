@@ -191,6 +191,21 @@
 
   if (window.marked && (!handout || window.DOMPurify)) {
     const html = marked.parse(data.markdown, { gfm: true });
+    // A marker the page meets as HTML was never read by dw's filter (a fence that opens inside a list
+    // item, or a list that ends inside one, hides the markers after it): its block would reach the
+    // wrong audience, so the Handout's builder stops the export (HANDOUT_MARKER). One shown as code
+    // is text here, never a comment
+    if (handout) {
+      const parsed = document.createElement('template');
+      parsed.innerHTML = html;
+      const comments = document.createTreeWalker(parsed.content, NodeFilter.SHOW_COMMENT);
+      while (comments.nextNode()) {
+        if (/^\s*\/?\s*(hud|handout)[-_ ]?only\s*$/i.test(comments.currentNode.data)) {
+          errors.push('marker: an audience marker reached the page as HTML');
+          break;
+        }
+      }
+    }
     content.innerHTML = handout ? DOMPurify.sanitize(html, handoutPurify) : html;
   } else {
     const source = document.createElement('pre');

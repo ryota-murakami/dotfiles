@@ -20,10 +20,12 @@
 //     ├─ read path ─▶ a regular file up to imageLimitBytes, read off the main queue ──▶ reply file | unreadable
 //     └─ verify html ─▶ verify view (plain, like the colleague's browser): open, run the probe ──▶ reply verified
 //   limits: pageMs per page, runMs per run; a web content process that ends, a failed load, a
-//   builder exception or dw's process gone (input.json parentPid) ends the run at once ──▶ HANDOUT_RENDERER
-//   publish: no file there ─▶ exclusive create; a file there ─▶ RENAME_SWAP, check that the swapped-out
-//            file starts as a Handout, swap back if not ──▶ HANDOUT_OUT_EXISTS. The new file keeps the
-//            replaced one's permissions and ACL
+//   builder exception or dw's process gone (input.json parentPid, looked at every parentMs and once
+//   more right before publishing) ends the run at once ──▶ HANDOUT_RENDERER
+//   publish: a file there that is not a Handout ─▶ HANDOUT_OUT_EXISTS, nothing written; no file there
+//            ─▶ exclusive create; a Handout there ─▶ RENAME_SWAP, check that the swapped-out file
+//            starts as a Handout, swap back if not ──▶ HANDOUT_OUT_EXISTS. The new file keeps the
+//            replaced one's permissions and ACL, or is not published
 import AppKit
 import Darwin
 import WebKit
@@ -35,8 +37,8 @@ let handoutHead = "<!doctype html>\n<html lang=\"ja\">\n<head>\n<meta charset=\"
 let protocolVersion = 1
 /// The largest file the builder may read (an image to embed), in bytes: more would fill memory as base64.
 let imageLimitBytes = 20 * 1024 * 1024
-/// How often the renderer looks whether dw's process is still there.
-let parentCheckMs = 1000
+/// How often the renderer looks whether dw's process is still there, unless input.json's limits say (parentMs).
+let defaultParentCheckMs = 1000
 
 /// Print the result line for dw and exit.
 func finish(_ result: [String: Any], code: Int32) -> Never {
@@ -85,42 +87,69 @@ func isHandout(atPath path: String) -> Bool {
 
 /// A file the builder asked for, as the reply it gets: its bytes, or why not. Called off the main queue
 /// by the read request. Only a regular file of at most `imageLimitBytes` is read: a pipe would wait
-/// forever and a huge file would fill memory.
+/// forever and a huge file would fill memory. The checks look at the file as opened, not at its path,
+/// and the read stops one byte past the limit: a file swapped or grown after a look cannot slip past.
 func readForBuilder(atPath path: String) -> [String: Any] {
-    var info = stat()
-    guard stat(path, &info) == 0 else {
+    // Opened without waiting: a pipe opened for reading would otherwise wait for a writer forever
+    let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+    guard descriptor >= 0 else {
         let reason = errno == ENOENT ? "no such file" : errno == EACCES ? "permission denied" : errnoText()
         return ["type": "unreadable", "message": reason]
     }
+    let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+    var info = stat()
+    guard fstat(descriptor, &info) == 0 else { return ["type": "unreadable", "message": errnoText()] }
     guard (info.st_mode & S_IFMT) == S_IFREG else { return ["type": "unreadable", "message": "not a regular file"] }
-    guard info.st_size <= off_t(imageLimitBytes) else {
-        return ["type": "unreadable", "message": "larger than \(imageLimitBytes / 1024 / 1024) MB, the most a Handout embeds"]
-    }
+    let tooLarge: [String: Any] = ["type": "unreadable", "message": "larger than \(imageLimitBytes / 1024 / 1024) MB, the most a Handout embeds"]
+    guard info.st_size <= off_t(imageLimitBytes) else { return tooLarge }
     do {
-        let data = try Data(contentsOf: URL(fileURLWithPath: path))
+        let data = try handle.read(upToCount: imageLimitBytes + 1) ?? Data()
+        // Grown since it was opened: refused, never read whole
+        guard data.count <= imageLimitBytes else { return tooLarge }
         return ["type": "file", "base64": data.base64EncodedString()]
     } catch {
-        let code = (error as NSError).code
-        let reason = code == NSFileReadNoSuchFileError ? "no such file"
-            : code == NSFileReadNoPermissionError ? "permission denied" : describe(error)
-        return ["type": "unreadable", "message": reason]
+        return ["type": "unreadable", "message": describe(error)]
     }
 }
 
 /// The text of the current errno.
 func errnoText() -> String { String(cString: strerror(errno)) }
 
+/// Give `temporary` the permissions and ACL of the regular file at `target`, else the usual ones of a new
+/// file (the umask). Returns nil when done, else why not: a Handout that cannot keep who may read it is
+/// not published.
+func carryPermissions(from target: String, to temporary: String) -> String? {
+    var existing = stat()
+    if lstat(target, &existing) == 0, (existing.st_mode & S_IFMT) == S_IFREG {
+        guard chmod(temporary, existing.st_mode & 0o7777) == 0 else { return "its permissions could not be set (\(errnoText()))" }
+        guard copyfile(target, temporary, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 else {
+            return "the ACL of \(target) could not be carried over (\(errnoText()))"
+        }
+        return nil
+    }
+    let mask = umask(0)
+    umask(mask)
+    guard chmod(temporary, 0o666 & ~mask) == 0 else { return "its permissions could not be set (\(errnoText()))" }
+    return nil
+}
+
 /// Publish the Handout at `target` without ever destroying a file that is not a Handout (eng D7).
 ///
-/// A missing target is created exclusively (RENAME_EXCL). An existing one is swapped with the new
-/// file in one step (RENAME_SWAP); the file swapped out is then checked and, when it does not start
-/// as a Handout, swapped back, so no moment exists in which another program's file is gone. A
-/// replaced Handout's permissions and ACL carry over: who could not read it cannot read the new one.
+/// A file there that is not a Handout is left alone before anything is written. A missing target is
+/// created exclusively (RENAME_EXCL). An existing Handout is swapped with the new file in one step
+/// (RENAME_SWAP); the file swapped out is then checked and, when it does not start as a Handout (one
+/// that appeared meanwhile), swapped back, so no moment exists in which another program's file is
+/// gone. The new file takes the replaced one's permissions and ACL from the replaced file itself,
+/// whatever was saved there meanwhile: who could not read it cannot read the new one. A file left at
+/// the temporary path after a swap back is removed only when it holds exactly the bytes written: an
+/// editor that saved into it in place keeps its save.
 func publish(_ data: Data, to target: String) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
     }
+    var present = stat()
+    if lstat(target, &present) == 0, !isHandout(atPath: target) { return .notAHandout }
     let folder = (target as NSString).deletingLastPathComponent
     let temporary = (folder as NSString).appendingPathComponent(".handout-\(getpid())-\(UUID().uuidString).tmp")
     // Created readable by its owner alone; its final permissions are set once it is complete
@@ -134,15 +163,9 @@ func publish(_ data: Data, to target: String) -> Publication {
         unlink(temporary)
         return .failed("could not write in \(folder): \(describe(error))")
     }
-    // The permissions and ACL of the Handout it replaces, else the usual ones for a new file (umask)
-    var existing = stat()
-    if lstat(target, &existing) == 0, (existing.st_mode & S_IFMT) == S_IFREG {
-        chmod(temporary, existing.st_mode & 0o7777)
-        copyfile(target, temporary, nil, copyfile_flags_t(COPYFILE_ACL))
-    } else {
-        let mask = umask(0)
-        umask(mask)
-        chmod(temporary, 0o666 & ~mask)
+    if let reason = carryPermissions(from: target, to: temporary) {
+        unlink(temporary)
+        return .failed("could not prepare the Handout in \(folder): \(reason)")
     }
     // The new file's identity: cleanup removes this file and never one another program saved meanwhile
     var written = stat()
@@ -158,23 +181,52 @@ func publish(_ data: Data, to target: String) -> Publication {
         unlink(temporary)
         return .failed("could not create \(target): \(reason)")
     }
-    // Something is there: swap, then look at what was swapped out
+    // Something appeared since the first look: its permissions now, before it is swapped out
+    if let reason = carryPermissions(from: target, to: temporary) {
+        unlink(temporary)
+        return .failed("could not prepare the Handout in \(folder): \(reason)")
+    }
+    // The new file stays open across the swap, so its permissions can follow the file it replaced
+    let ours = open(temporary, O_RDONLY | O_CLOEXEC)
+    guard ours >= 0 else {
+        let reason = errnoText()
+        unlink(temporary)
+        return .failed("could not prepare the Handout in \(folder): \(reason)")
+    }
+    defer { close(ours) }
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         let reason = errnoText()
         unlink(temporary)
         return .failed("could not replace \(target): \(reason)")
     }
     if isHandout(atPath: temporary) {
-        unlink(temporary)
-        return .published
+        // The replaced Handout's own permissions and ACL, read from it, onto the published file
+        let theirs = open(temporary, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
+        var replaced = stat()
+        let carried = theirs >= 0 && fstat(theirs, &replaced) == 0 && fchmod(ours, replaced.st_mode & 0o7777) == 0
+            && fcopyfile(theirs, ours, nil, copyfile_flags_t(COPYFILE_ACL)) == 0
+        if theirs >= 0 { close(theirs) }
+        if carried {
+            unlink(temporary)
+            return .published
+        }
+        // Who may read it could not be kept: the earlier Handout goes back, and the new file goes
+        guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
+            return .failed("the permissions of the earlier Handout could not be kept, and it could not be put back at \(target): it is at \(temporary)")
+        }
+        var back = stat()
+        if lstat(temporary, &back) == 0, back.st_dev == written.st_dev, back.st_ino == written.st_ino { unlink(temporary) }
+        return .failed("the permissions of the earlier Handout at \(target) could not be carried over: it was left as it was")
     }
     // Not a Handout: put it back where it was; the temporary path then holds the new file again
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(temporary)")
     }
-    // Unless another program saved over the target in between: its save came back with the swap, and stays
+    // Unless another program saved over the target in between, by a new file or into this one in
+    // place: either save stays where it is, and only the untouched new file goes
     var displaced = stat()
-    guard lstat(temporary, &displaced) == 0, displaced.st_dev == written.st_dev, displaced.st_ino == written.st_ino else {
+    guard lstat(temporary, &displaced) == 0, displaced.st_dev == written.st_dev, displaced.st_ino == written.st_ino,
+          displaced.st_size == off_t(data.count), FileManager.default.contents(atPath: temporary) == data else {
         return .failed("\(target) was saved again while the earlier file was put back: it holds the earlier file, and the newer save is kept at \(temporary)")
     }
     unlink(temporary)
@@ -204,6 +256,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let logPath: String
     let pageLimitMs: Int
     let runLimitMs: Int
+    let parentCheckMs: Int
     /// Page number → built page, relative to explainDir.
     let builtPages: [Int: String]
     let window: NSWindow
@@ -216,7 +269,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     var logHandle: FileHandle?
 
     init(input: [String: Any], explainDir: URL, distDir: URL, out: String, logPath: String,
-         pageLimitMs: Int, runLimitMs: Int, builtPages: [Int: String]) {
+         pageLimitMs: Int, runLimitMs: Int, parentCheckMs: Int, builtPages: [Int: String]) {
         self.input = input
         self.explainDir = explainDir
         self.distDir = distDir
@@ -224,6 +277,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         self.logPath = logPath
         self.pageLimitMs = pageLimitMs
         self.runLimitMs = runLimitMs
+        self.parentCheckMs = parentCheckMs
         self.builtPages = builtPages
         FileManager.default.createFile(atPath: logPath, contents: nil)
         logHandle = FileHandle(forWritingAtPath: logPath)
@@ -287,12 +341,19 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     /// terminal closed, nobody waits for this export, and it must not write a file minutes later.
     /// Runs on the main queue like publishing, so it never stops a publication halfway.
     func watchParent() {
+        guard input["parentPid"] is Int else { return }
+        // Looked at once now (dw may be gone already), then every parentCheckMs; publish looks once more
+        stopIfParentGone()
+        _ = schedule(after: parentCheckMs) { self.watchParent() }
+    }
+
+    /// End the run without publishing when dw's process (input.json parentPid) is gone. Called by
+    /// watchParent, and by handleOutcome right before publishing: dw may end after the last look.
+    func stopIfParentGone() {
         guard let parent = input["parentPid"] as? Int, parent > 1 else { return }
-        // Looked at once now (dw may be gone already), then every parentCheckMs
         if kill(pid_t(parent), 0) != 0, errno == ESRCH {
             failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
         }
-        _ = schedule(after: parentCheckMs) { self.watchParent() }
     }
 
     func runBuilder() {
@@ -322,6 +383,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
             finish(["v": protocolVersion, "ok": false, "diagnostics": outcome["diagnostics"] ?? [], "log": logPath], code: 1)
         }
         guard let html = outcome["html"] as? String else { failRenderer("the builder returned no Handout") }
+        // dw may have ended since the last look: nobody waits for this file any more
+        stopIfParentGone()
         switch publish(Data(html.utf8), to: out) {
         case .published:
             log("published: \(out)")
@@ -577,6 +640,7 @@ let app = NSApplication.shared
 app.setActivationPolicy(.accessory)
 let renderer = Renderer(input: input, explainDir: URL(fileURLWithPath: explainPath, isDirectory: true),
                         distDir: URL(fileURLWithPath: arguments[2], isDirectory: true), out: out, logPath: logPath,
-                        pageLimitMs: pageLimitMs, runLimitMs: runLimitMs, builtPages: builtPages)
+                        pageLimitMs: pageLimitMs, runLimitMs: runLimitMs,
+                        parentCheckMs: (limits["parentMs"] as? Int) ?? defaultParentCheckMs, builtPages: builtPages)
 renderer.start()
 withExtendedLifetime(renderer) { app.run() }

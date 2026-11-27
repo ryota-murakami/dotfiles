@@ -127,3 +127,21 @@ test("an element of a page cannot take an id the Handout's own page needs; other
   // Assert
   expect(sanitized).toBe('<div>偽の目次</div><p>偽のページ</p><span>9/9</span><h2 id="setup">準備</h2>')
 })
+
+test('a link drawn inside a diagram opens in a new tab too, so following it keeps the reader’s page', () => {
+  // Arrange
+  const html =
+    '<svg viewBox="0 0 10 10"><a href="https://example.com/a"><text>A</text></a><a xlink:href="https://example.com/b"><text>B</text></a></svg>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  const holder = document.createElement('div')
+  holder.innerHTML = sanitized
+  const links = Array.from(holder.querySelectorAll('a'))
+  expect(links.map((link) => [link.getAttribute('target'), link.getAttribute('rel')])).toEqual([
+    ['_blank', 'noopener noreferrer'],
+    ['_blank', 'noopener noreferrer'],
+  ])
+})
