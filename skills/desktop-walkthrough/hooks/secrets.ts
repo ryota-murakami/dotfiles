@@ -175,5 +175,5 @@ export function findSecrets(text: string): SecretFinding[] {
       findings.push({ pattern: name, index: start, line: text.slice(0, start).split('\n').length })
     }
   }
-  return findings.sort((first, second) => first.index - second.index)
+  return findings.toSorted((first, second) => first.index - second.index)
 }

@@ -12,10 +12,12 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "dompurify": "^3.5.0",
     "zod": "^4.0.0"
   },
   "devDependencies": {
     "happy-dom": "^21.0.4",
+    "jsdom": "^31.0.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.8",
     "vitest": "^5.1.1"
