@@ -441,6 +441,17 @@ else
   fail "ACL on a replaced Handout (exit $first/$code): $replaced / $out"
 fi
 
+new_record srcset
+printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/srcset/pages/shot@2x.png"
+# Only the 2x picture exists: the export reads the largest candidate, never the first
+printf '\n<img srcset="shot.png 1x, shot@2x.png 2x" alt="画面">\n' >> "$RECORDS/srcset/pages/01-書き出しの流れ.md"
+export_record srcset
+if [ "$code" = 0 ] && grep -q '1 picture(s) embedded' <<< "$out" && ! grep -q 'srcset' "$RECORDS/srcset/handout.html"; then
+  pass "an image written with srcset alone exports its largest candidate, embedded and checked"
+else
+  fail "srcset alone: $out"
+fi
+
 new_record script
 printf '%s' "$PNG_BASE64" | base64 -D > "$RECORDS/script/pages/shot.png"
 # shot.png is not beside the page the renderer loads: without DOMPurify its onerror would run during the export

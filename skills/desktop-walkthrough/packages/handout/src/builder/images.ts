@@ -37,6 +37,8 @@ interface CheckedImage {
   base64: string
   /** Its size in bytes, before base64. */
   size: number
+  /** The raster pictures it is or carries (a screenshot inside an SVG counts), to look at before sharing. */
+  rasters: number
 }
 
 /** What reading and checking one source came to: the picture, or why it is not embedded. */
@@ -239,7 +241,7 @@ async function embedOne(
     if (!inspected.ok) return inspected.failure
     const overspent = spend(ledger, data.bytes.length)
     if (overspent) return overspent
-    if (inspected.mime !== 'image/svg+xml') ledger.rasterPictures += 1
+    ledger.rasterPictures += inspected.rasters
     image.setAttribute(attribute, `data:${inspected.mime};base64,${encodeBase64(data.bytes)}`)
     return null
   }
@@ -257,7 +259,7 @@ async function embedOne(
     ledger.checked.delete(source.path)
     return overspent
   }
-  if (checked.image.mime !== 'image/svg+xml') ledger.rasterPictures += 1
+  ledger.rasterPictures += checked.image.rasters
   // The type the bytes are, not the one the name claims: a JPEG saved as .png still shows
   image.setAttribute(attribute, `data:${checked.image.mime};base64,${checked.image.base64}`)
   return null
@@ -285,7 +287,10 @@ async function readAndCheck(host: HostPort, path: string): Promise<CheckOutcome>
   if (bytes.length > IMAGE_LIMIT_BYTES) return { ok: false, failure: tooLarge() }
   const inspected = await inspectImage(bytes)
   if (!inspected.ok) return inspected
-  return { ok: true, image: { mime: inspected.mime, base64: read.base64, size: bytes.length } }
+  return {
+    ok: true,
+    image: { mime: inspected.mime, base64: read.base64, size: bytes.length, rasters: inspected.rasters },
+  }
 }
 
 /**
@@ -356,7 +361,8 @@ function tooLarge(): EmbedFailure {
  * @param bytes - A file's contents, or the data written into a page.
  * @param depth - How deep inside other pictures these bytes sit (0 for the picture a page names).
  * @returns
- * - `{ ok: true, mime }` for png, jpeg, gif, webp, avif and svg that carry no secret shape
+ * - `{ ok: true, mime, rasters }` for png, jpeg, gif, webp, avif and svg that carry no secret shape;
+ *   `rasters` counts the raster pictures among them (an SVG's nested screenshots included)
  * - `{ ok: false, failure }` for other bytes and a malformed SVG (HANDOUT_IMAGE), and for a picture
  *   whose text holds a secret shape or cannot be read to check (HANDOUT_SECRET, HANDOUT_IMAGE)
  *
@@ -366,7 +372,7 @@ function tooLarge(): EmbedFailure {
 async function inspectImage(
   bytes: Uint8Array,
   depth = 0,
-): Promise<{ ok: true; mime: ImageMime } | { ok: false; failure: EmbedFailure }> {
+): Promise<{ ok: true; mime: ImageMime; rasters: number } | { ok: false; failure: EmbedFailure }> {
   const mime = sniffImage(bytes)
   if (mime === null) {
     return {
@@ -406,6 +412,8 @@ async function inspectImage(
       }
     }
     // A picture the drawing carries (a screenshot as data) is checked like one of its own
+    // The raster pictures the drawing carries count among those to look at before sharing
+    let rasters = 0
     for (const nested of nestedPictures(parsed)) {
       if (depth >= NESTED_PICTURE_DEPTH) {
         return { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'nests pictures too deeply to check' } }
@@ -423,8 +431,9 @@ async function inspectImage(
           failure: { ...inspected.failure, reason: `carries a picture that ${inspected.failure.reason}` },
         }
       }
+      rasters += inspected.rasters
     }
-    return { ok: true, mime }
+    return { ok: true, mime, rasters }
   }
   // A raster picture's metadata (PNG text, EXIF, XMP, comments) is stored as ASCII or UTF-16 text,
   // XMP with XML's escapes (`&amp;signature=`): read as stored and decoded
@@ -456,7 +465,7 @@ async function inspectImage(
       if (compressedSecret) return secretIn(compressedSecret, METADATA_ADVICE, ' in its metadata')
     }
   }
-  return { ok: true, mime }
+  return { ok: true, mime, rasters: 1 }
 }
 
 /**

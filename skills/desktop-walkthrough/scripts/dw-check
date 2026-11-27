@@ -677,8 +677,8 @@ if [ "$code" = 1 ] && [ -z "$left" ]; then
   pass "a stopped export leaves no scratch folder (with copies of the pages) behind"
 else
   fail "scratch folders left (exit $code): $(printf '%s' "$left" | tr '\n' ' ')"
-  # This run's leftovers go, one path per line: they hold its synthetic pages
-  while IFS= read -r copy; do [ -n "$copy" ] && rm -rf -- "$(dirname "$(dirname "$copy")")"; done <<< "$left"
+  # Only the copies of this run's synthetic page go (one path per line), never a folder around them
+  while IFS= read -r copy; do [ -n "$copy" ] && rm -f -- "$copy"; done <<< "$left"
 fi
 
 dir="$RECORDS/race"

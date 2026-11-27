@@ -308,6 +308,12 @@ func sameContentStamp(_ first: stat, _ second: stat) -> Bool {
         && first.st_mtimespec.tv_nsec == second.st_mtimespec.tv_nsec
 }
 
+/// Whether the path names the file `written` describes (the same device and inode), not following a symlink.
+func isAtPath(_ path: String, _ written: stat) -> Bool {
+    var now = stat()
+    return lstat(path, &now) == 0 && sameFile(now, written)
+}
+
 /// Whether the file at `path` is still the one written (same device and inode) holding exactly `data`.
 /// Only then may cleanup remove it: anything else is a save another program made into it, and stays.
 func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
@@ -437,7 +443,9 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
         // stays readable by its owner alone until all three are right. A group this user cannot give
         // would move the earlier group's members to "others", who may read what that group could
         // not: the earlier Handout then goes back, as when its ACL cannot be carried
-        var carried = fchown(descriptor, uid_t.max, replaced.st_gid) == 0
+        // A Handout another account owns would change owner: what its group and mode allow then
+        // differs, so it is not replaced (as when its permissions cannot be carried)
+        var carried = replaced.st_uid == geteuid() && fchown(descriptor, uid_t.max, replaced.st_gid) == 0
         // A volume without ACLs has none to carry
         if carried {
             carried = fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 || errno == ENOTSUP
@@ -475,15 +483,26 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
             unlink(temporary)
             return .published(warnings: [])
         }
-        // Who may read it could not be kept: the earlier Handout goes back, the new file goes
+        // Who may read it could not be kept: the earlier Handout goes back, the new file goes. Only
+        // over this run's own file: one another program put at the target meanwhile stays
+        guard isAtPath(target, written) else {
+            return .failed("the permissions of the earlier Handout could not be carried over, and another program replaced \(target) meanwhile: that file stays, and the earlier Handout is at \(temporary)")
+        }
         guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
             return .failed("the permissions of the earlier Handout could not be kept, and it could not be put back at \(target): it is at \(temporary)")
         }
-        if isUntouched(temporary, written: written, data: data) { unlink(temporary) }
-        return .failed("the permissions of the earlier Handout at \(target) could not be carried over: it was left as it was")
+        guard isUntouched(temporary, written: written, data: data) else {
+            return .failed("the permissions of the earlier Handout could not be carried over: it is back at \(target), and a newer save made there meanwhile is kept at \(temporary)")
+        }
+        unlink(temporary)
+        return .failed("the permissions of the earlier Handout at \(target) could not be carried over (it may belong to another account): it was left as it was")
     }
     if theirs >= 0 { close(theirs) }
-    // Not a Handout: put it back where it was; the temporary path then holds the new file again
+    // Not a Handout: put it back where it was; the temporary path then holds the new file again. Only
+    // over this run's own file: one another program put at the target meanwhile stays
+    guard isAtPath(target, written) else {
+        return .failed("another program replaced \(target) while the earlier file was being put back: that file stays, and the earlier file is at \(temporary)")
+    }
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(temporary)")
     }
@@ -665,7 +684,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
 
     func log(_ line: String) {
         let stamp = ISO8601DateFormatter().string(from: Date())
-        logHandle?.write(Data("\(stamp) \(line)\n".utf8))
+        // A log that cannot be written (a full volume) never keeps the result from dw
+        try? logHandle?.write(contentsOf: Data("\(stamp) \(line)\n".utf8))
     }
 
     func schedule(after milliseconds: Int, _ action: @escaping () -> Void) -> DispatchWorkItem {

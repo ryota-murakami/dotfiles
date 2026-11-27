@@ -966,3 +966,29 @@ test('a screenshot an SVG label carries as an HTML image (src or srcset) is chec
     'page 3:2: the image srcset.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
   ])
 })
+
+test('a screenshot an SVG carries counts among the pictures to look at before sharing; a plain drawing does not', async () => {
+  // Arrange
+  const png =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  const withShot = `<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,${png}" width="1" height="1"/></svg>`
+  const plain = '<svg xmlns="http://www.w3.org/2000/svg"><rect width="1" height="1"/></svg>'
+  const host = hostWithFiles({
+    '/r/pages/shot.svg': toBase64(withShot),
+    '/r/pages/plain.svg': toBase64(plain),
+  })
+  const ledger = createImageLedger()
+
+  // Act
+  const result = await embedImages(
+    page('![一](shot.svg)\n![二](plain.svg)\n'),
+    '<p><img src="shot.svg"><img src="plain.svg"></p>',
+    '/r',
+    host,
+    ledger,
+  )
+
+  // Assert
+  expect(result.diagnostics).toEqual([])
+  expect(ledger.rasterPictures).toBe(1)
+})

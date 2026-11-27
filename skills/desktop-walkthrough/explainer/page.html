@@ -177,6 +177,37 @@
   // Author HTML passes DOMPurify before it is inserted, so no page script runs during an export
   // (one could forge this page's report); reading marks and copy buttons stay out; diagram ids carry
   // the page number, unique in the one file a Handout is (`p3-d1`)
+  // The candidate of a srcset with the largest width (w) or density (x; 1x when none is given), as
+  // HTML reads one: a URL runs to the next space (commas it ends with are no part of it), its
+  // descriptor to the next comma
+  function largestCandidate(srcset) {
+    const candidates = [];
+    let position = 0;
+    while (position < srcset.length) {
+      while (position < srcset.length && /[\s,]/.test(srcset[position])) position++;
+      let end = position;
+      while (end < srcset.length && !/\s/.test(srcset[end])) end++;
+      let url = srcset.slice(position, end);
+      let descriptor = '';
+      if (/,$/.test(url)) {
+        url = url.replace(/,+$/, '');
+        position = end;
+      } else {
+        const comma = srcset.indexOf(',', end);
+        const stop = comma < 0 ? srcset.length : comma;
+        descriptor = srcset.slice(end, stop).trim();
+        position = stop + 1;
+      }
+      const size = /^(\d*\.?\d+)([wx])$/.exec(descriptor);
+      if (url) candidates.push({ url, kind: size ? size[2] : 'x', value: size ? parseFloat(size[1]) : 1 });
+    }
+    const kind = candidates.some((candidate) => candidate.kind === 'w') ? 'w' : 'x';
+    let best = null;
+    for (const candidate of candidates) {
+      if (candidate.kind === kind && (!best || candidate.value > best.value)) best = candidate;
+    }
+    return best ? best.url : '';
+  }
   const handout = data.mode === 'handout';
   if (handout) document.body.classList.add('handout');
   // DOMPurify's defaults, with three changes for the export: a file: image keeps its path, which the
@@ -195,6 +226,7 @@
     // item, or a list that ends inside one, hides the markers after it): its block would reach the
     // wrong audience, so the Handout's builder stops the export (HANDOUT_MARKER). One shown as code
     // is text here, never a comment
+    let prepared = html;
     if (handout) {
       const parsed = document.createElement('template');
       parsed.innerHTML = html;
@@ -205,8 +237,15 @@
           break;
         }
       }
+      // A Handout carries one picture per image, from src (srcset goes below): an image written with
+      // srcset alone takes its largest candidate as src, so the picture is embedded and checked
+      for (const image of parsed.content.querySelectorAll('img[srcset]:not([src])')) {
+        const candidate = largestCandidate(image.getAttribute('srcset'));
+        if (candidate) image.setAttribute('src', candidate);
+      }
+      prepared = parsed.innerHTML;
     }
-    content.innerHTML = handout ? DOMPurify.sanitize(html, handoutPurify) : html;
+    content.innerHTML = handout ? DOMPurify.sanitize(prepared, handoutPurify) : html;
   } else {
     const source = document.createElement('pre');
     source.textContent = data.markdown;
