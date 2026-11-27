@@ -45,6 +45,11 @@ let defaultParentCheckMs = 1000
 /// (a volume that stopped answering), and how often they look again meanwhile.
 let commitGraceMs = 60_000
 let commitRecheckMs = 1_000
+/// How long a watchdog that stopped the run waits for the worker writing the Handout to notice (it
+/// removes its partly written file, then reports) before it ends the run itself.
+let workerStopWaitMs = 5_000
+/// How much of the Handout is written at a time: between two writes the worker looks whether it should stop.
+let publishChunkBytes = 1 << 20
 
 /// Print the result line for dw and exit.
 func finish(_ result: [String: Any], code: Int32) -> Never {
@@ -71,16 +76,40 @@ func describe(_ error: Error) -> String {
     return text.replacingOccurrences(of: "\n", with: " ")
 }
 
-/// How publishing ended.
 /// Publication's agreement with the run's watchdogs (the run's timer, the look at dw's process), which
 /// keep running on the main queue while a worker publishes: a rename starts only while no watchdog has
 /// stopped the run, and once one has started, the watchdogs leave the outcome to the worker for up to
 /// `commitGraceMs`, so a completed worker never publishes after a stop and a stop never cuts a
 /// replace in half (unless the volume stops answering in the middle of it).
 final class PublicationGate {
+    /// What a watchdog's stop does: end the run now; wait for the worker writing the file (it notices,
+    /// removes TEMPORARY and reports); wait for a rename under way; or end the run in the middle of a
+    /// rename that outlasted its grace.
+    enum Stop {
+        case now
+        case afterWorker(temporary: String)
+        case afterCommit
+        case interrupted
+    }
+
     private let lock = NSLock()
     private var stopped = false
+    private var writing: String?
     private var committingSince: Date?
+
+    /// Said on the main queue before the worker starts: the file it writes first, beside the target.
+    func beginWrite(_ temporary: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        writing = temporary
+    }
+
+    /// Asked by the worker between two writes: whether a watchdog has stopped the run.
+    func isStopped() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return stopped
+    }
 
     /// Asked by the worker before each rename: whether it may rename now. False once a watchdog has
     /// stopped the run, or when `stillWanted` says dw is gone or the run's time is up.
@@ -95,21 +124,23 @@ final class PublicationGate {
         return true
     }
 
-    /// Asked by a watchdog before it stops the run: false while a rename is under way and within its
-    /// grace (the worker reports the outcome). `interrupted` says the stop cut into a rename.
-    func stop() -> (allowed: Bool, interrupted: Bool) {
+    /// Asked by a watchdog that would stop the run: see `Stop`. Once it returns anything but
+    /// `afterCommit`, no rename starts any more.
+    func stop() -> Stop {
         lock.lock()
         defer { lock.unlock() }
         if let since = committingSince {
-            guard Date().timeIntervalSince(since) * 1000 >= Double(commitGraceMs) else { return (false, false) }
+            guard Date().timeIntervalSince(since) * 1000 >= Double(commitGraceMs) else { return .afterCommit }
             stopped = true
-            return (true, true)
+            return .interrupted
         }
         stopped = true
-        return (true, false)
+        if let writing { return .afterWorker(temporary: writing) }
+        return .now
     }
 }
 
+/// How publishing ended.
 enum Publication {
     /// Published; the warnings say what was kept beside it (a save another program made meanwhile).
     case published(warnings: [String])
@@ -202,12 +233,14 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// meanwhile), swapped back. A replaced Handout's permissions, group and ACL are read from that file
 /// itself and set on the new one by descriptor: who could not read it cannot read the new one, and
 /// when they cannot be carried the earlier Handout goes back. The file is written without the ACL its
-/// folder hands down, so nobody reads it half written; a new Handout gets that ACL back. Before each
-/// rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
+/// folder hands down, so nobody reads it half written; a new Handout gets that ACL back. It is written
+/// at `temporary` (`temporaryPath`) a chunk at a time, and between two `mayContinue` says whether to
+/// go on; before each rename `mayPublish` says whether dw still waits and the run's time is not up. A file left at the
 /// temporary path is removed only when it holds exactly the bytes written, and a save made into the
 /// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
-func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
+func publish(_ data: Data, to target: String, temporary: String, mayContinue: () -> Bool,
+             mayPublish: () -> Bool) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -216,9 +249,6 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
     let hadTarget = lstat(target, &present) == 0
     if hadTarget, !isHandout(atPath: target) { return .notAHandout }
     let folder = (target as NSString).deletingLastPathComponent
-    let name = (target as NSString).lastPathComponent
-    // Named after the target: a file an interrupted run leaves here says what it belongs to
-    let temporary = (folder as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString).tmp")
     let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
     // The descriptor stays open across the renames: permissions are set on this file, wherever it is
@@ -236,11 +266,22 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
         unlink(temporary)
         return .failed("could not prepare the Handout in \(folder): its inherited ACL could not be removed (\(reason))")
     }
-    do {
-        try FileHandle(fileDescriptor: descriptor, closeOnDealloc: false).write(contentsOf: data)
-    } catch {
-        unlink(temporary)
-        return .failed("could not write in \(folder): \(describe(error))")
+    // A chunk at a time: between two, a stop (the run's time, dw gone) ends the write and removes it
+    let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+    var offset = 0
+    while offset < data.count {
+        guard mayContinue() else {
+            unlink(temporary)
+            return .cancelled
+        }
+        let end = min(offset + publishChunkBytes, data.count)
+        do {
+            try handle.write(contentsOf: data.subdata(in: offset..<end))
+        } catch {
+            unlink(temporary)
+            return .failed("could not write in \(folder): \(describe(error))")
+        }
+        offset = end
     }
     var written = stat()
     guard fstat(descriptor, &written) == 0 else {
@@ -335,6 +376,14 @@ func publish(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publica
     return .notAHandout
 }
 
+/// Where the Handout for TARGET is written first: beside it, named after it (a file an interrupted run
+/// leaves there says what it belongs to), hidden, and unique to this run.
+func temporaryPath(for target: String) -> String {
+    let folder = (target as NSString).deletingLastPathComponent
+    let name = (target as NSString).lastPathComponent
+    return (folder as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString).tmp")
+}
+
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
 /// created exclusively and written in place; an existing one is never replaced there.
 func publishWithoutRenames(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
@@ -398,6 +447,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     var logHandle: FileHandle?
     /// Shared with the worker that publishes (see `PublicationGate`).
     let publicationGate = PublicationGate()
+    /// Whether a stop already waits for the worker writing the Handout (`stopRun`).
+    var workerStopScheduled = false
     /// When the run started: publication looks at the run's time itself (`pastDeadline`).
     let startedAt = Date()
 
@@ -484,22 +535,40 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     /// rename under way is left to finish (watchParent looks again).
     func stopIfParentGone() {
         guard !parentIsAlive(), let parent = input["parentPid"] as? Int else { return }
-        let stop = publicationGate.stop()
-        guard stop.allowed else { return }
-        failRenderer(stop.interrupted ? stalledMessage()
-                                      : "dw (process \(parent)) ended before the export finished: nothing was published")
+        stopRun("dw (process \(parent)) ended before the export finished: nothing was published")
     }
 
     /// End the run once its time (runMs) is up. Called by the run's timer; a rename under way is left
     /// to finish, looked at again every commitRecheckMs.
     func enforceRunLimit() {
-        let stop = publicationGate.stop()
-        guard stop.allowed else {
+        guard stopRun("the export took longer than \(runLimitMs / 1000) s") else {
             _ = schedule(after: commitRecheckMs) { self.enforceRunLimit() }
             return
         }
-        failRenderer(stop.interrupted ? stalledMessage() : "the export took longer than \(runLimitMs / 1000) s",
-                     page: pendingRender?.page)
+    }
+
+    /// Stop the run, saying MESSAGE, as far as publication allows (`PublicationGate.Stop`): at once
+    /// when nothing is being published; through the worker while it writes (it removes its partly
+    /// written file, then reports), or after workerStopWaitMs when the volume keeps it from answering;
+    /// not while a rename is under way within its grace. Returns false when the stop has to wait for a
+    /// rename (the caller looks again).
+    @discardableResult
+    func stopRun(_ message: String) -> Bool {
+        switch publicationGate.stop() {
+        case .now:
+            failRenderer(message, page: pendingRender?.page)
+        case .afterWorker(let temporary):
+            guard !workerStopScheduled else { return true }
+            workerStopScheduled = true
+            _ = schedule(after: workerStopWaitMs) {
+                self.failRenderer("\(message); the volume did not answer, so a partly written \(temporary) may remain beside it: remove it")
+            }
+            return true
+        case .afterCommit:
+            return false
+        case .interrupted:
+            failRenderer(stalledMessage())
+        }
     }
 
     /// What a stop that cut into a rename says: where the files may be.
@@ -552,10 +621,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         // look at dw's process running here. Each rename asks the gate first
         let data = Data(html.utf8)
         let target = out
+        let temporary = temporaryPath(for: target)
+        publicationGate.beginWrite(temporary)
         DispatchQueue.global(qos: .userInitiated).async {
-            let publication = publish(data, to: target, mayPublish: {
-                self.publicationGate.allowCommit { self.parentIsAlive() && !self.pastDeadline() }
-            })
+            let stillWanted = { self.parentIsAlive() && !self.pastDeadline() }
+            let publication = publish(data, to: target, temporary: temporary,
+                                      mayContinue: { !self.publicationGate.isStopped() && stillWanted() },
+                                      mayPublish: { self.publicationGate.allowCommit(stillWanted) })
             DispatchQueue.main.async { self.report(publication, outcome: outcome) }
         }
     }
