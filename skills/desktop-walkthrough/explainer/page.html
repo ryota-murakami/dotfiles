@@ -77,6 +77,11 @@
   .diagram svg { max-width: 100%; height: auto; }
   .diagram.wide { cursor: zoom-out; text-align: left; }
   .diagram-error { color: #ff9b9b; text-align: left; white-space: pre-wrap; cursor: default; }
+  /* A Handout's diagrams: the text settings mermaid measured them with when they were drawn for the
+     Handout, and the same in the Handout itself (`dw handout` takes this CSS). Page line height and
+     wrapping would make node labels spill out of their boxes */
+  body.handout .diagram { line-height: normal; overflow-wrap: normal; font-size: 16px; }
+  /* handout: reading marks begin */
   /* Reading marks: a check in the gutter of every block, a frame on the block being read, a rail of
      dots down the right edge. `rd-on` is set by the script once the blocks are wrapped. */
   body.rd-on { padding-left: 50px; position: relative; }
@@ -134,6 +139,7 @@
   @media (prefers-reduced-motion: reduce) {
     .rd-block, #rd-frame, #rd-go, #rd-rail i, .rd-mark path, body.rd-on .rd-block::after { transition: none; }
   }
+  /* handout: reading marks end */
   /* System setting "Increase contrast": full-strength text, visible lines, links told apart by more than colour */
   @media (prefers-contrast: more) {
     :root { --line: rgba(255, 255, 255, .5); }
@@ -168,14 +174,21 @@
   const content = document.getElementById('content');
   document.title = data.title;
   document.getElementById('section').textContent = data.step || '';
+  // Built for `dw handout` (data.mode): rendered for the Handout's builder, never shown in the HUD.
+  // Author HTML passes DOMPurify before it is inserted, so no page script runs during an export
+  // (one could forge this page's report); reading marks and copy buttons stay out; diagram ids carry
+  // the page number, unique in the one file a Handout is (`p3-d1`)
+  const handout = data.mode === 'handout';
+  if (handout) document.body.classList.add('handout');
 
-  if (window.marked) {
-    content.innerHTML = marked.parse(data.markdown, { gfm: true });
+  if (window.marked && (!handout || window.DOMPurify)) {
+    const html = marked.parse(data.markdown, { gfm: true });
+    content.innerHTML = handout ? DOMPurify.sanitize(html) : html;
   } else {
     const source = document.createElement('pre');
     source.textContent = data.markdown;
     content.appendChild(source);
-    errors.push('marked is not available: showing the Markdown source');
+    errors.push(`${window.marked ? 'DOMPurify' : 'marked'} is not available: showing the Markdown source`);
   }
 
   // A wide table scrolls sideways instead of stretching the page
@@ -198,6 +211,8 @@
       continue;
     }
     if (window.hljs) { try { hljs.highlightElement(code); } catch (_) { /* unknown language: leave as is */ } }
+    // The Handout's controller adds copy buttons of its own
+    if (handout) continue;
     const button = document.createElement('button');
     button.className = 'copy';
     button.textContent = 'コピー';
@@ -214,8 +229,8 @@
   // detour to another app) and the agent can tell how far they got. A frame rests on the block
   // being read; its button marks the block and moves the frame on. The page keeps no state of its
   // own: every change goes to the HUD (`{type: "reading", …}`), which keeps it, answers with sound,
-  // and gives it back through `dwReading.restore` when the page is shown again.
-  (() => {
+  // and gives it back through `dwReading.restore` when the page is shown again. A Handout has none.
+  if (!handout) (() => {
     const blocks = [...content.querySelectorAll(':scope > p, :scope > ul, :scope > ol, :scope > pre, :scope > .table-wrap, :scope > blockquote, :scope > .diagram')].map((source, i) => {
       // A wrapper per block: the mark sits in the gutter, outside boxes that clip (code, tables)
       const wrap = document.createElement('div');
@@ -383,7 +398,7 @@
   let index = 0;
   for (const holder of diagrams) {
     index += 1;
-    const id = `dw-diagram-${index}`;
+    const id = handout ? `p${data.n}-d${index}` : `dw-diagram-${index}`;
     try {
       if (!window.mermaid) throw new Error('mermaid is not available');
       const { svg } = await mermaid.render(id, holder.dataset.source);
@@ -410,7 +425,18 @@
       holder.replaceChildren(shown);
     }
   }
-  post({ type: 'rendered', page: data.n, diagrams: diagrams.length, errors });
+  const report = { type: 'rendered', page: data.n, diagrams: diagrams.length, errors };
+  // The Handout's builder requires every library: one that did not load leaves plain text behind
+  if (handout) {
+    report.libs = [
+      window.marked && 'marked',
+      window.hljs && 'highlight',
+      window.hljs && hljs.getLanguage('http') && 'highlight-http',
+      window.mermaid && 'mermaid',
+      window.DOMPurify && 'purify',
+    ].filter(Boolean);
+  }
+  post(report);
 })();
 </script>
 </body>
