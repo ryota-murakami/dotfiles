@@ -618,6 +618,55 @@ else
 fi
 rm -f "$left"
 
+# The earlier Handout changes while the new one is written (limits.writePauseMs holds the worker
+# after its first write). An extended attribute moves its change time alone: it is replaced as usual.
+# A same-size save that puts the modification time back is told by its content: it is kept beside
+handout_input "$RECORDS/direct" "$scratch/meta.html" "$scratch/meta-explain" "$scratch/meta.json"
+"$BIN" "$scratch/meta.json" "$DIST" > /dev/null
+jq '.limits.writePauseMs = 2000' "$scratch/meta.json" > "$scratch/meta-paused.json"
+before=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
+"$BIN" "$scratch/meta-paused.json" "$DIST" > "$scratch/meta.out" &
+writer=$!
+waited=0
+until [ -s "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+xattr -w com.dw.check 1 "$scratch/meta.html"
+touched=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
+wait "$writer"
+result=$(cat "$scratch/meta.out")
+if [ "${before%% *}" = "${touched%% *}" ] && [ "${before#* }" != "${touched#* }" ] && jq -e '.ok == true and (.warnings | length) == 0' <<< "$result" >/dev/null \
+  && [ "$(/usr/bin/stat -f '%i' "$scratch/meta.html")" != "${before%% *}" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*.tmp')" ] \
+  && [ ! -e "$scratch/meta-explain/handout-verify.html" ]; then
+  pass "an extended attribute set on the earlier Handout meanwhile is no save: it is replaced, nothing left beside"
+else
+  fail "metadata change during the replace ($before → $touched): $result"
+fi
+
+handout_input "$RECORDS/direct" "$scratch/resaved.html" "$scratch/resaved-explain" "$scratch/resaved.json"
+"$BIN" "$scratch/resaved.json" "$DIST" > /dev/null
+# A whole-second modification time, which the save below can put back exactly
+touch -t 202601010000.00 "$scratch/resaved.html"
+jq '.limits.writePauseMs = 2000' "$scratch/resaved.json" > "$scratch/resaved-paused.json"
+"$BIN" "$scratch/resaved-paused.json" "$DIST" > "$scratch/resaved.out" &
+writer=$!
+waited=0
+until [ -s "$(find "$scratch" -maxdepth 1 -name '.resaved.html.dw-handout-*.tmp' 2>/dev/null | head -1)" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+printf 'X' | dd of="$scratch/resaved.html" bs=1 seek=200 conv=notrunc 2>/dev/null
+touch -t 202601010000.00 "$scratch/resaved.html"
+wait "$writer"
+result=$(cat "$scratch/resaved.out")
+kept=$(find "$scratch" -maxdepth 1 -name '.resaved.html.dw-handout-*.tmp' | head -1)
+if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout was saved while it was replaced: that save is kept at \($kept)") != null)' <<< "$result" >/dev/null \
+  && [ -n "$kept" ] && [ "$(dd if="$kept" bs=1 skip=200 count=1 2>/dev/null)" = X ]; then
+  pass "a same-size save that put the modification time back is told by its content and kept beside"
+else
+  fail "same-size save during the replace (kept: ${kept:-none}): $result"
+fi
+rm -f "$kept"
+
 # Pages that report late or never: the renderer's limits (eng D3)
 limits="$scratch/limits"
 mkdir -p "$limits/pages"

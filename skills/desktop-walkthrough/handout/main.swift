@@ -51,6 +51,9 @@ let commitRecheckMs = 1_000
 let workerStopWaitMs = 5_000
 /// How much of the Handout is written at a time: between two writes the worker looks whether it should stop.
 let publishChunkBytes = 1 << 20
+/// The largest earlier Handout whose content is read to tell a save from a change of metadata alone; a
+/// larger one whose change time moved counts as saved (it is kept beside the new one).
+let digestLimitBytes = 512 << 20
 
 /// Print the result line for dw and exit.
 func finish(_ result: [String: Any], code: Int32) -> Never {
@@ -119,6 +122,13 @@ final class PublicationGate {
         inPlace = true
         written = nil
         committingSince = nil
+    }
+
+    /// Asked by the worker while it reads before writing: whether a watchdog has stopped the run.
+    func isStopped() -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return stopped
     }
 
     /// Asked by the worker before each write and once after the last, with the bytes written so far:
@@ -231,11 +241,13 @@ func newFileMode() -> mode_t {
 /// The SHA-256 of what the file open at `descriptor` holds, read from its start; nil when it cannot be
 /// read. Used to tell a save from a change of metadata alone (an extended attribute, a chmod), which
 /// changes a file's change time too.
-func contentDigest(_ descriptor: Int32) -> SHA256.Digest? {
+func contentDigest(_ descriptor: Int32, keepGoing: () -> Bool = { true }) -> SHA256.Digest? {
     var hasher = SHA256()
     var buffer = [UInt8](repeating: 0, count: publishChunkBytes)
     var offset: off_t = 0
     while true {
+        // A stop meanwhile ends the read: no digest, which the caller treats as unknown content
+        guard keepGoing() else { return nil }
         let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, publishChunkBytes, offset) }
         if count < 0 { return nil }
         if count == 0 { return hasher.finalize() }
@@ -245,11 +257,22 @@ func contentDigest(_ descriptor: Int32) -> SHA256.Digest? {
 }
 
 /// The digest of the file at `path` (`contentDigest`), opened without following a symlink.
-func contentDigest(atPath path: String) -> SHA256.Digest? {
+func contentDigest(atPath path: String, keepGoing: () -> Bool = { true }) -> SHA256.Digest? {
     let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
     guard descriptor >= 0 else { return nil }
     defer { close(descriptor) }
-    return contentDigest(descriptor)
+    return contentDigest(descriptor, keepGoing: keepGoing)
+}
+
+/// Remove the ACL a new file inherited from its folder, by descriptor, before a byte is written.
+/// Returns nil once it has none (or the volume has no ACLs), else why it could not be removed: errno
+/// is read right after the call that failed.
+func clearInheritedAcl(_ descriptor: Int32) -> String? {
+    guard let emptyAcl = acl_init(0) else { return errnoText() }
+    defer { acl_free(UnsafeMutableRawPointer(emptyAcl)) }
+    guard acl_set_fd(descriptor, emptyAcl) != 0 else { return nil }
+    let failure = errno
+    return failure == ENOTSUP || failure == EOPNOTSUPP ? nil : String(cString: strerror(failure))
 }
 
 /// Whether two looks saw the same file: the same device and inode.
@@ -294,7 +317,7 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// temporary path is removed only when it holds exactly the bytes written, and a save made into the
 /// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
-func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0,
+func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0, keepGoing: () -> Bool = { true },
              mayContinue: (Int) -> Bool, mayPublish: () -> Bool, writingInPlace: (String) -> Void) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
@@ -305,7 +328,8 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     if hadTarget, !isHandout(atPath: target) { return .notAHandout }
     // What the earlier Handout held when first looked at: a later change of its change time alone (an
     // extended attribute, a chmod) is no save when the content is still this
-    let firstDigest = hadTarget ? contentDigest(atPath: target) : nil
+    let firstDigest = hadTarget && present.st_size <= off_t(digestLimitBytes)
+        ? contentDigest(atPath: target, keepGoing: keepGoing) : nil
     let folder = (target as NSString).deletingLastPathComponent
     let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
@@ -316,11 +340,7 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     // Handout's ACL). A volume without ACLs has none
     let inherited = acl_get_fd(descriptor)
     defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
-    let emptyAcl = acl_init(0)
-    let aclCleared = emptyAcl.map { acl_set_fd(descriptor, $0) == 0 || errno == ENOTSUP || errno == EOPNOTSUPP } ?? false
-    if let emptyAcl { acl_free(UnsafeMutableRawPointer(emptyAcl)) }
-    guard aclCleared else {
-        let reason = errnoText()
+    if let reason = clearInheritedAcl(descriptor) {
         unlink(temporary)
         return .failed("could not prepare the Handout in \(folder): its inherited ACL could not be removed (\(reason))")
     }
@@ -501,11 +521,7 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     }
     // An ACL the folder hands down would let others read the file while it is written: it goes before a
     // byte is written, as in publish (a volume without ACLs has none to remove)
-    let emptyAcl = acl_init(0)
-    let aclCleared = emptyAcl.map { acl_set_fd(created, $0) == 0 || errno == ENOTSUP || errno == EOPNOTSUPP } ?? false
-    if let emptyAcl { acl_free(UnsafeMutableRawPointer(emptyAcl)) }
-    guard aclCleared else {
-        let reason = errnoText()
+    if let reason = clearInheritedAcl(created) {
         return endWithout(.failed("could not prepare \(target): its inherited ACL could not be removed (\(reason))"),
                           "could not prepare \(target) (its inherited ACL could not be removed)")
     }
@@ -766,6 +782,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         DispatchQueue.global(qos: .userInitiated).async {
             let stillWanted = { self.parentIsAlive() && !self.pastDeadline() }
             let publication = publish(data, to: target, temporary: temporary, writePauseMs: pause,
+                                      keepGoing: { !self.publicationGate.isStopped() && stillWanted() },
                                       mayContinue: { self.publicationGate.mayContinue(written: $0, stillWanted) },
                                       mayPublish: { self.publicationGate.allowCommit(stillWanted) },
                                       writingInPlace: { self.publicationGate.writeInPlace(at: $0) })
