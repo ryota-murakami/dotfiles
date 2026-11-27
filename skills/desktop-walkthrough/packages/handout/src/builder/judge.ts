@@ -30,8 +30,8 @@ export function missingLibraries(report: RenderReport): PageLibrary[] {
 /**
  * Judge one rendered page: diagrams that failed, diagrams nothing was laid out for or that the
  * measurement did not find, labels that do not fit their box (DX D9, eng C6a), and audience markers
- * the page met as HTML, which dw's filter
- * never read (HANDOUT_MARKER). Library problems are judged once per run by the caller.
+ * the page met as HTML, which dw's filter never read (HANDOUT_MARKER). Library problems are judged
+ * once per run by the caller.
  *
  * Why it exists: an agent fixes what the export names, so every problem carries the page, the
  * diagram and the line of its fence in the original source. Error texts and labels pass

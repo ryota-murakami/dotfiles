@@ -709,13 +709,19 @@ fi
 # that new folders inherit). Kept there, as its content could not be read first (limit 1 byte)
 mkdir -p "$scratch/owned"
 chmod +a "everyone allow list,add_file,search,delete_child,file_inherit,directory_inherit" "$scratch/owned"
+# A folder made there otherwise inherits that entry: without it this case would check nothing
+mkdir "$scratch/owned/control"
+control=$(ls -led "$scratch/owned/control" | sed -n 's/^ *[0-9]*: //p')
+rmdir "$scratch/owned/control"
 handout_input "$RECORDS/direct" "$scratch/owned/handout.html" "$scratch/owned-explain" "$scratch/owned.json"
 "$BIN" "$scratch/owned.json" "$DIST" > /dev/null
 jq '.limits.digestLimitBytes = 1' "$scratch/owned.json" > "$scratch/owned-limited.json"
 result=$("$BIN" "$scratch/owned-limited.json" "$DIST")
 kept=$(find "$scratch/owned" -maxdepth 2 -path "$scratch/owned/.handout.html.dw-handout-*/handout.html" | head -1)
 holder=${kept%/*}
-if jq -e '.ok == true' <<< "$result" >/dev/null && [ -n "$kept" ] && [ "$(stat -f '%Lp' "$holder")" = 700 ] \
+if [ -z "$control" ]; then
+  fail "owned folder for the swapped-out Handout: setup: a folder made in $scratch/owned inherited no ACL"
+elif jq -e '.ok == true' <<< "$result" >/dev/null && [ -n "$kept" ] && [ "$(stat -f '%Lp' "$holder")" = 700 ] \
   && [ -z "$(ls -led "$holder" | sed -n 's/^ *[0-9]*: //p')" ]; then
   pass "the earlier Handout is swapped out into a folder its owner alone can change, whatever the folder around it allows"
 else
