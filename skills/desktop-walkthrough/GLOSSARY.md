@@ -17,6 +17,10 @@ _Avoid_: demo, tour
 **Record**:
 What a Walkthrough leaves behind so that it can be resumed or repeated: its pages, its journal and its handbook.
 
+**Handout**:
+One file made from a Record's pages, in the Explainer's order and look but without the HUD's controls, for people who did not watch the Walkthrough.
+_Avoid_: exported explainer, shared explainer (the Explainer is the panel on screen)
+
 ### Surfaces
 
 **HUD**:

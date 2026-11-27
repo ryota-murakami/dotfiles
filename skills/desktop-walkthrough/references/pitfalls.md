@@ -107,6 +107,8 @@ Each row is something that actually went wrong, why, and the rule or helper that
 - On this Mac, DevTools opens with **Ctrl+Space** (the user's shortcut). ⌥⌘J and View → Developer → JavaScript Console may show nothing visible here.
 - Very long pages (a full tutorial article) make accessibility queries (`find`, `list-windows`) time out and stall: drive such pages with keys and screenshots, and check the front app with `osascript` instead.
 - The console refuses pastes until `allow pasting` is typed; switch the input method to ASCII first.
+- Several processes can carry the same bundle id (Playwright launches the Chrome or Canary binary with its own `--user-data-dir`). AppleScript (`tell application "Google Chrome Canary"`) and `open -a` may reach one of those instead of the user's browser: a new window opened there, on no visible desktop. Open a window in the user's own browser with its binary and profile (`"<App>.app/Contents/MacOS/<binary>" --profile-directory=<dir> --new-window <url>`; when it is not running, `open -n -a <App> --args --profile-directory=<dir> --new-window <url>`), then confirm it with `dw windows`.
+- Driving an attached browser (`playwright-cli attach --extension`): a Shift+click on a link opens a new window, and the extension then lost the tab it drove and showed a blank tab instead. Never Shift+click to extend a selection on GitHub's diff; select a line range through its URL anchor (`#diff-<id>R99-R104`).
 
 **Terminal.app**
 - `dw term` works by window id through Terminal's scripting interface, so it does not depend on focus or the visible desktop. Other terminal apps need focus-verified paste instead.
