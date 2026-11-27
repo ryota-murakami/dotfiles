@@ -102,3 +102,6 @@ export const UTF16_BIG_ENDIAN_BOM = [0xfe, 0xff] as const
 
 /** How far a tab moves a line's indentation in Markdown: to the next multiple of 4 columns (CommonMark). */
 export const MARKDOWN_TAB_STOP_COLUMNS = 4
+
+/** XLink's namespace: an SVG names a picture in its href, whatever prefix the drawing gives it. */
+export const XLINK_NAMESPACE = 'http://www.w3.org/1999/xlink'

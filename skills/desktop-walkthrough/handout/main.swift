@@ -439,34 +439,40 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
         discard()
         return .failed("could not write in \(folder): \(reason)")
     }
-    // dw may have ended, or the run's time may be up, while the file was written (a slow volume)
-    guard mayPublish() else {
-        discard()
-        return .cancelled
-    }
     /// Renames publish by name: what is published is this run's file, never one put in its place.
     func replacedMeanwhile() -> Publication {
         .failed("another program replaced the Handout being written at \(staged): what it put there stays, and nothing was published")
     }
     guard isAtPath(staged, written) else { return replacedMeanwhile() }
+    // dw may have ended, or the run's time may be up, while the file was written or looked at (a slow
+    // volume): asked last, right before the rename
+    guard mayPublish() else {
+        discard()
+        return .cancelled
+    }
     // Nothing there yet: create it, failing if something appeared in the meantime
     if renamex_np(staged, target, UInt32(RENAME_EXCL)) == 0 {
         rmdir(staging.folder)
         // What any new file there gets: the ACL its folder hands down, then the usual permissions. An
-        // ACL that cannot be given may have denied someone: the file then stays its owner's alone
-        let aclGiven: Bool
+        // ACL that cannot be read or given may have denied someone: the file then stays its owner's alone
+        var aclProblem: String?
         switch aclForNewFile(in: folder) {
         case .none:
-            aclGiven = true
+            break
         case .entries(let acl):
-            aclGiven = acl_set_fd(descriptor, acl) == 0
+            if acl_set_fd(descriptor, acl) != 0 {
+                aclProblem = "the ACL \(folder) gives its files could not be given to the Handout (\(errnoText()))"
+            }
             acl_free(UnsafeMutableRawPointer(acl))
-        case .unreadable:
-            aclGiven = false
+        case .unreadable(let reason):
+            aclProblem = "the ACL of \(folder) could not be read (\(reason))"
         }
-        // Restrictive (0600) if this fails: never wider than intended
-        if aclGiven { fchmod(descriptor, newFileMode()) }
-        return .published(warnings: aclGiven ? [] : ["the ACL \(folder) gives its files could not be given to the Handout: only you can read it"])
+        // Restrictive (0600) without it: never wider than intended
+        guard let aclProblem else {
+            fchmod(descriptor, newFileMode())
+            return .published(warnings: [])
+        }
+        return .published(warnings: ["\(aclProblem): only you can read it"])
     }
     let exclusiveError = errno
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
@@ -483,13 +489,13 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     // swap renames it
     var beforeSwap = stat()
     let lookedAgain = lstat(target, &beforeSwap) == 0
-    // dw may have ended, or the run's time may be up, while that look waited on the volume: asked last,
-    // right before the swap
+    guard isAtPath(staged, written) else { return replacedMeanwhile() }
+    // dw may have ended, or the run's time may be up, while those looks waited on the volume: asked
+    // last, right before the swap
     guard mayPublish() else {
         discard()
         return .cancelled
     }
-    guard isAtPath(staged, written) else { return replacedMeanwhile() }
     // Swap, then look at what was swapped out: it lands in the run's own folder
     guard renamex_np(staged, target, UInt32(RENAME_SWAP)) == 0 else {
         let reason = errnoText()
@@ -652,9 +658,13 @@ let carryAttempts = 3
 /// Give the file open at `descriptor` who may read the file open at `source`: its group, its ACL, then
 /// its permissions, read from `source` itself and set by descriptor. Read again when they change while
 /// they are set, the file its owner's alone again first, so a narrowing made meanwhile (0644 to 0600)
-/// is never lost. Called by `publish` for the Handout it replaces. Returns false, the file its owner's
-/// alone, when they cannot be carried: `source` belongs to another account (what its group and mode
-/// allow would then differ), its group cannot be given, its ACL cannot be copied, or they keep changing.
+/// is never kept. Called by `publish` for the Handout it replaces, which it has swapped out into the
+/// run's own folder by then: nobody reaches it by its name, so only a program that already had it open
+/// can change its permissions meanwhile, and the new file shows the earlier ones only until that is
+/// seen. Nothing serializes a permission change with this copy; only never carrying them (every
+/// Handout its owner's alone) would leave no such moment. Returns false, the file its owner's alone,
+/// when they cannot be carried: `source` belongs to another account (what its group and mode allow
+/// would then differ), its group cannot be given, its ACL cannot be copied, or they keep changing.
 func carryPermissions(from source: Int32, to descriptor: Int32) -> Bool {
     for _ in 0..<carryAttempts {
         var before = stat()
@@ -680,28 +690,12 @@ func keepPrivate(_ descriptor: Int32) {
     _ = clearInheritedAcl(descriptor)
 }
 
-/// Whether the file open at `descriptor` holds nothing but the start of `data`: what a write that failed
-/// or stopped part way leaves. Anything else is a save another program made into it.
-func holdsOnlyStartOf(_ descriptor: Int32, _ data: Data) -> Bool {
-    var now = stat()
-    guard fstat(descriptor, &now) == 0, now.st_size <= off_t(data.count) else { return false }
-    let size = Int(now.st_size)
-    var content = [UInt8](repeating: 0, count: size)
-    // Read to the end: a read may return less than asked (a network volume)
-    var filled = 0
-    while filled < size {
-        let count = content.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress! + filled, size - filled, off_t(filled)) }
-        guard count > 0 else { return false }
-        filled += count
-    }
-    return data.prefix(size).elementsEqual(content)
-}
-
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
 /// created exclusively and written in place; an existing one is never replaced there. The write is the
 /// publication: the file is readable by its owner alone, without the ACL its folder hands down, until
-/// it is whole, and a stop between two chunks (`mayContinue`) removes what was written. Only the start
-/// of `data` in this run's own file is ever removed: a save another program made into it stays.
+/// it is whole. A stop between two chunks (`mayContinue`) or a failed write leaves what was written,
+/// and the run says where: this volume cannot remove only this run's own file, and nothing in it is
+/// erased either (another program may write into it meanwhile).
 func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, writingInPlace: (String) -> Void,
                            mayContinue: (Int) -> Bool) -> Publication {
     var present = stat()
@@ -711,21 +705,19 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     writingInPlace(target)
     // dw may have ended, or the run's time may be up, while the exclusive rename was tried
     guard mayContinue(0) else { return .cancelled }
-    // Read as well as written: what a stop leaves is compared with what was written (`holdsOnlyStartOf`)
-    let created = open(target, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
+    let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
     defer { close(created) }
+    // What the folder hands down, given back once the file is whole. None to give back without an ACL
+    // (or on a volume without ACLs); any other failure to read it keeps the file its owner's alone
     let inherited = acl_get_fd(created)
+    let readFailure = errno
+    let inheritedUnread = inherited == nil && readFailure != ENOENT && readFailure != ENOTSUP && readFailure != EOPNOTSUPP
     defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
-    // What a stop or a failed write leaves. The path is never removed: another program may have put its
-    // file there since it was looked at, and this volume cannot remove only this run's own. This run's
-    // file is emptied through its descriptor, when it still holds only what was written, and the run
-    // says where it is
+    // What a stop or a failed write leaves: the file as written so far, its owner's alone. Neither its
+    // path nor its content is removed, and the run says where it is
     func endWithout(stopped: Bool, _ what: String) -> Publication {
-        guard holdsOnlyStartOf(created, data), ftruncate(created, 0) == 0 else {
-            return .failed("\(what), and another program changed \(target) meanwhile: it was left as it is")
-        }
-        let left = "\(target) was left empty (this volume cannot remove it safely): remove it"
+        let left = "\(target) was left as written so far (this volume cannot remove it safely): remove it"
         return stopped ? .cancelledLeaving(left) : .failed("\(what); \(left)")
     }
     // An ACL the folder hands down would let others read the file while it is written: it goes before a
@@ -749,7 +741,7 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     }
     guard mayContinue(offset) else { return endWithout(stopped: true, "the export stopped while \(target) was written") }
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
-    let aclRestored = inherited.map { acl_set_fd(created, $0) == 0 } ?? true
+    let aclRestored = !inheritedUnread && (inherited.map { acl_set_fd(created, $0) == 0 } ?? true)
     if aclRestored { fchmod(created, newFileMode()) }
     return .published(warnings: aclRestored ? [] : ["the ACL its folder gives its files could not be given to \(target): only you can read it"])
 }

@@ -666,8 +666,8 @@ fi
 
 # A volume without exclusive renames (FAT, like some USB sticks and network shares): the Handout is
 # written at the target itself, after the copy in the run's folder could not be renamed there. dw ends
-# during that write: the file holds only what was written, so it is emptied through its descriptor
-# (the path is never removed there) and the run says so. A disk image stands in for the volume
+# during that write: what was written stays as it is (neither the path nor what it holds is removed
+# there), and the run says where it is. A disk image stands in for the volume
 fat="$scratch/fat"
 mkdir -p "$fat"
 if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$scratch/fat.dmg" \
@@ -688,9 +688,9 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
   wait "$writer"
   result=$(cat "$scratch/fat.out")
   if jq -e --arg target "$fat/handout.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
-      and (.message | contains("\($target) was left empty (this volume cannot remove it safely): remove it"))' <<< "$result" >/dev/null \
-    && [ -f "$fat/handout.html" ] && [ ! -s "$fat/handout.html" ] && [ -z "$(find "$fat" -maxdepth 1 -name '.handout.html.dw-handout-*')" ]; then
-    pass "dw ending while a volume without exclusive renames is written: the file is emptied, and the run says so"
+      and (.message | contains("\($target) was left as written so far (this volume cannot remove it safely): remove it"))' <<< "$result" >/dev/null \
+    && [ -s "$fat/handout.html" ] && [ -z "$(find "$fat" -maxdepth 1 -name '.handout.html.dw-handout-*')" ]; then
+    pass "dw ending while a volume without exclusive renames is written: what was written stays, and the run says where"
   else
     fail "dw gone mid-write on a FAT volume: $(ls -la "$fat" 2>&1) / $result"
   fi

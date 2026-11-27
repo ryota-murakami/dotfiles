@@ -1,5 +1,10 @@
 import { findSecrets, maskSecrets } from '../../../../hooks/secrets'
-import { IMAGE_LIMIT_BYTES, IMAGE_TOTAL_LIMIT_BYTES, NESTED_PICTURE_DEPTH } from '../constants'
+import {
+  IMAGE_LIMIT_BYTES,
+  IMAGE_TOTAL_LIMIT_BYTES,
+  NESTED_PICTURE_DEPTH,
+  XLINK_NAMESPACE,
+} from '../constants'
 import type { Diagnostic, HandoutPage } from '../contract'
 import { base64DecodedLength } from '../utils/base64DecodedLength'
 import { byteTexts } from '../utils/byteTexts'
@@ -518,6 +523,25 @@ function metadataSecretShape(raster: Uint8Array): string | null {
  * isFileLink('shot.png')  // true
  * isFileLink('#gradient') // false
  */
+/**
+ * Whether an attribute of a standalone SVG names a picture by href: SVG 2's (no namespace) or
+ * XLink's, whatever prefix the drawing gives XLink (an XML prefix is only a name for its namespace).
+ * Called by {@link nestedPictures} for every attribute of the drawing.
+ *
+ * @param attribute - An attribute of an element of the SVG's document.
+ * @returns Whether a browser reads it as the element's picture link.
+ *
+ * @example
+ * isSvgHref(attributeOf('<image xmlns:x="http://www.w3.org/1999/xlink" x:href="a.png"/>')) // true
+ * isSvgHref(attributeOf('<image src="a.png"/>'))                                          // false
+ */
+function isSvgHref(attribute: Attr): boolean {
+  return (
+    attribute.localName === 'href' &&
+    (attribute.namespaceURI === null || attribute.namespaceURI === XLINK_NAMESPACE)
+  )
+}
+
 function isFileLink(target: string): boolean {
   return target !== '' && !target.startsWith('#') && !/^data:/i.test(target)
 }
@@ -537,10 +561,11 @@ function isFileLink(target: string): boolean {
 function linkedPicture(parsed: Document): string | null {
   for (const element of Array.from(parsed.querySelectorAll('*'))) {
     const name = element.localName
-    // An <image> or a filter's <feImage> names its picture in href; a label's HTML <img> in src
+    // An <image> or a filter's <feImage> names its picture in href (SVG 2's first, then XLink's under
+    // whatever prefix); a label's HTML <img> in src
     const linked =
       name === 'image' || name === 'feImage'
-        ? (element.getAttribute('href') ?? element.getAttribute('xlink:href') ?? '').trim()
+        ? (element.getAttribute('href') ?? element.getAttributeNS(XLINK_NAMESPACE, 'href') ?? '').trim()
         : name === 'img'
           ? (element.getAttribute('src') ?? '').trim()
           : ''
@@ -576,7 +601,7 @@ function nestedPictures(parsed: Document): string[] {
     for (const attribute of Array.from(element.attributes)) {
       const value = attribute.value.trim()
       // An <image>'s href, and the src of an HTML image in a label (foreignObject)
-      if (['href', 'xlink:href', 'src'].includes(attribute.name) && /^data:image\//i.test(value))
+      if ((isSvgHref(attribute) || attribute.name === 'src') && /^data:image\//i.test(value))
         pictures.push(value)
       // Each data picture of a srcset, up to the space before its descriptor
       if (attribute.name === 'srcset') {
