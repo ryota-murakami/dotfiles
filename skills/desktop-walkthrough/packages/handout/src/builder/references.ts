@@ -166,9 +166,9 @@ function functionContents(css: string, start: number): string {
   let quote = ''
   for (let index = start; index < css.length; index++) {
     const character = css[index]
+    // The text is decoded already (unescapeCss): a backslash in it is a character, never an escape
     if (quote !== '') {
-      if (character === '\\') index++
-      else if (character === quote) quote = ''
+      if (character === quote) quote = ''
     } else if (character === '"' || character === "'") quote = character
     else if (character === '(') depth++
     else if (character === ')' && --depth === 0) return css.slice(start, index)

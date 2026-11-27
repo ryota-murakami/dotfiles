@@ -29,6 +29,7 @@
 //            back); dw's process is looked at before each rename; another program's save is never
 //            deleted. A volume without exclusive renames publishes a new file only
 import AppKit
+import CryptoKit
 import Darwin
 import WebKit
 
@@ -227,6 +228,30 @@ func newFileMode() -> mode_t {
     return 0o666 & ~mask
 }
 
+/// The SHA-256 of what the file open at `descriptor` holds, read from its start; nil when it cannot be
+/// read. Used to tell a save from a change of metadata alone (an extended attribute, a chmod), which
+/// changes a file's change time too.
+func contentDigest(_ descriptor: Int32) -> SHA256.Digest? {
+    var hasher = SHA256()
+    var buffer = [UInt8](repeating: 0, count: publishChunkBytes)
+    var offset: off_t = 0
+    while true {
+        let count = buffer.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, publishChunkBytes, offset) }
+        if count < 0 { return nil }
+        if count == 0 { return hasher.finalize() }
+        hasher.update(data: buffer[0..<count])
+        offset += off_t(count)
+    }
+}
+
+/// The digest of the file at `path` (`contentDigest`), opened without following a symlink.
+func contentDigest(atPath path: String) -> SHA256.Digest? {
+    let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+    guard descriptor >= 0 else { return nil }
+    defer { close(descriptor) }
+    return contentDigest(descriptor)
+}
+
 /// Whether two looks saw the same file: the same device and inode.
 func sameFile(_ first: stat, _ second: stat) -> Bool {
     first.st_dev == second.st_dev && first.st_ino == second.st_ino
@@ -278,6 +303,9 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     var present = stat()
     let hadTarget = lstat(target, &present) == 0
     if hadTarget, !isHandout(atPath: target) { return .notAHandout }
+    // What the earlier Handout held when first looked at: a later change of its change time alone (an
+    // extended attribute, a chmod) is no save when the content is still this
+    let firstDigest = hadTarget ? contentDigest(atPath: target) : nil
     let folder = (target as NSString).deletingLastPathComponent
     let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
@@ -389,11 +417,14 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
             var now = stat()
             // Unchanged while this one was written (its change time too: no rename yet), the same file
             // swapped out (the swap changed its change time), and unchanged since (change time too)
-            let unchangedWhileWritten = lookedAgain && sameFile(present, beforeSwap)
-                && sameContentStamp(present, beforeSwap) && sameChangeTime(present, beforeSwap)
-            let sameSwappedOut = sameFile(beforeSwap, replaced) && sameContentStamp(beforeSwap, replaced)
-            if !unchangedWhileWritten || !sameSwappedOut || fstat(theirs, &now) != 0
-                || !sameContentStamp(now, replaced) || !sameChangeTime(now, replaced) {
+            let stampsKept = lookedAgain && sameFile(present, beforeSwap) && sameContentStamp(present, beforeSwap)
+                && sameFile(beforeSwap, replaced) && sameContentStamp(beforeSwap, replaced)
+                && fstat(theirs, &now) == 0 && sameContentStamp(now, replaced)
+            // A change time that moved with size and modification time kept: its content decides (a
+            // metadata change keeps it, a save that kept both stamps does not)
+            let changeTimesKept = sameChangeTime(present, beforeSwap) && sameChangeTime(now, replaced)
+            let unchanged = stampsKept && (changeTimesKept || (firstDigest != nil && contentDigest(theirs) == firstDigest))
+            if !unchanged {
                 return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
             }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
@@ -461,16 +492,22 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     fstat(created, &mine)
     let inherited = acl_get_fd(created)
     defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
-    if let emptyAcl = acl_init(0) {
-        acl_set_fd(created, emptyAcl)
-        acl_free(UnsafeMutableRawPointer(emptyAcl))
-    }
     // What a stop or a failed write leaves: nothing, unless another program changed the file meanwhile
     func endWithout(_ outcome: Publication, _ what: String) -> Publication {
         guard isOwnPartialWrite(target, created: mine, data: data), unlink(target) == 0 else {
             return .failed("\(what), and another program changed \(target) meanwhile: it was left as it is")
         }
         return outcome
+    }
+    // An ACL the folder hands down would let others read the file while it is written: it goes before a
+    // byte is written, as in publish (a volume without ACLs has none to remove)
+    let emptyAcl = acl_init(0)
+    let aclCleared = emptyAcl.map { acl_set_fd(created, $0) == 0 || errno == ENOTSUP || errno == EOPNOTSUPP } ?? false
+    if let emptyAcl { acl_free(UnsafeMutableRawPointer(emptyAcl)) }
+    guard aclCleared else {
+        let reason = errnoText()
+        return endWithout(.failed("could not prepare \(target): its inherited ACL could not be removed (\(reason))"),
+                          "could not prepare \(target) (its inherited ACL could not be removed)")
     }
     let handle = FileHandle(fileDescriptor: created, closeOnDealloc: false)
     var offset = 0
@@ -873,10 +910,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                     self.pendingVerify = nil
                     self.log("verify: checked")
                     // The copy opened for the check is of no further use: only the published file stays.
-                    // Removed off the main queue, like every other file operation of the run
+                    // Removed off the main queue, like every other file operation of the run, and before
+                    // the builder hears back, so it is gone before the run can end
                     let copy = self.explainDir.appendingPathComponent("handout-verify.html")
-                    DispatchQueue.global(qos: .utility).async { try? FileManager.default.removeItem(at: copy) }
-                    pending.reply(["type": "verified", "probe": probe], nil)
+                    DispatchQueue.global(qos: .utility).async {
+                        try? FileManager.default.removeItem(at: copy)
+                        DispatchQueue.main.async { pending.reply(["type": "verified", "probe": probe], nil) }
+                    }
                 }
             }
         }

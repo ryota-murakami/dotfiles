@@ -201,3 +201,17 @@ test('a picture in an image-set after a gradient option still stops the export: 
     'page 4: a style loads shot.png, which a Handout neither checks nor carries: show the picture with an image instead',
   ])
 })
+
+test('an image-set string ending in an escaped backslash closes there: a later string elsewhere in the style is no picture', () => {
+  // Arrange
+  const html =
+    '<p><span style="background: image-set(&quot;a\\\\&quot; 1x); --label: &quot;x&quot;">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads a\\, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
