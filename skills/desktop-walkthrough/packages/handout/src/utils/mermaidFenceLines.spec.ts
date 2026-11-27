@@ -152,3 +152,33 @@ test('a page saved with Windows line endings finds its diagrams the same way', (
   // Assert
   expect(lines).toEqual([1, 5])
 })
+
+test('a diagram in a quote is found, and its quoted closing fence closes it', () => {
+  // Arrange
+  const markdown = [
+    '> ```mermaid',
+    '> flowchart LR',
+    '> ```',
+    '',
+    '```mermaid',
+    'sequenceDiagram',
+    '```',
+  ].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([1, 5])
+})
+
+test('a quoted line inside an unquoted fence is code, not its closing fence', () => {
+  // Arrange
+  const markdown = ['```markdown', '> ```', '```', '', '```mermaid', 'flowchart TB', '```'].join('\n')
+
+  // Act
+  const lines = mermaidFenceLines(markdown)
+
+  // Assert
+  expect(lines).toEqual([5])
+})

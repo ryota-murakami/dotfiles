@@ -17,6 +17,7 @@ const checkArgs = {
   pollMs: 10,
   hashChangeLimitMs: 200,
   imageDecodeLimitMs: 200,
+  imageDecodeConcurrency: 2,
 }
 
 /** Lay out a label only while every <details> around it is open, as WebKit does. */
@@ -166,5 +167,25 @@ test('the verify probe names each embedded picture the browser cannot decode, by
   expect(check.brokenImages).toEqual([
     { page: 2, image: 2 },
     { page: 5, image: 1 },
+  ])
+})
+
+test('a picture shown on several pages is decoded once, and each place it shows is reported when it is broken', async () => {
+  // Arrange
+  decodeUnlessBroken()
+  document.body.innerHTML =
+    '<main id="handout-pages">' +
+    '<article class="page" id="page-1" data-n="1"><img src="data:image/png;base64,broken"><img src="data:image/png;base64,ok"></article>' +
+    '<article class="page" id="page-2" data-n="2"><img src="data:image/png;base64,broken"></article>' +
+    '</main>'
+
+  // Act
+  const check = handoutCheckSchema.parse(await checkHandout(checkArgs))
+
+  // Assert
+  expect(HTMLImageElement.prototype.decode).toHaveBeenCalledTimes(2)
+  expect(check.brokenImages).toEqual([
+    { page: 1, image: 1 },
+    { page: 2, image: 1 },
   ])
 })

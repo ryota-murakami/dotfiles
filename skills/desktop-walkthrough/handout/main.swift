@@ -23,9 +23,11 @@
 //   builder exception or dw's process gone (input.json parentPid, looked at every parentMs and once
 //   more right before publishing) ends the run at once ──▶ HANDOUT_RENDERER
 //   publish: a file there that is not a Handout ─▶ HANDOUT_OUT_EXISTS, nothing written; no file there
-//            ─▶ exclusive create; a Handout there ─▶ RENAME_SWAP, check that the swapped-out file
-//            starts as a Handout, swap back if not ──▶ HANDOUT_OUT_EXISTS. The new file keeps the
-//            replaced one's permissions and ACL, or is not published
+//            ─▶ exclusive create; a Handout there ─▶ RENAME_SWAP, check the swapped-out file by
+//            descriptor, swap back if it is no Handout ──▶ HANDOUT_OUT_EXISTS. The new file stays 0600
+//            until it takes the replaced one's permissions, group and ACL (else the earlier Handout goes
+//            back); dw's process is looked at before each rename; another program's save is never
+//            deleted. A volume without exclusive renames publishes a new file only
 import AppKit
 import Darwin
 import WebKit
@@ -67,22 +69,33 @@ func describe(_ error: Error) -> String {
 
 /// How publishing ended.
 enum Publication {
-    case published
+    /// Published; the warnings say what was kept beside it (a save another program made meanwhile).
+    case published(warnings: [String])
     case isFolder
     case notAHandout
+    /// dw's process ended before the file was published: nothing was.
+    case cancelled
     case failed(String)
 }
 
-/// Whether the file at a path is a Handout: a regular file that starts with `handoutHead`. A link, a
-/// pipe or a device never is (a pipe would wait for a writer forever); the marker's text elsewhere
-/// near the top (a page about Handouts, a form field, a source file) is not enough.
+/// Whether the file at a path is a Handout: a regular file that starts with `handoutHead`. Opened
+/// without following a link and without waiting (a pipe would wait for a writer forever), then judged
+/// by what is open, so a file swapped in after a look at the path cannot slip past. The marker's text
+/// elsewhere near the top (a page about Handouts, a form field, a source file) is not enough.
 func isHandout(atPath path: String) -> Bool {
+    let descriptor = open(path, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+    guard descriptor >= 0 else { return false }
+    defer { close(descriptor) }
+    return startsAsHandout(descriptor)
+}
+
+/// Whether an open file is a regular file whose first bytes are `handoutHead`.
+func startsAsHandout(_ descriptor: Int32) -> Bool {
     var info = stat()
-    guard lstat(path, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG,
-          let handle = FileHandle(forReadingAtPath: path) else { return false }
-    defer { try? handle.close() }
-    let expected = Data(handoutHead.utf8)
-    return handle.readData(ofLength: expected.count) == expected
+    guard fstat(descriptor, &info) == 0, (info.st_mode & S_IFMT) == S_IFREG else { return false }
+    let expected = Array(handoutHead.utf8)
+    var head = [UInt8](repeating: 0, count: expected.count)
+    return pread(descriptor, &head, expected.count, 0) == expected.count && head == expected
 }
 
 /// A file the builder asked for, as the reply it gets: its bytes, or why not. Called off the main queue
@@ -115,35 +128,37 @@ func readForBuilder(atPath path: String) -> [String: Any] {
 /// The text of the current errno.
 func errnoText() -> String { String(cString: strerror(errno)) }
 
-/// Give `temporary` the permissions and ACL of the regular file at `target`, else the usual ones of a new
-/// file (the umask). Returns nil when done, else why not: a Handout that cannot keep who may read it is
-/// not published.
-func carryPermissions(from target: String, to temporary: String) -> String? {
-    var existing = stat()
-    if lstat(target, &existing) == 0, (existing.st_mode & S_IFMT) == S_IFREG {
-        guard chmod(temporary, existing.st_mode & 0o7777) == 0 else { return "its permissions could not be set (\(errnoText()))" }
-        guard copyfile(target, temporary, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 else {
-            return "the ACL of \(target) could not be carried over (\(errnoText()))"
-        }
-        return nil
-    }
+/// The usual permissions of a new file: 0666 without the umask.
+func newFileMode() -> mode_t {
     let mask = umask(0)
     umask(mask)
-    guard chmod(temporary, 0o666 & ~mask) == 0 else { return "its permissions could not be set (\(errnoText()))" }
-    return nil
+    return 0o666 & ~mask
+}
+
+/// Whether the file at `path` is still the one written (same device and inode) holding exactly `data`.
+/// Only then may cleanup remove it: anything else is a save another program made into it, and stays.
+func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
+    var now = stat()
+    guard lstat(path, &now) == 0, now.st_dev == written.st_dev, now.st_ino == written.st_ino,
+          now.st_size == off_t(data.count) else { return false }
+    return FileManager.default.contents(atPath: path) == data
 }
 
 /// Publish the Handout at `target` without ever destroying a file that is not a Handout (eng D7).
 ///
-/// A file there that is not a Handout is left alone before anything is written. A missing target is
-/// created exclusively (RENAME_EXCL). An existing Handout is swapped with the new file in one step
-/// (RENAME_SWAP); the file swapped out is then checked and, when it does not start as a Handout (one
-/// that appeared meanwhile), swapped back, so no moment exists in which another program's file is
-/// gone. The new file takes the replaced one's permissions and ACL from the replaced file itself,
-/// whatever was saved there meanwhile: who could not read it cannot read the new one. A file left at
-/// the temporary path after a swap back is removed only when it holds exactly the bytes written: an
-/// editor that saved into it in place keeps its save.
-func publish(_ data: Data, to target: String) -> Publication {
+/// A file there that is not a Handout is left before anything is written. The new file is written
+/// beside the target, readable by its owner alone, and stays so until its final permissions are
+/// known. A missing target is created exclusively (RENAME_EXCL), then given a new file's usual
+/// permissions. An existing Handout is swapped with the new file in one step (RENAME_SWAP); the file
+/// swapped out is judged by descriptor and, when it does not start as a Handout (one that appeared
+/// meanwhile), swapped back. A replaced Handout's permissions, group and ACL are read from that file
+/// itself and set on the new one by descriptor: who could not read it cannot read the new one, and
+/// when they cannot be carried the earlier Handout goes back. dw's process is looked at before each
+/// rename (`parentAlive`). A file left at the temporary path is removed only when it holds exactly
+/// the bytes written, and a save made into the replaced Handout meanwhile is kept: another program's
+/// save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
+/// new file can be published, created exclusively.
+func publish(_ data: Data, to target: String, parentAlive: () -> Bool) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -151,86 +166,118 @@ func publish(_ data: Data, to target: String) -> Publication {
     var present = stat()
     if lstat(target, &present) == 0, !isHandout(atPath: target) { return .notAHandout }
     let folder = (target as NSString).deletingLastPathComponent
-    let temporary = (folder as NSString).appendingPathComponent(".handout-\(getpid())-\(UUID().uuidString).tmp")
-    // Created readable by its owner alone; its final permissions are set once it is complete
-    let descriptor = open(temporary, O_WRONLY | O_CREAT | O_EXCL, 0o600)
+    let name = (target as NSString).lastPathComponent
+    // Named after the target: a file an interrupted run leaves here says what it belongs to
+    let temporary = (folder as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString).tmp")
+    let descriptor = open(temporary, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard descriptor >= 0 else { return .failed("could not write in \(folder): \(errnoText())") }
-    let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+    // The descriptor stays open across the renames: permissions are set on this file, wherever it is
+    defer { close(descriptor) }
     do {
-        try handle.write(contentsOf: data)
-        try handle.close()
+        try FileHandle(fileDescriptor: descriptor, closeOnDealloc: false).write(contentsOf: data)
     } catch {
         unlink(temporary)
         return .failed("could not write in \(folder): \(describe(error))")
     }
-    if let reason = carryPermissions(from: target, to: temporary) {
-        unlink(temporary)
-        return .failed("could not prepare the Handout in \(folder): \(reason)")
-    }
-    // The new file's identity: cleanup removes this file and never one another program saved meanwhile
     var written = stat()
-    guard stat(temporary, &written) == 0 else {
+    guard fstat(descriptor, &written) == 0 else {
         let reason = errnoText()
         unlink(temporary)
         return .failed("could not write in \(folder): \(reason)")
     }
+    // dw may have ended while the file was written: nobody waits for it any more
+    guard parentAlive() else {
+        unlink(temporary)
+        return .cancelled
+    }
     // Nothing there yet: create it, failing if something appeared in the meantime
-    if renamex_np(temporary, target, UInt32(RENAME_EXCL)) == 0 { return .published }
-    guard errno == EEXIST else {
-        let reason = errnoText()
-        unlink(temporary)
-        return .failed("could not create \(target): \(reason)")
+    if renamex_np(temporary, target, UInt32(RENAME_EXCL)) == 0 {
+        // Restrictive (0600) if this fails: never wider than intended
+        fchmod(descriptor, newFileMode())
+        return .published(warnings: [])
     }
-    // Something appeared since the first look: its permissions now, before it is swapped out
-    if let reason = carryPermissions(from: target, to: temporary) {
+    let exclusiveError = errno
+    if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
         unlink(temporary)
-        return .failed("could not prepare the Handout in \(folder): \(reason)")
+        return publishWithoutRenames(data, to: target)
     }
-    // The new file stays open across the swap, so its permissions can follow the file it replaced
-    let ours = open(temporary, O_RDONLY | O_CLOEXEC)
-    guard ours >= 0 else {
-        let reason = errnoText()
+    guard exclusiveError == EEXIST else {
         unlink(temporary)
-        return .failed("could not prepare the Handout in \(folder): \(reason)")
+        return .failed("could not create \(target): \(String(cString: strerror(exclusiveError)))")
     }
-    defer { close(ours) }
+    guard parentAlive() else {
+        unlink(temporary)
+        return .cancelled
+    }
+    // A Handout is there: swap, then look at what was swapped out
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         let reason = errnoText()
         unlink(temporary)
         return .failed("could not replace \(target): \(reason)")
     }
-    if isHandout(atPath: temporary) {
-        // The replaced Handout's own permissions and ACL, read from it, onto the published file
-        let theirs = open(temporary, O_RDONLY | O_NOFOLLOW | O_CLOEXEC)
-        var replaced = stat()
-        let carried = theirs >= 0 && fstat(theirs, &replaced) == 0 && fchmod(ours, replaced.st_mode & 0o7777) == 0
-            && fcopyfile(theirs, ours, nil, copyfile_flags_t(COPYFILE_ACL)) == 0
-        if theirs >= 0 { close(theirs) }
-        if carried {
-            unlink(temporary)
-            return .published
+    let theirs = open(temporary, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
+    var replaced = stat()
+    if theirs >= 0, fstat(theirs, &replaced) == 0, startsAsHandout(theirs) {
+        defer { close(theirs) }
+        // Its permissions, its group and its ACL, set on the published file by descriptor; a group this
+        // user cannot give leaves no group able to read it, rather than the folder's group
+        var carried = fchmod(descriptor, replaced.st_mode & 0o7777) == 0
+        if carried, fchown(descriptor, uid_t.max, replaced.st_gid) != 0 {
+            carried = fchmod(descriptor, replaced.st_mode & 0o7707) == 0
         }
-        // Who may read it could not be kept: the earlier Handout goes back, and the new file goes
+        // A volume without ACLs has none to carry
+        if carried, fcopyfile(theirs, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) != 0, errno != ENOTSUP {
+            carried = false
+        }
+        if carried {
+            // A save another program made into the earlier Handout meanwhile stays where it is
+            var now = stat()
+            if fstat(theirs, &now) == 0, now.st_size != replaced.st_size
+                || now.st_mtimespec.tv_sec != replaced.st_mtimespec.tv_sec
+                || now.st_mtimespec.tv_nsec != replaced.st_mtimespec.tv_nsec {
+                return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
+            }
+            unlink(temporary)
+            return .published(warnings: [])
+        }
+        // Who may read it could not be kept: the earlier Handout goes back, the new file goes
         guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
             return .failed("the permissions of the earlier Handout could not be kept, and it could not be put back at \(target): it is at \(temporary)")
         }
-        var back = stat()
-        if lstat(temporary, &back) == 0, back.st_dev == written.st_dev, back.st_ino == written.st_ino { unlink(temporary) }
+        if isUntouched(temporary, written: written, data: data) { unlink(temporary) }
         return .failed("the permissions of the earlier Handout at \(target) could not be carried over: it was left as it was")
     }
+    if theirs >= 0 { close(theirs) }
     // Not a Handout: put it back where it was; the temporary path then holds the new file again
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         return .failed("could not put the earlier file back at \(target) (\(errnoText())): it is at \(temporary)")
     }
-    // Unless another program saved over the target in between, by a new file or into this one in
-    // place: either save stays where it is, and only the untouched new file goes
-    var displaced = stat()
-    guard lstat(temporary, &displaced) == 0, displaced.st_dev == written.st_dev, displaced.st_ino == written.st_ino,
-          displaced.st_size == off_t(data.count), FileManager.default.contents(atPath: temporary) == data else {
+    guard isUntouched(temporary, written: written, data: data) else {
         return .failed("\(target) was saved again while the earlier file was put back: it holds the earlier file, and the newer save is kept at \(temporary)")
     }
     unlink(temporary)
     return .notAHandout
+}
+
+/// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
+/// created exclusively and written in place; an existing one is never replaced there.
+func publishWithoutRenames(_ data: Data, to target: String) -> Publication {
+    var present = stat()
+    guard lstat(target, &present) != 0 else {
+        return .failed("the volume of \(target) cannot replace a file safely (it has no atomic rename): remove the earlier Handout first, or choose an --out on another volume")
+    }
+    let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, newFileMode())
+    guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
+    let handle = FileHandle(fileDescriptor: created, closeOnDealloc: true)
+    do {
+        try handle.write(contentsOf: data)
+        try handle.close()
+    } catch {
+        // The file is this run's own (created exclusively): a partial one goes
+        unlink(target)
+        return .failed("could not write \(target): \(describe(error))")
+    }
+    return .published(warnings: [])
 }
 
 /// A render the builder is waiting for.
@@ -350,10 +397,14 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     /// End the run without publishing when dw's process (input.json parentPid) is gone. Called by
     /// watchParent, and by handleOutcome right before publishing: dw may end after the last look.
     func stopIfParentGone() {
-        guard let parent = input["parentPid"] as? Int, parent > 1 else { return }
-        if kill(pid_t(parent), 0) != 0, errno == ESRCH {
-            failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
-        }
+        guard !parentIsAlive(), let parent = input["parentPid"] as? Int else { return }
+        failRenderer("dw (process \(parent)) ended before the export finished: nothing was published")
+    }
+
+    /// Whether dw's process (input.json parentPid) is still there; true when there is none to watch.
+    func parentIsAlive() -> Bool {
+        guard let parent = input["parentPid"] as? Int, parent > 1 else { return true }
+        return !(kill(pid_t(parent), 0) != 0 && errno == ESRCH)
     }
 
     func runBuilder() {
@@ -385,11 +436,14 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         guard let html = outcome["html"] as? String else { failRenderer("the builder returned no Handout") }
         // dw may have ended since the last look: nobody waits for this file any more
         stopIfParentGone()
-        switch publish(Data(html.utf8), to: out) {
-        case .published:
+        switch publish(Data(html.utf8), to: out, parentAlive: { self.parentIsAlive() }) {
+        case .published(let kept):
             log("published: \(out)")
+            let warnings = (outcome["warnings"] as? [[String: Any]] ?? []) + kept.map { ["message": $0] }
             finish(["v": protocolVersion, "ok": true, "path": out, "pages": outcome["pages"] ?? 0,
-                    "diagrams": outcome["diagrams"] ?? 0, "warnings": outcome["warnings"] ?? []], code: 0)
+                    "diagrams": outcome["diagrams"] ?? 0, "warnings": warnings], code: 0)
+        case .cancelled:
+            failRenderer("dw ended before the export finished: nothing was published")
         case .isFolder:
             finish(failure(code: "HANDOUT_OUT_EXISTS", message: "\(out) is a folder: name a file", log: logPath), code: 1)
         case .notAHandout:

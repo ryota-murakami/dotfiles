@@ -80,3 +80,12 @@ export const IMAGE_TOTAL_LIMIT_BYTES = 100 * 1024 * 1024
 
 /** How long the verify probe waits for one embedded picture to decode before it counts as broken. */
 export const VERIFY_IMAGE_DECODE_LIMIT_MS = 5_000
+
+/** How many pictures the verify probe decodes at once: fast enough for a full Handout, without decoding every bitmap together. */
+export const VERIFY_IMAGE_DECODE_CONCURRENCY = 4
+
+/** How many bytes go through `String.fromCharCode` at once when bytes are encoded as base64 (its argument limit). */
+export const BASE64_CHUNK_BYTES = 32_768
+
+/** How deep pictures may nest inside an SVG (a drawing holding a screenshot): each level is checked like a picture of its own. */
+export const NESTED_PICTURE_DEPTH = 2

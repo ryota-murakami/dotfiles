@@ -422,3 +422,25 @@ test('arrow keys typed in a field or inside a code block stay there and do not t
   // Assert
   expect(visiblePages()).toEqual(['page-1'])
 })
+
+test('a diagram can be enlarged from the keyboard with Enter or Space, and says whether it is', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+  const holder = document.querySelector<HTMLElement>('#page-2 .diagram')
+
+  // Act
+  holder?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+  const afterEnter = {
+    wide: holder?.classList.contains('wide'),
+    pressed: holder?.getAttribute('aria-pressed'),
+  }
+  holder?.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', bubbles: true }))
+
+  // Assert
+  expect(holder?.getAttribute('tabindex')).toBe('0')
+  expect(holder?.getAttribute('role')).toBe('button')
+  expect(afterEnter).toEqual({ wide: true, pressed: 'true' })
+  expect(holder?.classList.contains('wide')).toBe(false)
+  expect(holder?.getAttribute('aria-pressed')).toBe('false')
+})

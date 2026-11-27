@@ -319,3 +319,29 @@ test('a secret in a page title is never printed through the page’s file name: 
   ])
   expect(JSON.stringify(diagnostics)).not.toContain('a1b2')
 })
+
+test('a key the source spells with entities right after a line break is caught: the break is a boundary the reader sees', () => {
+  // Arrange
+  const spelled = `&#65;${ACCESS_KEY_ID.slice(1)}`
+  const page = { n: 3, title: '鍵', section: '', markdown: `note<br>${spelled}\n`, built: 'pages/003.html' }
+  const html = `<p>note<br>${spelled}</p>`
+
+  // Act
+  const diagnostics = scanRenderedPage(page, html)
+
+  // Assert
+  expect(scanForSecrets([page])).toEqual([])
+  expect(diagnostics.map((diagnostic) => diagnostic.pattern)).toEqual(['aws-access-key-id'])
+})
+
+test('a key held inside a template element is read too: its contents ship in the file', () => {
+  // Arrange
+  const page = { n: 3, title: '鍵', section: '', markdown: '', built: 'pages/003.html' }
+  const html = `<template><p>x${ACCESS_KEY_ID}</p><p>${ACCESS_KEY_ID}</p></template>`
+
+  // Act
+  const diagnostics = scanRenderedPage(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.pattern)).toEqual(['aws-access-key-id'])
+})

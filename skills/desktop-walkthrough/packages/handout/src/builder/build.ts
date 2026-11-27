@@ -12,8 +12,9 @@
  *   diagram failed / nothing laid out ──────────▶ HANDOUT_DIAGRAM
  *   label larger than its box ──────────────────▶ HANDOUT_OVERFLOW
  * embed local images (bytes, secrets, sizes) ────▶ HANDOUT_IMAGE, HANDOUT_SECRET
+ *   links to local files ────────────────────────▶ warnings        (before the sanitizer drops file: links)
  * sanitize; scan each page as rendered ──────────▶ HANDOUT_SECRET
- * media, styles that load files ─────────────────▶ HANDOUT_IMAGE   (links to local files: warnings)
+ * media, styles that load files ─────────────────▶ HANDOUT_IMAGE
  * assemble (CSS, controller, CSP, marker)
  * host reopens the file under its CSP: labels equal, controller runs ─▶ HANDOUT_VERIFY
  *   a picture that does not decode ─────────────▶ HANDOUT_IMAGE
@@ -24,6 +25,7 @@
 import type { BuildOutcome, Diagnostic, HandoutInput } from '../contract'
 import {
   VERIFY_HASHCHANGE_LIMIT_MS,
+  VERIFY_IMAGE_DECODE_CONCURRENCY,
   VERIFY_IMAGE_DECODE_LIMIT_MS,
   VERIFY_POLL_MS,
   VERIFY_READY_LIMIT_MS,
@@ -36,7 +38,7 @@ import { readFile, renderPage, verifyInHost } from './host'
 import { createImageLedger, embedImages } from './images'
 import { judgeRenderedPage, missingLibraries } from './judge'
 import { checkHandout, handoutCheckSchema, measurePage, pageMeasurementSchema, probeBody } from './probes'
-import { checkReferences } from './references'
+import { localLinks, unembeddableResources } from './references'
 import { sanitizePage } from './sanitize'
 import { scanForSecrets, scanRenderedPage } from './scan'
 import { handoutCss } from './template'
@@ -141,6 +143,8 @@ export async function buildHandout(
     embedded.push({ page, html: result.html })
   }
   if (diagnostics.length > 0) return fail(diagnostics)
+  // Links to local files, read while every link still has its address (the sanitizer drops file: ones)
+  const linkWarnings = embedded.flatMap(({ page, html }) => localLinks(page, html))
 
   const sanitized = embedded.map(({ page, html }) => ({ page, html: sanitizePage(html) }))
   // The colleague receives the sanitized HTML: a value the source spelled with HTML entities or
@@ -148,8 +152,7 @@ export async function buildHandout(
   const disguised = sanitized.flatMap(({ page, html }) => scanRenderedPage(page, html))
   if (disguised.length > 0) return fail(disguised)
   // What a page loads besides its embedded pictures would not work in the colleague's copy
-  const references = sanitized.map(({ page, html }) => checkReferences(page, html))
-  const unembeddable = references.flatMap((reference) => reference.diagnostics)
+  const unembeddable = sanitized.flatMap(({ page, html }) => unembeddableResources(page, html))
   if (unembeddable.length > 0) return fail(unembeddable)
 
   const pages = sanitized.map(({ page, html }) => ({
@@ -176,16 +179,26 @@ export async function buildHandout(
     pollMs: VERIFY_POLL_MS,
     hashChangeLimitMs: VERIFY_HASHCHANGE_LIMIT_MS,
     imageDecodeLimitMs: VERIFY_IMAGE_DECODE_LIMIT_MS,
+    imageDecodeConcurrency: VERIFY_IMAGE_DECODE_CONCURRENCY,
   })
   const check = handoutCheckSchema.parse(await verifyInHost(host, html, checkProbe))
   const verification = judgeVerification(expectedLabels, check, pages.length)
   if (verification.length > 0) return fail(verification)
 
+  // A screenshot can show a key no check reads: the agent is told to look before sharing
+  const pictureWarnings =
+    ledger.rasterPictures > 0
+      ? [
+          {
+            message: `${ledger.rasterPictures} picture(s) embedded: the export checks their bytes and metadata, not what they show; look at each one before sharing`,
+          },
+        ]
+      : []
   return {
     ok: true,
     html,
     pages: pages.length,
     diagrams: diagramCount,
-    warnings: references.flatMap((reference) => reference.warnings),
+    warnings: [...linkWarnings, ...pictureWarnings],
   }
 }

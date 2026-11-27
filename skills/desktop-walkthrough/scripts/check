@@ -72,6 +72,16 @@ handout_contract() {
   if [ -n "$(comm -23 <(printf '%s\n' "$used") <(printf '%s\n' "$enum"))" ]; then
     echo "codes raised but not in contract.ts: $(comm -23 <(printf '%s\n' "$used") <(printf '%s\n' "$enum") | tr '\n' ' ')"; status=1
   fi
+  # The time limits (eng D3): dw sets them on every export, the contract names them
+  local page_dw run_dw page_ts run_ts
+  page_dw=$(sed -n 's/^HANDOUT_PAGE_LIMIT_MS=\([0-9]*\)$/\1/p' scripts/dw)
+  run_dw=$(sed -n 's/^HANDOUT_RUN_LIMIT_MS=\([0-9]*\)$/\1/p' scripts/dw)
+  page_ts=$(sed -n 's/^export const PAGE_RENDER_LIMIT_MS = \([0-9_]*\)$/\1/p' packages/handout/src/constants.ts | tr -d _)
+  run_ts=$(sed -n 's/^export const RUN_LIMIT_MS = \([0-9_]*\)$/\1/p' packages/handout/src/constants.ts | tr -d _)
+  if [ -z "$page_dw" ] || [ "$page_dw" != "$page_ts" ] || [ "$run_dw" != "$run_ts" ]; then
+    echo "the time limits differ between scripts/dw (page $page_dw, run $run_dw) and constants.ts (page $page_ts, run $run_ts)"
+    status=1
+  fi
   # The first bytes of a Handout, as each side writes or requires them: one string, byte for byte
   local head_ts head_swift head_dw
   head_ts=$(sed -n "/^export const HANDOUT_HEAD =/,/'\$/p" packages/handout/src/contract.ts | tail -1 | sed "s/^ *'//; s/'\$//")

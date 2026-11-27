@@ -32,6 +32,19 @@ EOF
 chmod +x "$scratch/fake-renderer"
 # The renderer a case runs (in_dw): the stand-in above unless the case names another
 renderer="$scratch/fake-renderer"
+# The libraries a case's dw verifies (in_dw): none unless the case names some
+vendor_list=""
+
+# Hold the lock file LOCK as another dw would, in the background, until the caller kills the holder;
+# prints the holder's process id once the lock is held
+hold_like_another_dw() {
+  rm -f "$scratch/held"
+  # Its output goes nowhere: a $(…) around this function waits for every holder of its pipe
+  perl -MFcntl=:flock -e 'open(my $f, ">>", $ARGV[0]) or exit 1; flock($f, LOCK_EX) or exit 1; open(my $r, ">", $ARGV[1]); close $r; sleep 60' "$1" "$scratch/held" > /dev/null 2>&1 &
+  local holder=$! waited=0
+  until [ -e "$scratch/held" ] || [ "$waited" -ge 100 ]; do sleep 0.05; waited=$((waited + 1)); done
+  printf '%s' "$holder"
+}
 
 # Run "$@" (a dw function and its arguments) in a subshell with dw's functions loaded; the HUD, the
 # network, the renderer and waiting are stand-ins. Both output streams in $out, the exit status in $code
@@ -48,7 +61,7 @@ in_dw() {
       sleep() { :; }
       # Read by dw's functions sourced above: no library to verify, the renderer's stand-in
       # shellcheck disable=SC2034
-      EXPLAIN_VENDOR=""
+      EXPLAIN_VENDOR="$vendor_list"
       # shellcheck disable=SC2034
       HANDOUT_BIN="$renderer"
       "$@"
@@ -106,6 +119,18 @@ else
   fail "page order: $out"
 fi
 
+dir="$RECORDS/numbers"
+mkdir -p "$dir/pages"
+printf '# p\n' > "$dir/pages/00-zero.md"
+printf '# p\n' > "$dir/pages/1234567890-long.md"
+printf '# p\n' > "$dir/pages/01-one.md"
+in_dw record_pages "$dir"
+if [ "$(printf '%s\n' "$out" | cut -f1 | tr '\n' ' ')" = "1 " ]; then
+  pass "a page numbered 0 or with more than nine digits is no page: the lists skip it"
+else
+  fail "page numbers dw never writes: $out"
+fi
+
 defaults="$scratch/config-defaults/walkthroughs"
 mkdir -p "$defaults/older" "$defaults/newer" "$defaults/pointed" "$defaults/running"
 for name in older newer pointed running; do printf '# 記録：%s\n' "$name" > "$defaults/$name/journal.md"; done
@@ -154,21 +179,30 @@ else
   fail "control characters in a file name:$controlled"
 fi
 
-sleep 30 &
-holder=$!
-mkdir -p "$dir/pages/.lock" && printf '%s' "$holder" > "$dir/pages/.lock/pid"
+holder=$(hold_like_another_dw "$dir/pages/.dw-lock")
 before=$(ls "$dir/pages")
-in_dw record_page 3 "待つ" "$scratch/body.md" "" quiet
+DW_LOCK_WAIT=1 in_dw record_page 3 "待つ" "$scratch/body.md" "" quiet
 held_code="$code" held_out="$out" held_after=$(ls "$dir/pages")
 kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
 in_dw record_page 3 "待つ" "$scratch/body.md" "" quiet
 if [ "$held_code" = 1 ] && grep -q 'another dw' <<< "$held_out" && [ "$held_after" = "$before" ] \
-  && [ "$code" = 0 ] && [ -f "$dir/pages/03-待つ.md" ] && [ ! -e "$dir/pages/.lock" ]; then
-  pass "a page write waits for another writer's lock and touches nothing; a lock whose writer is gone is taken over"
+  && [ "$code" = 0 ] && [ -f "$dir/pages/03-待つ.md" ]; then
+  pass "a page write waits for another writer's lock and touches nothing; once that writer is gone the lock is free"
 else
   fail "record lock (held exit $held_code: $held_out / after exit $code): $(ls -a "$dir/pages" | tr '\n' ' ')"
 fi
-rm -rf "$dir/pages/.lock"
+
+printf '1\t\n' > "$dir/pages/sections.tsv"
+chmod 000 "$dir/pages/sections.tsv"
+before=$(ls "$dir/pages")
+in_dw record_page 4 "新しい" "$scratch/body.md" "" quiet
+chmod 644 "$dir/pages/sections.tsv"
+if [ "$code" = 1 ] && grep -q 'cannot be read' <<< "$out" && [ "$(ls "$dir/pages")" = "$before" ] \
+  && [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t')" ]; then
+  pass "a sections.tsv that cannot be read stops a page write before the page or the other rows change"
+else
+  fail "unreadable sections.tsv (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
 dir="$RECORDS/tabs"
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 
@@ -300,6 +334,46 @@ else
 fi
 rm -rf "$DW_HOME/explain"
 
+dir=$(two_page_record locked-explain)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+mkdir -p "$DW_HOME/explain"
+printf '# 待つページ\n' > "$scratch/waiting.md"
+holder=$(hold_like_another_dw "$DW_HOME/explain/.dw-lock")
+DW_LOCK_WAIT=1 in_dw cmd_explain "$scratch/waiting.md"
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" != 0 ] && grep -q 'another dw' <<< "$out" && [ ! -e "$DW_HOME/explain/pages/001.md" ] \
+  && [ "$(ls "$dir/pages" | tr '\n' ' ')" = "01-一枚目.md 02-二枚目.md sections.tsv " ]; then
+  pass "a page added while another dw explain holds the explainer waits, then gives up changing nothing"
+else
+  fail "explainer lock (exit $code: $out): $(ls "$DW_HOME/explain/pages" 2>&1 | tr '\n' ' ')"
+fi
+
+holder=$(hold_like_another_dw "$dir/pages/.dw-lock")
+DW_LOCK_WAIT=1 in_dw cmd_explain "$scratch/waiting.md"
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q 'the record could not keep it' <<< "$out"; then
+  pass "a page the record cannot keep is said, never reported as shown and kept"
+else
+  fail "record failure after dw explain (exit $code: $out)"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
+dir=$(two_page_record uncopyable)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw cmd_explain "$scratch/waiting.md"
+chmod 000 "$dir/pages/02-二枚目.md"
+in_dw cmd_explain --clear
+chmod 644 "$dir/pages/02-二枚目.md"
+if [ "$code" != 0 ] && grep -q 'nothing was removed' <<< "$out" && [ -z "$(find "$dir/pages" -name 'cleared-*')" ] \
+  && [ -f "$dir/pages/01-待つページ.md" ] && [ -f "$dir/pages/02-二枚目.md" ] && [ -f "$DW_HOME/explain/pages/001.md" ]; then
+  pass "a clear whose archive cannot hold every page removes nothing, in the record or the panel"
+else
+  fail "clear with an unreadable page (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
 dir=$(two_page_record explain-error)
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 printf '# 壊れた\n\n<!-- hud-only -->\n' > "$scratch/broken.md"
@@ -350,6 +424,14 @@ if [ "$code" = 0 ] && grep -q 'echo 書き出す' <<< "$out" && ! grep -q 'HUD �
   pass "a fence opened on a list item's line closes at its indented fence: the hud-only block after it stays out"
 else
   fail "list-item fence (exit $code): $out"
+fi
+
+printf '> ```markdown\n> <!-- hud-only -->\n> ```\n\n<!-- hud-only -->\nHUD だけの段落\n<!-- /hud-only -->\n' > "$scratch/quoted-fence.md"
+in_dw explain_filter handout "$scratch/quoted-fence.md" /dev/null
+if [ "$code" = 0 ] && grep -q '^> <!-- hud-only -->' <<< "$out" && ! grep -q 'HUD だけの段落' <<< "$out"; then
+  pass "a quoted fenced example holding a marker is an example, and the block after the quote is still left out"
+else
+  fail "quoted fence (exit $code): $out"
 fi
 
 printf '記法は `` <!-- hud-only --> `` のとおり\n' > "$scratch/double-tick.md"
@@ -519,6 +601,100 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1:3: the image \]0;titlex.png 
   pass "the renderer's messages reach the terminal without control characters"
 else
   fail "control characters from the renderer (exit $code): $(printf '%s' "$out" | od -c | head -5)"
+fi
+
+dir=$(two_page_record retried)
+printf '# 書き換え中\n' > "$dir/pages/02-書き換え中.md"
+rm -f "$scratch/record-pages-calls"
+# The second listing (the first reading's) still sees the page being rewritten; the next one does not
+retrying_lists() {
+  eval "original_$(declare -f record_pages)"
+  record_pages() {
+    original_record_pages "$@"
+    local calls
+    calls=$(($(cat "$scratch/record-pages-calls" 2>/dev/null || echo 0) + 1))
+    echo "$calls" > "$scratch/record-pages-calls"
+    [ "$calls" = 2 ] && rm -f "$RECORDS/retried/pages/02-書き換え中.md"
+    return 0
+  }
+  "$@"
+}
+rm -f "$DW_CHECK_SEEN"
+in_dw retrying_lists cmd_handout retried
+if grep -q 'reading the pages again' <<< "$out" && [ "$(jq '.pages | length' "$DW_CHECK_SEEN" 2>/dev/null)" = 2 ]; then
+  pass "two files for a page number seen once (a page being rewritten) are read again, not refused"
+else
+  fail "duplicate on the first reading (exit $code: $out)"
+fi
+
+dir="$RECORDS/restless"
+mkdir -p "$dir/pages"
+printf '# 記録：restless\n' > "$dir/journal.md"
+printf '# 揺れる\n\n本文\n' > "$dir/pages/01-揺れる.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+# A writer saves the page again after every build: neither reading holds still
+restless_build() {
+  eval "original_$(declare -f explain_build)"
+  explain_build() {
+    original_explain_build "$@"
+    local status=$?
+    printf '# 揺れる\n\n本文 %s\n' "$RANDOM" > "$scratch/restless.md" && mv "$scratch/restless.md" "$RECORDS/restless/pages/01-揺れる.md"
+    return "$status"
+  }
+  "$@"
+}
+rm -f "$DW_CHECK_SEEN"
+in_dw restless_build cmd_handout restless
+if [ "$code" = 1 ] && grep -q 'changed while they were read, twice' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "pages that change during both readings stop the export (HANDOUT_RECORD) before the renderer starts"
+else
+  fail "restless pages (exit $code: $out)"
+fi
+
+dir=$(two_page_record broken-name)
+printf '# 改行\n' > "$dir/pages/03-改"$'\n'"行.md"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout broken-name
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD.*line break' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "a page file with a line break in its name stops the export (HANDOUT_RECORD): it would split every list"
+else
+  fail "line break in a page's file name (exit $code: $out)"
+fi
+
+in_dw cmd_handout ../escape
+if [ "$code" = 1 ] && grep -q 'plain folder name' <<< "$out"; then
+  pass "a record name with a slash or a leading dot is refused before anything is read"
+else
+  fail "record name check (exit $code: $out)"
+fi
+
+dir=$(two_page_record vendored)
+mkdir -p "$DW_HOME/explain/vendor"
+printf 'changed\n' > "$DW_HOME/explain/vendor/lib.js"
+vendor_list="lib.js|https://cdn.test/lib.js|$(printf 'expected\n' | shasum -a 256 | cut -d' ' -f1)"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout vendored
+vendor_list=""
+rm -rf "$DW_HOME/explain"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_VENDOR lib.js' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "a library that is not the version dw expects stops the export (HANDOUT_VENDOR) before the renderer starts"
+else
+  fail "vendor digest (exit $code: $out)"
+fi
+
+cat > "$scratch/silent-renderer" <<'EOF'
+#!/bin/bash
+echo oops
+EOF
+chmod +x "$scratch/silent-renderer"
+dir=$(two_page_record silent)
+renderer="$scratch/silent-renderer"
+in_dw cmd_handout silent
+renderer="$scratch/fake-renderer"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RENDERER the renderer ended without a result' <<< "$out"; then
+  pass "a renderer that ends without its result line stops with HANDOUT_RENDERER and names the log"
+else
+  fail "renderer without a result (exit $code: $out)"
 fi
 
 dir=$(two_page_record staged)

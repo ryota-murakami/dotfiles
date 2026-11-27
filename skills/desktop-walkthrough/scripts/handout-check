@@ -383,6 +383,16 @@ else
   fail "local link: $out"
 fi
 
+new_record file-link
+printf '\n[手元のメモ](file:///Users/dw-check/notes.md)\n' >> "$RECORDS/file-link/pages/01-書き出しの流れ.md"
+export_record file-link
+if [ "$code" = 0 ] && grep -q 'warning: page 1: links to file:///Users/dw-check/notes.md, a file on this Mac' <<< "$out" \
+  && [ -f "$RECORDS/file-link/handout.html" ]; then
+  pass "a file: link, whose address the sanitizer drops, still reaches the agent as a warning"
+else
+  fail "file: link: $out"
+fi
+
 new_record private
 export_record private
 chmod 600 "$RECORDS/private/handout.html"
@@ -558,6 +568,17 @@ if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("cont
   pass "a CSP that blocks the controller fails HANDOUT_VERIFY and nothing is published"
 else
   fail "VERIFY (CSP): $result"
+fi
+# The same broken builder, with pages that render at once and a per-page limit shorter than the
+# controller's wait: the finished file never answers within the limit
+late_page 1 0
+limits_input 1500 60000 1
+result=$("$BIN" "$scratch/limits.json" "$broken")
+if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("did not open within 1 s"))' <<< "$result" >/dev/null \
+  && [ ! -e "$scratch/limits.html" ]; then
+  pass "a finished file that does not answer within the per-page limit stops with HANDOUT_RENDERER, nothing published"
+else
+  fail "verify limit: $result"
 fi
 cp "$DIST/builder.html" "$broken/"
 perl -pi -e 's/HTML_INTEGRATION_POINTS:\{foreignobject:!0\}/HTML_INTEGRATION_POINTS:{}/' "$broken/builder.html"

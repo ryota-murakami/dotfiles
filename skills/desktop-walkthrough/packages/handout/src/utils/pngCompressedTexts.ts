@@ -5,8 +5,8 @@ const FIRST_CHUNK_OFFSET = 8
 const CHUNK_FIELD_BYTES = 4
 
 /**
- * The compressed text a PNG carries, still compressed (zlib): every `zTXt` chunk, and each `iTXt`
- * chunk whose compression flag is set.
+ * The compressed text a PNG carries, still compressed (zlib): every `zTXt` chunk, each `iTXt` chunk
+ * whose compression flag is set, and the color profile of `iCCP` (its descriptions are text too).
  *
  * Why it exists: a picture is embedded byte for byte, and text a PNG keeps compressed reads as noise
  * until it is inflated, a key in it included. Called by the image check of {@link embedImages},
@@ -33,8 +33,8 @@ export function pngCompressedTexts(bytes: Uint8Array): Uint8Array[] {
     if (end > bytes.length || type === 'IEND') break
     const data = bytes.subarray(start, end)
     const keywordEnd = data.indexOf(0)
-    // zTXt: keyword, NUL, compression method, the compressed text
-    if (type === 'zTXt' && keywordEnd >= 0) texts.push(data.subarray(keywordEnd + 2))
+    // zTXt: keyword, NUL, compression method, the compressed text; iCCP the same, with a color profile
+    if ((type === 'zTXt' || type === 'iCCP') && keywordEnd >= 0) texts.push(data.subarray(keywordEnd + 2))
     // iTXt: keyword, NUL, compression flag, method, language tag, NUL, translated keyword, NUL, the text
     if (type === 'iTXt' && keywordEnd >= 0 && data[keywordEnd + 1] === 1) {
       const languageEnd = data.indexOf(0, keywordEnd + 3)

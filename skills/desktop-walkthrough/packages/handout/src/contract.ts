@@ -126,7 +126,7 @@ export const handoutLimitsSchema = z.object({
 })
 export type HandoutLimits = z.infer<typeof handoutLimitsSchema>
 
-/** The limits dw sets on a real export. */
+/** The limits dw sets on a real export (scripts/check compares them with scripts/dw's HANDOUT_PAGE_LIMIT_MS and HANDOUT_RUN_LIMIT_MS). */
 export const DEFAULT_LIMITS: HandoutLimits = { pageMs: PAGE_RENDER_LIMIT_MS, runMs: RUN_LIMIT_MS }
 
 /**

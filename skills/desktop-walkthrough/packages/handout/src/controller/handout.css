@@ -241,17 +241,84 @@ body.handout {
   color: var(--accent);
   font-size: 12px;
 }
-/* A finger needs a larger target than a pointer: 40px controls on touch screens */
+/* The keyboard's place is plain to see on the dark panel: the accent ring, on every control and on a
+   diagram (which Enter enlarges) */
+.btn:focus-visible,
+.pager button:focus-visible,
+.toc button:focus-visible,
+.diagram:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+/* A finger needs a larger target than a pointer: 40px header controls in a header tall enough to hold
+   them, 44px rows in the table of contents and the pager, a larger copy button */
 @media (pointer: coarse) {
+  .header {
+    height: 44px;
+  }
   .btn {
     width: 40px;
     height: 40px;
   }
+  .toc {
+    top: 48px;
+  }
+  .toc button,
+  .pager button {
+    min-height: 44px;
+  }
+  body.handout .copy {
+    min-height: 36px;
+    padding: 8px 12px;
+  }
 }
-/* A narrow window keeps the room for the title: the zoom controls go (the browser's own zoom remains) */
+/* A touch screen keeps a hover look after the tap that caused it: there is no hover there */
+@media (hover: none) {
+  .btn:hover,
+  .toc button:hover {
+    background: transparent;
+  }
+  .pager button:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+/* A narrow window keeps the room for the title: the zoom controls go (the browser's own zoom
+   remains). A phone gives the panel the whole screen: no margin, border or rounded corners, no edges
+   to drag, and a narrower page padding, so text and code keep their width */
 @media (max-width: 480px) {
   .header .zoom-control {
     display: none;
+  }
+  .panel {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .edge {
+    display: none;
+  }
+  .page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+/* A reader who asked the system for more contrast: the quiet grey texts go white, the borders show */
+@media (prefers-contrast: more) {
+  #pageno,
+  .zoom,
+  .pager small,
+  .toc b {
+    color: #fff;
+  }
+  .panel {
+    border-color: var(--accent);
+  }
+  .pager button,
+  .toc {
+    border-color: rgba(255, 255, 255, 0.5);
   }
 }
 @media (prefers-reduced-motion: reduce) {

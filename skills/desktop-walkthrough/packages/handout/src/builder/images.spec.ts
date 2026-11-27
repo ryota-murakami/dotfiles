@@ -524,3 +524,164 @@ test('an SVG image naming its picture twice (href and xlink:href) has both check
   // Assert
   expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['HANDOUT_SECRET'])
 })
+
+test('a signed link a JPEG keeps in its XMP with an escaped & stops the export, as an XMP reader decodes it', async () => {
+  // Arrange
+  const xmp = `<x:xmpmeta><rdf:Description dc:source="https://docs.test/a?expires=1&amp;signature=${SIGNATURE}"/></x:xmpmeta>`
+  const jpeg = new Uint8Array([
+    0xff,
+    0xd8,
+    0xff,
+    0xe1,
+    0x00,
+    0x10,
+    ...new TextEncoder().encode(`http://ns.adobe.com/xap/1.0/\0${xmp}`),
+  ])
+  const host = hostWithFiles({ '/r/pages/photo.jpg': bytesToBase64(jpeg) })
+  const html = '<p><img src="photo.jpg"></p>'
+
+  // Act
+  const result = await embedImages(page('![写真](photo.jpg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.message])).toEqual([
+    [
+      'HANDOUT_SECRET',
+      'page 3:1: the image photo.jpg carries a secret shape (signed-url-parameter) in its metadata; save the picture again without it',
+    ],
+  ])
+})
+
+test('a screenshot an SVG carries inside it is checked like one on its own: a key in its metadata stops the export', async () => {
+  // Arrange
+  const png = pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]])
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><image href="data:image/png;base64,${bytesToBase64(png)}" width="10" height="10"/></svg>`
+  const host = hostWithFiles({ '/r/pages/diagram.svg': toBase64(svg) })
+  const html = '<p><img src="diagram.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](diagram.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.message])).toEqual([
+    [
+      'HANDOUT_SECRET',
+      'page 3:1: the image diagram.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    ],
+  ])
+})
+
+test('an image written into the page as data is embedded as its checked bytes alone: no other text of the source travels', async () => {
+  // Arrange
+  const host = hostWithFiles({})
+  const html = '<p><img src="data:image/png;name=&quot;x&quot;;base64,iVBORw0KGgo="></p>'
+
+  // Act
+  const result = await embedImages(
+    page('<img src="data:image/png;base64,…">\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result).toEqual({ html: '<p><img src="data:image/png;base64,iVBORw0KGgo="></p>', diagnostics: [] })
+})
+
+test('once the pictures pass the total, the files after them are not read at all', async () => {
+  // Arrange
+  const host = hostWithFiles({
+    '/r/pages/a.png': 'iVBORw0KGgo=',
+    '/r/pages/b.png': 'iVBORw0KGgo=',
+    '/r/pages/c.png': 'iVBORw0KGgo=',
+  })
+  const ledger = createImageLedger(12)
+  const html = '<p><img src="a.png"><img src="b.png"><img src="c.png"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](a.png)\n![二](b.png)\n![三](c.png)\n'),
+    html,
+    '/r',
+    host,
+    ledger,
+  )
+
+  // Assert
+  expect(host.asked).toEqual(['/r/pages/a.png', '/r/pages/b.png'])
+  expect(result.diagnostics.map((diagnostic) => diagnostic.line)).toEqual([2, 3])
+})
+
+test('compressed metadata that cannot be inflated stops the export: its text could not be checked', async () => {
+  // Arrange
+  const zTXt = new Uint8Array([...new TextEncoder().encode('Comment'), 0, 0, 1, 2, 3, 4])
+  const host = hostWithFiles({ '/r/pages/shot.png': bytesToBase64(pngWith([['zTXt', zTXt]])) })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image shot.png carries compressed text that cannot be checked for secrets (broken); save the picture again without its metadata',
+  ])
+})
+
+test('compressed metadata whose chunks inflate past 20 MB together stops the export, however small each one is', async () => {
+  // Arrange
+  const chunk = new Uint8Array([
+    ...new TextEncoder().encode('Comment'),
+    0,
+    0,
+    ...deflateSync(new Uint8Array(12 * 1024 * 1024)),
+  ])
+  const host = hostWithFiles({
+    '/r/pages/shot.png': bytesToBase64(
+      pngWith([
+        ['zTXt', chunk],
+        ['zTXt', chunk],
+      ]),
+    ),
+  })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image shot.png carries compressed text that cannot be checked for secrets (too-large); save the picture again without its metadata',
+  ])
+})
+
+test('a key in a PNG’s compressed color profile stops the export: the profile is text a reader can recover', async () => {
+  // Arrange
+  const iCCP = new Uint8Array([
+    ...new TextEncoder().encode('ICC'),
+    0,
+    0,
+    ...deflateSync(new TextEncoder().encode(`desc ${ACCESS_KEY_ID}`)),
+  ])
+  const host = hostWithFiles({ '/r/pages/shot.png': bytesToBase64(pngWith([['iCCP', iCCP]])) })
+  const html = '<p><img src="shot.png"></p>'
+
+  // Act
+  const result = await embedImages(page('![画面](shot.png)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.code)).toEqual(['HANDOUT_SECRET'])
+})
+
+test('the ledger counts the raster pictures embedded, whose pixels no check reads', async () => {
+  // Arrange
+  const host = hostWithFiles({ '/r/pages/shot.png': 'iVBORw0KGgo=', '/r/pages/flow.svg': 'PHN2Zy8+' })
+  const ledger = createImageLedger()
+  const html = '<p><img src="shot.png"><img src="flow.svg"><img src="shot.png"></p>'
+
+  // Act
+  await embedImages(page(''), html, '/r', host, ledger)
+
+  // Assert
+  expect(ledger.rasterPictures).toBe(2)
+})

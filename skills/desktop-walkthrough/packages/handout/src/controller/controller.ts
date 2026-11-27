@@ -22,6 +22,9 @@ import { HANDOUT_DOM } from '../dom'
 /** Where the dragged panel width is remembered; null where the browser refuses storage. */
 export type WidthStore = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
+/** What a screen reader hears for a diagram, which Enter, Space or a click enlarges and fits again. */
+const DIAGRAM_TOGGLE_LABEL = '図（Enter で実寸表示と幅合わせを切り替え）'
+
 /** What a copy button says while it idles, after a copy, and when a copy failed. */
 const COPY_LABELS = { idle: 'コピー', done: 'コピーしました', failed: 'コピーできませんでした' } as const
 
@@ -289,7 +292,8 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
 
   // ---- zoom ----
   function setZoom(requested: number): void {
-    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(requested * 10) / 10))
+    // Snapped to whole steps of ZOOM_STEP, then kept between ZOOM_MIN and ZOOM_MAX
+    zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(requested / ZOOM_STEP) * ZOOM_STEP))
     for (const page of pages) page.style.setProperty('zoom', String(zoom))
     zoomLabel.textContent = `${Math.round(zoom * 100)}%`
     zoomOutButton.disabled = zoom <= ZOOM_MIN
@@ -343,16 +347,29 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
     code.parentElement?.append(button)
   }
 
-  // ---- diagrams: a click toggles between fitting the width and natural size ----
+  // ---- diagrams: a click, Enter or Space toggles between fitting the width and natural size ----
   for (const holder of doc.querySelectorAll<HTMLElement>('.diagram')) {
-    holder.addEventListener('click', () => {
+    // A button to the keyboard and to a screen reader too, saying whether the diagram is enlarged
+    holder.setAttribute('tabindex', '0')
+    holder.setAttribute('role', 'button')
+    holder.setAttribute('aria-pressed', 'false')
+    holder.setAttribute('aria-label', DIAGRAM_TOGGLE_LABEL)
+    const toggle = () => {
       const graphic = holder.querySelector<SVGSVGElement>('svg')
       if (!graphic) return
       const wide = holder.classList.toggle('wide')
+      holder.setAttribute('aria-pressed', String(wide))
       const natural = graphic.viewBox?.baseVal?.width ?? 0
       if (!graphic.dataset.fitted) graphic.dataset.fitted = graphic.style.maxWidth || '100%'
       graphic.style.maxWidth = wide ? 'none' : graphic.dataset.fitted
       graphic.style.width = wide && natural ? `${Math.round(natural * DIAGRAM_NATURAL_SCALE)}px` : ''
+    }
+    holder.addEventListener('click', toggle)
+    holder.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      // Space would scroll the page as well
+      event.preventDefault()
+      toggle()
     })
   }
 

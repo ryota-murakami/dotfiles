@@ -3,7 +3,19 @@ import flowchart from './fixtures/flowchart.svg?raw'
 import sequence from './fixtures/sequence.svg?raw'
 import { expect, test } from 'vitest'
 
-import { diagramLabels, sanitizePage } from './sanitize'
+import { sanitizePage } from './sanitize'
+
+/** The label texts of every diagram in some content, by the diagram's SVG id, as the verify probe reads them. */
+function diagramLabels(html: string): Array<{ id: string; labels: string[] }> {
+  const holder = document.createElement('template')
+  holder.innerHTML = html
+  return Array.from(holder.content.querySelectorAll('.diagram svg')).map((svg) => ({
+    id: svg.id,
+    labels: Array.from(svg.querySelectorAll('foreignObject, text'))
+      .map((label) => (label.textContent ?? '').trim())
+      .filter((text) => text !== ''),
+  }))
+}
 
 // The fixtures are mermaid 12.2.0's output for fixtures/hud-golden (page 2), captured from the real
 // page.html in a WebKit view: flowchart labels are HTML inside <foreignObject>, sequence labels SVG <text>.
@@ -144,4 +156,15 @@ test('a link drawn inside a diagram opens in a new tab too, so following it keep
     ['_blank', 'noopener noreferrer'],
     ['_blank', 'noopener noreferrer'],
   ])
+})
+
+test('a template element goes: its contents would ship in the file without anyone seeing them', () => {
+  // Arrange
+  const html = '<p>本文</p><template><p>隠れた段落</p></template>'
+
+  // Act
+  const sanitized = sanitizePage(html)
+
+  // Assert
+  expect(sanitized).toBe('<p>本文</p>')
 })

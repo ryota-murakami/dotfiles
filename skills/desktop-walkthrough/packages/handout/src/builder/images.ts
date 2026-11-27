@@ -1,9 +1,12 @@
 import { findSecrets, maskSecrets } from '../../../../hooks/secrets'
-import { IMAGE_LIMIT_BYTES, IMAGE_TOTAL_LIMIT_BYTES } from '../constants'
+import { IMAGE_LIMIT_BYTES, IMAGE_TOTAL_LIMIT_BYTES, NESTED_PICTURE_DEPTH } from '../constants'
 import type { Diagnostic, HandoutPage } from '../contract'
+import { base64DecodedLength } from '../utils/base64DecodedLength'
 import { byteTexts } from '../utils/byteTexts'
 import { collectReadableText } from '../utils/collectReadableText'
 import { decodeBase64 } from '../utils/decodeBase64'
+import { decodeXmlEntities } from '../utils/decodeXmlEntities'
+import { encodeBase64 } from '../utils/encodeBase64'
 import { excerpt } from '../utils/excerpt'
 import { inflateLimited } from '../utils/inflateLimited'
 import { pngCompressedTexts } from '../utils/pngCompressedTexts'
@@ -35,7 +38,8 @@ type CheckOutcome = { ok: true; image: CheckedImage } | { ok: false; failure: Em
 
 /**
  * What one export's pictures have cost so far, shared by every page of it: each file read and
- * checked once (a picture shown on several pages), and the bytes embedded, against a total.
+ * checked once (a picture shown on several pages), and the bytes embedded, against a total. Once
+ * the total is passed no further file is read: the export stops anyway, and memory stays bounded.
  */
 export interface ImageLedger {
   /** Path → the outcome of reading and checking that file. */
@@ -44,6 +48,10 @@ export interface ImageLedger {
   readonly totalLimitBytes: number
   /** Bytes embedded so far; a picture shown twice is in the file twice and counts twice. */
   embeddedBytes: number
+  /** Whether a picture already passed the total. */
+  exhausted: boolean
+  /** Raster pictures embedded (png, jpeg, gif, webp, avif): what they show is no text any check reads. */
+  rasterPictures: number
 }
 
 /**
@@ -54,10 +62,10 @@ export interface ImageLedger {
  * @returns A ledger with nothing read and nothing embedded.
  *
  * @example
- * createImageLedger() // { checked: Map {}, totalLimitBytes: 104857600, embeddedBytes: 0 }
+ * createImageLedger() // { checked: Map {}, totalLimitBytes: 104857600, embeddedBytes: 0, exhausted: false, rasterPictures: 0 }
  */
 export function createImageLedger(totalLimitBytes: number = IMAGE_TOTAL_LIMIT_BYTES): ImageLedger {
-  return { checked: new Map(), totalLimitBytes, embeddedBytes: 0 }
+  return { checked: new Map(), totalLimitBytes, embeddedBytes: 0, exhausted: false, rasterPictures: 0 }
 }
 
 /**
@@ -210,13 +218,20 @@ async function embedOne(
   ledger: ImageLedger,
 ): Promise<EmbedFailure | null> {
   if (source.kind === 'refused') return { code: 'HANDOUT_IMAGE', reason: source.reason }
-  // Written into the page as data: kept as written, once its bytes check out like a file's
+  // Past the total, nothing more is read or decoded: the export stops with the pictures already counted
+  if (ledger.exhausted) return overTotal(ledger)
+  // Written into the page as data: embedded as its checked bytes alone, rebuilt from the type they
+  // are, so no other text of the source (a parameter of the data URI) travels unchecked
   if (source.kind === 'embedded') {
     const data = dataUriBytes(image.getAttribute(attribute) ?? '')
     if (!data.ok) return { code: 'HANDOUT_IMAGE', reason: data.reason }
     const inspected = await inspectImage(data.bytes)
     if (!inspected.ok) return inspected.failure
-    return spend(ledger, data.bytes.length)
+    const overspent = spend(ledger, data.bytes.length)
+    if (overspent) return overspent
+    if (inspected.mime !== 'image/svg+xml') ledger.rasterPictures += 1
+    image.setAttribute(attribute, `data:${inspected.mime};base64,${encodeBase64(data.bytes)}`)
+    return null
   }
   // One read and one check per file for the whole export
   let outcome = ledger.checked.get(source.path)
@@ -227,7 +242,12 @@ async function embedOne(
   const checked = await outcome
   if (!checked.ok) return checked.failure
   const overspent = spend(ledger, checked.image.size)
-  if (overspent) return overspent
+  if (overspent) {
+    // Its bytes are of no further use: the export stops
+    ledger.checked.delete(source.path)
+    return overspent
+  }
+  if (checked.image.mime !== 'image/svg+xml') ledger.rasterPictures += 1
   // The type the bytes are, not the one the name claims: a JPEG saved as .png still shows
   image.setAttribute(attribute, `data:${checked.image.mime};base64,${checked.image.base64}`)
   return null
@@ -271,13 +291,27 @@ async function readAndCheck(host: HostPort, path: string): Promise<CheckOutcome>
  */
 function spend(ledger: ImageLedger, size: number): EmbedFailure | null {
   if (ledger.embeddedBytes + size > ledger.totalLimitBytes) {
-    return {
-      code: 'HANDOUT_IMAGE',
-      reason: `would take the pictures of the Handout past ${sizeText(ledger.totalLimitBytes)} in all: use fewer or smaller pictures`,
-    }
+    ledger.exhausted = true
+    return overTotal(ledger)
   }
   ledger.embeddedBytes += size
   return null
+}
+
+/**
+ * The failure of a picture past the export's total, naming the total.
+ *
+ * @param ledger - The export's ledger.
+ * @returns The HANDOUT_IMAGE failure, as {@link embedOne} returns it.
+ *
+ * @example
+ * overTotal(createImageLedger(12)) // { code: 'HANDOUT_IMAGE', reason: 'would take the pictures of the Handout past 12 bytes in all: …' }
+ */
+function overTotal(ledger: ImageLedger): EmbedFailure {
+  return {
+    code: 'HANDOUT_IMAGE',
+    reason: `would take the pictures of the Handout past ${sizeText(ledger.totalLimitBytes)} in all: use fewer or smaller pictures`,
+  }
 }
 
 /**
@@ -304,9 +338,11 @@ function tooLarge(): EmbedFailure {
 }
 
 /**
- * Whether some bytes may go into a Handout as an image: what image they are, or why not.
+ * Whether some bytes may go into a Handout as an image: what image they are, or why not. A picture
+ * an SVG carries as data is checked the same way, one level deeper.
  *
  * @param bytes - A file's contents, or the data written into a page.
+ * @param depth - How deep inside other pictures these bytes sit (0 for the picture a page names).
  * @returns
  * - `{ ok: true, mime }` for png, jpeg, gif, webp, avif and svg that carry no secret shape
  * - `{ ok: false, failure }` for other bytes and a malformed SVG (HANDOUT_IMAGE), and for a picture
@@ -317,6 +353,7 @@ function tooLarge(): EmbedFailure {
  */
 async function inspectImage(
   bytes: Uint8Array,
+  depth = 0,
 ): Promise<{ ok: true; mime: ImageMime } | { ok: false; failure: EmbedFailure }> {
   const mime = sniffImage(bytes)
   if (mime === null) {
@@ -344,17 +381,36 @@ async function inspectImage(
     }
     const [finding] = findSecrets(`${text}\n${collectReadableText(parsed)}`)
     if (finding) return secretIn(finding.pattern, 'remove the value from the file')
+    // A picture the drawing carries (a screenshot as data) is checked like one of its own
+    for (const nested of nestedPictures(parsed)) {
+      if (depth >= NESTED_PICTURE_DEPTH) {
+        return { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'nests pictures too deeply to check' } }
+      }
+      const data = dataUriBytes(nested)
+      if (!data.ok)
+        return {
+          ok: false,
+          failure: { code: 'HANDOUT_IMAGE', reason: `carries a picture that ${data.reason}` },
+        }
+      const inspected = await inspectImage(data.bytes, depth + 1)
+      if (!inspected.ok) {
+        return {
+          ok: false,
+          failure: { ...inspected.failure, reason: `carries a picture that ${inspected.failure.reason}` },
+        }
+      }
+    }
     return { ok: true, mime }
   }
-  // A raster picture's metadata (PNG text, EXIF, XMP, comments) is stored as ASCII or UTF-16 text
-  for (const text of byteTexts(bytes)) {
-    const [finding] = findSecrets(text)
-    if (finding) return secretIn(finding.pattern, METADATA_ADVICE, ' in its metadata')
-  }
-  // ...or compressed, in a PNG: each such text is inflated and read the same way
+  // A raster picture's metadata (PNG text, EXIF, XMP, comments) is stored as ASCII or UTF-16 text,
+  // XMP with XML's escapes (`&amp;signature=`): read as stored and decoded
+  const stored = metadataSecretShape(bytes)
+  if (stored) return secretIn(stored, METADATA_ADVICE, ' in its metadata')
+  // ...or compressed, in a PNG: each such text is inflated (all of them within one limit) and read the same way
   if (mime === 'image/png') {
+    let inflatedBytes = 0
     for (const compressed of pngCompressedTexts(bytes)) {
-      const inflated = await inflateLimited(compressed, IMAGE_LIMIT_BYTES)
+      const inflated = await inflateLimited(compressed, IMAGE_LIMIT_BYTES - inflatedBytes)
       if (!inflated.ok) {
         return {
           ok: false,
@@ -364,13 +420,58 @@ async function inspectImage(
           },
         }
       }
-      for (const text of byteTexts(inflated.bytes)) {
-        const [finding] = findSecrets(text)
-        if (finding) return secretIn(finding.pattern, METADATA_ADVICE, ' in its metadata')
-      }
+      inflatedBytes += inflated.bytes.length
+      const compressedSecret = metadataSecretShape(inflated.bytes)
+      if (compressedSecret) return secretIn(compressedSecret, METADATA_ADVICE, ' in its metadata')
     }
   }
   return { ok: true, mime }
+}
+
+/**
+ * The pictures an SVG carries as data: each `data:image/…` an element names in `href` or
+ * `xlink:href` (an `<image>`, a filter's `<feImage>`), and each one a style's `url(…)` loads.
+ *
+ * @param parsed - The SVG's document.
+ * @returns The data URIs, as written.
+ *
+ * @example
+ * nestedPictures(parse('<svg …><image href="data:image/png;base64,iVBOR…"/></svg>')) // ['data:image/png;base64,iVBOR…']
+ */
+/**
+ * The first secret shape a raster picture's bytes hold as text: read one byte per character and
+ * without zero bytes ({@link byteTexts}), each as stored and with XML's escapes decoded (XMP).
+ *
+ * @param raster - A picture's bytes, or text a PNG kept compressed, inflated.
+ * @returns The shape's name, or null when the bytes hold none.
+ *
+ * @example
+ * metadataSecretShape(jpegWithXmpLink) // 'signed-url-parameter'
+ */
+function metadataSecretShape(raster: Uint8Array): string | null {
+  for (const text of byteTexts(raster)) {
+    const [finding] = findSecrets(`${text}\n${decodeXmlEntities(text)}`)
+    if (finding) return finding.pattern
+  }
+  return null
+}
+
+function nestedPictures(parsed: Document): string[] {
+  const pictures: string[] = []
+  for (const element of Array.from(parsed.querySelectorAll('*'))) {
+    for (const attribute of Array.from(element.attributes)) {
+      const value = attribute.value.trim()
+      if ((attribute.name === 'href' || attribute.name === 'xlink:href') && /^data:image\//i.test(value))
+        pictures.push(value)
+      for (const match of attribute.value.matchAll(/url\(\s*["']?(data:image\/[^"')\s]+)/gi))
+        pictures.push(match[1] ?? '')
+    }
+    if (element.localName === 'style') {
+      for (const match of (element.textContent ?? '').matchAll(/url\(\s*["']?(data:image\/[^"')\s]+)/gi))
+        pictures.push(match[1] ?? '')
+    }
+  }
+  return pictures.filter((picture) => picture !== '')
 }
 
 /** What to do about a secret shape in a raster picture's metadata. */
@@ -415,13 +516,13 @@ function dataUriBytes(source: string): { ok: true; bytes: Uint8Array } | { ok: f
   const header = source.slice(0, comma)
   const payload = source.slice(comma + 1)
   const isBase64 = /;base64$/i.test(header)
-  // Base64 holds three bytes in four characters: its size is known before anything is decoded
-  if (isBase64 && Math.floor((payload.replace(/\s/g, '').length * 3) / 4) > IMAGE_LIMIT_BYTES)
+  const base64 = isBase64 ? payload.replace(/\s/g, '') : ''
+  // Sizes known before anything is decoded: base64 holds three bytes in four characters (padding
+  // not counted), and URL-encoded text at least one byte in three characters (`%41`)
+  if (isBase64 ? base64DecodedLength(base64) > IMAGE_LIMIT_BYTES : payload.length / 3 > IMAGE_LIMIT_BYTES)
     return { ok: false, reason: tooLarge().reason }
   try {
-    const bytes = isBase64
-      ? decodeBase64(payload.replace(/\s/g, ''))
-      : new TextEncoder().encode(decodeURIComponent(payload))
+    const bytes = isBase64 ? decodeBase64(base64) : new TextEncoder().encode(decodeURIComponent(payload))
     return bytes.length > IMAGE_LIMIT_BYTES ? { ok: false, reason: tooLarge().reason } : { ok: true, bytes }
   } catch {
     return { ok: false, reason: UNDECODABLE }

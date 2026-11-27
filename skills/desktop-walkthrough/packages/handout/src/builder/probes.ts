@@ -100,6 +100,8 @@ export interface CheckArgs {
   hashChangeLimitMs: number
   /** How long one picture may take to decode before it counts as broken. */
   imageDecodeLimitMs: number
+  /** How many pictures decode at once. */
+  imageDecodeConcurrency: number
 }
 
 /**
@@ -142,8 +144,9 @@ export async function checkHandout(args: CheckArgs): Promise<unknown> {
       .map((label) => (label.textContent ?? '').trim())
       .filter((text) => text !== ''),
   }))
-  // Every picture is decoded on its own, so a hidden page's pictures are checked too
-  const brokenImages: Array<{ page: number; image: number }> = []
+  // Every picture is decoded on its own, so a hidden page's pictures are checked too: each distinct
+  // source once (a picture shown on several pages), a few at a time, then every place it shows
+  const places: Array<{ page: number; image: number; source: string }> = []
   for (const article of Array.from(
     document.querySelectorAll(`#${args.pagesId} > article.${args.pageClass}`),
   )) {
@@ -154,6 +157,16 @@ export async function checkHandout(args: CheckArgs): Promise<unknown> {
         picture.getAttribute('href') ??
         picture.getAttribute('xlink:href') ??
         ''
+      places.push({ page: Number(article.getAttribute('data-n')), image: index + 1, source })
+    }
+  }
+  const sources = Array.from(new Set(places.map((place) => place.source)))
+  const decodedSources = new Map<string, boolean>()
+  let next = 0
+  const decodeNext = async (): Promise<void> => {
+    while (next < sources.length) {
+      const source = sources[next] ?? ''
+      next += 1
       const probe = new Image()
       probe.src = source
       const decoded = await Promise.race([
@@ -163,9 +176,13 @@ export async function checkHandout(args: CheckArgs): Promise<unknown> {
         ),
         new Promise<boolean>((resolve) => setTimeout(() => resolve(false), args.imageDecodeLimitMs)),
       ])
-      if (!decoded) brokenImages.push({ page: Number(article.getAttribute('data-n')), image: index + 1 })
+      decodedSources.set(source, decoded)
     }
   }
+  await Promise.all(Array.from({ length: Math.min(args.imageDecodeConcurrency, sources.length) }, decodeNext))
+  const brokenImages = places
+    .filter((place) => decodedSources.get(place.source) !== true)
+    .map(({ page, image }) => ({ page, image }))
   return { ready, pages, pageNumber, secondShown, diagrams, brokenImages }
 }
 

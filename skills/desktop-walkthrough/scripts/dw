@@ -176,26 +176,32 @@ record_pages() {
   local dir="$1" page base number
   for page in "$dir"/pages/[0-9]*-*.md; do
     [ -f "$page" ] || continue
+    # One page per line: a line break in a file name would split it (dw handout refuses such a record)
+    case "$page" in *$'\n'*) echo "dw: a page file in $dir/pages has a line break in its name: rename it" >&2; continue ;; esac
     base=$(basename "$page")
     number="${base%%-*}"
     case "$number" in ''|*[!0-9]*) continue ;; esac
+    # Pages count from 1; a number past nine digits is no page dw wrote
+    [ "${#number}" -le 9 ] && [ "$((10#$number))" -ge 1 ] || continue
     printf '%d\t%s\n' "$((10#$number))" "$page"
   done | sort -n -k1,1
 }
 
 # The section page N of the record in DIR was filed under (sections.tsv column 2). A blank one, as
-# records kept before the first dw step had it, is no section
+# records kept before the first dw step had it, is no section. SECTIONS is the copy of sections.tsv
+# to read (dw handout reads one copy per reading); the record's own by default
 record_section() {
   awk -F '\t' -v n="$2" '$1 == n { section = $2; if (section ~ /^[ ]*$/) section = ""; print section; exit }' \
-    "$1/pages/sections.tsv" 2>/dev/null
+    "${3:-$1/pages/sections.tsv}" 2>/dev/null
 }
 
 # The title of page N (file PAGE) of the record in DIR as AUDIENCE (hud, handout) reads it: the one
 # given with --title (sections.tsv column 3), else its first heading for that audience, else its file
-# name. READ is the copy of PAGE to read the heading from (dw handout reads each page once); PAGE by default
+# name. READ is the copy of PAGE to read the heading from (dw handout reads each page once); PAGE by
+# default. SECTIONS is the copy of sections.tsv to read, as for record_section
 record_title() {
-  local dir="$1" n="$2" page="$3" audience="$4" read="${5:-$3}" title base
-  title=$(awk -F '\t' -v n="$n" '$1 == n { print $3; exit }' "$dir/pages/sections.tsv" 2>/dev/null)
+  local dir="$1" n="$2" page="$3" audience="$4" read="${5:-$3}" sections="${6:-$1/pages/sections.tsv}" title base
+  title=$(awk -F '\t' -v n="$n" '$1 == n { print $3; exit }' "$sections" 2>/dev/null)
   [ -n "$title" ] || title=$(filtered_h1 "$audience" "$read")
   if [ -z "$title" ]; then
     base=$(basename "$page" .md)
@@ -264,38 +270,37 @@ record_handbook() {
   } > "$dir/handbook.md"
 }
 
-# Hold the lock of the record in DIR while its pages and sections change (pages/.lock, holding the
-# writer's process id): two writers (parallel dw explain calls) would each delete the other's page
-# of the same number and lose a sections row. A lock whose writer is gone is taken over; one held
-# longer than about 10 s gives up, changing nothing. Called by record_page and record_clear
-record_lock() {
-  local lock="$1/pages/.lock" tries=0 holder
-  mkdir -p "$1/pages"
-  until mkdir "$lock" 2>/dev/null; do
-    # No lock there: the folder itself refused it (its permissions), and waiting would not help
-    if [ ! -d "$lock" ]; then
-      echo "dw: the record $1 cannot be changed: pages/.lock could not be made (check the folder's permissions); nothing changed" >&2
-      return 1
-    fi
-    holder=$(cat "$lock/pid" 2>/dev/null)
-    # Its writer ended without unlocking (killed): the lock is stale
-    if [ -n "$holder" ] && ! kill -0 "$holder" 2>/dev/null; then rm -rf "$lock"; continue; fi
-    tries=$((tries + 1))
-    if [ "$tries" -ge 100 ]; then
-      echo "dw: the record $1 is being changed by another dw (process ${holder:-?}, pages/.lock): nothing changed; run the command again" >&2
-      return 1
-    fi
-    sleep 0.1
-  done
-  printf '%s' "$$" > "$lock/pid"
+# Hold the lock file LOCK on file descriptor FD while the caller changes what it guards: the record's
+# pages and sections (pages/.dw-lock), or the explainer's numbering and index ($EXPLAIN/.dw-lock). Two
+# writers (parallel dw explain calls) would otherwise take the same page number or delete each other's
+# page. The lock is the system's advisory lock (flock), taken by perl on a descriptor dw keeps open:
+# it lasts while dw, or a command dw runs meanwhile, holds the descriptor, and ends however dw ends,
+# so no lock outlives its writer. Waits DW_LOCK_WAIT seconds (10) for another writer, then gives up
+# having changed nothing. Called by record_page, record_clear and cmd_explain
+hold_lock() {
+  local lock="$1" fd="$2"
+  if ! eval "exec $fd>>\"\$lock\"" 2>/dev/null; then
+    echo "dw: $lock cannot be opened (check the folder's permissions): nothing changed" >&2
+    return 1
+  fi
+  if ! perl -MFcntl=:flock -e '
+      open(my $held, ">&=", $ARGV[0]) or exit 2;
+      $SIG{ALRM} = sub { exit 1 };
+      alarm($ARGV[1]);
+      flock($held, LOCK_EX) or exit 1;
+      exit 0' "$fd" "${DW_LOCK_WAIT:-10}"; then
+    eval "exec $fd>&-"
+    echo "dw: $(dirname "$lock") is being changed by another dw: nothing changed; run the command again" >&2
+    return 1
+  fi
 }
-record_unlock() { rm -rf "$1/pages/.lock"; }
+release_lock() { eval "exec $1>&-"; }
 
 # Keep an explainer page in the record as pages/NN-title.md and rebuild the handbook. GIVEN is the
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
 record_page() {
-  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part
+  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   mkdir -p "$dir/pages"
@@ -304,13 +309,26 @@ record_page() {
   # line breaks, a terminal's escapes); spaces as hyphens
   slug=$(printf '%s' "$title" | tr -d '`' | tr '/:\t' '---' | tr -d '\000-\037\177' | tr -s ' ' '-')
   page="$dir/pages/$nn-${slug}.md"
-  record_lock "$dir" || return 1
+  sections="$dir/pages/sections.tsv"
+  rows="$dir/pages/.sections.rows.$$"
+  hold_lock "$dir/pages/.dw-lock" 8 || return 1
+  # The other pages' rows, read before anything changes: a sections.tsv that cannot be read would
+  # otherwise be replaced by this page's row alone (grep: 1 is no other row, 2 an error)
+  if [ -e "$sections" ]; then
+    grep -v "^$n	" "$sections" > "$rows" 2>/dev/null
+    case $? in
+      0|1) ;;
+      *) rm -f "$rows"; release_lock 8; echo "dw: page $n: $sections cannot be read: the record was left as it was" >&2; return 1 ;;
+    esac
+  else
+    : > "$rows"
+  fi
   # Written beside under a name of this process (two writers never share it), then renamed: a reader
   # (dw handout) never sees half a page, and a write that fails removes nothing
   part="$dir/pages/.$nn.md.part.$$"
   if ! { cp "$md" "$part" && mv "$part" "$page"; }; then
-    rm -f "$part"
-    record_unlock "$dir"
+    rm -f "$part" "$rows"
+    release_lock 8
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
@@ -322,49 +340,62 @@ record_page() {
   step=$(jq -j --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json" 2>/dev/null | tr '\t\r\n' '   ')
   given=$(printf '%s' "$given" | tr '\t\r\n' '   ')
   {
-    grep -v "^$n	" "$dir/pages/sections.tsv" 2>/dev/null
+    cat "$rows"
     if [ -n "$given" ]; then printf '%s\t%s\t%s\n' "$n" "$step" "$given"; else printf '%s\t%s\n' "$n" "$step"; fi
-  } | sort -n > "$dir/pages/sections.tsv.part.$$" && mv "$dir/pages/sections.tsv.part.$$" "$dir/pages/sections.tsv"
+  } | sort -n > "$sections.part.$$" && mv "$sections.part.$$" "$sections"
+  rm -f "$rows"
   record_handbook "$dir"
-  record_unlock "$dir"
+  release_lock 8
   [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
 }
 
 # `dw explain --clear` during a recording: the record's pages move to pages/cleared-<time>/ and its
-# sections empty, so resume, the handbook and a Handout hold only the pages shown since (eng D8)
+# sections empty, so resume, the handbook and a Handout hold only the pages shown since (eng D8). The
+# archive is complete (every page and sections.tsv copied and compared) before anything leaves the
+# record: a clear that fails part way has removed nothing
 record_clear() {
-  local dir base archive tries=0 n page moved=0
+  local dir base archive tries=0 n page moved=0 listed
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
+  listed=$(record_pages "$dir")
   # No pages: no archive, the sections stay as they are
-  [ -n "$(record_pages "$dir")" ] || return 0
-  record_lock "$dir" || return 1
+  [ -n "$listed" ] || return 0
+  hold_lock "$dir/pages/.dw-lock" 8 || return 1
+  listed=$(record_pages "$dir")
   # A folder made for this clear alone: a second clear within the same second takes the next free
-  # name and never moves its pages over the first one's
+  # name and never copies its pages over the first one's
   base="$dir/pages/cleared-$(date +%Y%m%d-%H%M%S)"
   archive="$base"
   until mkdir "$archive" 2>/dev/null; do
     tries=$((tries + 1))
     if [ "$tries" -ge 100 ]; then
-      record_unlock "$dir"
-      echo "dw: explain --clear: no archive folder could be made in $dir/pages: the record's pages stay" >&2
+      release_lock 8
+      echo "dw: explain --clear: no archive folder could be made in $dir/pages: nothing was removed" >&2
       return 1
     fi
     archive="$base-$tries"
   done
-  # Every move must succeed before the sections empty: a page left behind keeps its row
   while IFS=$'\t' read -r n page; do
-    if ! mv "$page" "$archive/"; then
-      record_unlock "$dir"
-      echo "dw: explain --clear: page $n could not be moved to pages/$(basename "$archive")/: the pages moved so far are there, sections.tsv is unchanged" >&2
+    if ! { cp -p "$page" "$archive/" && cmp -s "$page" "$archive/$(basename "$page")"; }; then
+      rm -rf "$archive"
+      release_lock 8
+      echo "dw: explain --clear: page $n could not be copied to the archive: nothing was removed" >&2
       return 1
     fi
-    moved=$((moved + 1))
-  done < <(record_pages "$dir")
-  [ -f "$dir/pages/sections.tsv" ] && mv "$dir/pages/sections.tsv" "$archive/sections.tsv"
+  done <<< "$listed"
+  if [ -f "$dir/pages/sections.tsv" ] && ! { cp -p "$dir/pages/sections.tsv" "$archive/" && cmp -s "$dir/pages/sections.tsv" "$archive/sections.tsv"; }; then
+    rm -rf "$archive"
+    release_lock 8
+    echo "dw: explain --clear: sections.tsv could not be copied to the archive: nothing was removed" >&2
+    return 1
+  fi
+  # The record's own copies go; one that cannot be removed stays in pages/ (and in the archive)
+  while IFS=$'\t' read -r n page; do
+    if rm -f "$page"; then moved=$((moved + 1)); else echo "dw: explain --clear: page $n could not be removed from pages/: it is in the archive too" >&2; fi
+  done <<< "$listed"
   : > "$dir/pages/sections.tsv"
   record_handbook "$dir"
-  record_unlock "$dir"
+  release_lock 8
   journal "🧹 解説をすべて消去：${moved} 枚を pages/$(basename "$archive")/ に移した"
 }
 
@@ -870,15 +901,17 @@ HANDOUT_HUD_WORDS="HUD|解説パネル|このパネル|右のパネル|左のパ
 # Print SRC's text for AUDIENCE (hud or handout) and append one line per problem to the file PROBLEMS:
 # "error<TAB>LINE<TAB>text" for a marker without its partner or written another way, and for the
 # Handout "warning<TAB>LINE<TAB>word" for HUD wording. LINE counts lines of SRC. Exits 1 on an error.
-# Fences are ``` or ~~~, at the left edge or on a list item's line ("- ```"), closed by the same
-# character at least as long, indented at most 3 spaces past where the list item's text starts; a
-# backtick fence has no backtick after it on its line (as Markdown has them). The same rules as
+# Fences are ``` or ~~~, at the left edge, on a list item's line ("- ```") or in a quote ("> ```"),
+# closed by the same character at least as long, indented at most 3 spaces past where the list item's
+# text starts (quoted too in a quote); a backtick fence has no backtick after it on its line (as
+# Markdown has them). A code span over several lines is not followed: a marker in one stops like a
+# marker written another way (fail safe; put the span on one line). The same rules as
 # packages/handout/src/utils/mermaidFenceLines.ts. Lines end without a carriage return (CRLF pages).
 # A fence this misreads (a list that ends inside one) is caught when the Handout's page meets a marker
 # as HTML (page.html, HANDOUT_MARKER)
 explain_filter() {
   awk -v audience="$1" -v problems="$3" -v words="$HANDOUT_HUD_WORDS" '
-    BEGIN { fence = ""; indent = 0; open = ""; opened = 0; failed = 0; count = (audience == "handout") ? split(words, word, "|") : 0 }
+    BEGIN { fence = ""; indent = 0; quoted = 0; open = ""; opened = 0; failed = 0; count = (audience == "handout") ? split(words, word, "|") : 0 }
     function problem(kind, line, text) { printf "%s\t%d\t%s\n", kind, line, text >> problems }
     function shown() { return open == "" || open == audience }
     # TEXT without its code spans, as Markdown reads them: a run of N backticks opens one and the next
@@ -905,23 +938,28 @@ explain_filter() {
       sub(/\r$/, "")
       # Inside a fence only its closing line matters: a marker there is an example, shown as code
       if (fence != "") {
-        if ($0 ~ /^[ \t]*(```+|~~~+)[ \t]*$/) {
-          match($0, /^[ \t]*/); lead = RLENGTH
-          mark = $0; gsub(/[ \t]/, "", mark)
+        # A fence opened in a quote closes on a quoted line ("> ```")
+        line = $0
+        if (quoted) sub(/^( ? ? ?>[ ]?)+/, "", line)
+        if (line ~ /^[ \t]*(```+|~~~+)[ \t]*$/) {
+          match(line, /^[ \t]*/); lead = RLENGTH
+          mark = line; gsub(/[ \t]/, "", mark)
           if (lead <= indent + 3 && substr(mark, 1, 1) == substr(fence, 1, 1) && length(mark) >= length(fence)) fence = ""
         }
         if (shown()) print
         next
       }
-      # A fence may open on a list item'"'"'s line ("- ```", "1. ```"); its closing fence is then indented
-      # like the item'"'"'s text. "```x```" is code inside a line of text, not a fence: it would hide every
-      # marker after it
+      # A fence may open on a list item'"'"'s line ("- ```", "1. ```") or in a quote ("> ```"); its closing
+      # fence is then indented like the item'"'"'s text, or quoted too. "```x```" is code inside a line of
+      # text, not a fence: it would hide every marker after it
       prefix = ""
-      if (match($0, /^( ? ? ?([-*+]|[0-9][0-9]*[.)])[ \t][ \t]*)+/)) prefix = substr($0, 1, RLENGTH)
+      if (match($0, /^(( ? ? ?>[ ]?)|( ? ? ?([-*+]|[0-9][0-9]*[.)])[ \t][ \t]*))+/)) prefix = substr($0, 1, RLENGTH)
       rest = substr($0, length(prefix) + 1)
       if (match(rest, /^ ? ? ?(```+|~~~+)/) && !(substr(rest, RSTART + RLENGTH - 1, 1) == "`" && index(substr(rest, RSTART + RLENGTH), "`"))) {
         fence = substr(rest, RSTART, RLENGTH); gsub(/ /, "", fence)
+        quoted = (index(prefix, ">") > 0)
         indent = length(prefix)
+        if (quoted) { sub(/^( ? ? ?>[ ]?)+/, "", prefix); indent = length(prefix) }
         if (shown()) print
         next
       }
@@ -1010,11 +1048,15 @@ cmd_explain() {
         # the app: the code stays in front and the page is one click away
         request="${1#--}"; shift ;;
       --clear)
-        # The record's pages are archived first: when that fails nothing is removed, and the next page
-        # goes on counting after the last one (no new page takes an old one's number and replaces it)
+        # Under the explainer's lock, so no page is being added meanwhile. The record's pages are
+        # archived first: when that fails nothing is removed, and the next page goes on counting after
+        # the last one (no new page takes an old one's number and replaces it)
+        mkdir -p "$EXPLAIN"
+        hold_lock "$EXPLAIN/.dw-lock" 7 || exit 1
         record_clear || die "explain --clear: nothing was removed: the panel and the record keep every page"
         rm -rf "$EXPLAIN/pages" "$EXPLAIN/rendered.json"
-        mkdir -p "$EXPLAIN"; printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+        printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
+        release_lock 7
         echo "explainer: every page removed"; return 0 ;;
       --progress) explain_progress; return 0 ;;
       --rebuild)  explain_rebuild; return 0 ;;
@@ -1034,6 +1076,9 @@ cmd_explain() {
   # changes: a marker without its partner, or written another way, leaves the page, its build and
   # the record as they were
   staged=$(mktemp); problems=$(mktemp)
+  # Removed however dw ends from here (a stop, a lock it cannot take): the files are this call's alone
+  DW_EXPLAIN_TEMPS="$staged $problems"
+  trap 'rm -f $DW_EXPLAIN_TEMPS' EXIT
   label="$src"; [ "$src" = /dev/stdin ] && label="(standard input)"
   # A source that cannot be read (its permissions) is no empty page: nothing changes
   if ! cat "$src" > "$staged"; then
@@ -1051,6 +1096,9 @@ cmd_explain() {
   note_owner; ensure_hud
   explain_vendor
   mkdir -p "$EXPLAIN/pages"
+  # From the page's number to its place in the record, one writer at a time: two calls at once would
+  # take the same number and overwrite each other's page
+  hold_lock "$EXPLAIN/.dw-lock" 7 || exit 1
   [ -f "$EXPLAIN/index.json" ] || printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
   n=$(jq -r '.current // 0' "$EXPLAIN/index.json")
   shown="$n"
@@ -1078,7 +1126,13 @@ cmd_explain() {
   [ "$request" = back ] && printf 'back' > "$EXPLAIN/visibility-request"
   explain_build "$n" "$title" "$step" "$md" "$(if [ -n "$page" ] && [ "$shown" != 0 ]; then printf '%s' "$shown"; else printf '%s' "$n"; fi)"
   printf '%s %s\n' "$(date +%H:%M:%S)" "explain: page $n ${title}" >> "$DW_HOME/narration.log"
-  record_page "$n" "$title" "$md" "$given"
+  # The page is shown either way; a record that could not keep it is said, never passed over
+  if ! record_page "$n" "$title" "$md" "$given"; then
+    release_lock 7
+    echo "explainer: page $n is shown, but the record could not keep it (see above): run the command again to record it"
+    return 1
+  fi
+  release_lock 7
   if [ -n "$page" ] && [ "$page" != "$shown" ]; then echo "explainer: page $n rewritten (${title}); the reader sees it when paging back"; return 0; fi
   # The page reports back once it rendered: a broken diagram is caught here, not by the reader
   for ((i = 0; i < 20; i++)); do
@@ -1407,8 +1461,16 @@ HANDOUT_HEAD='<!doctype html>
 <meta charset="utf-8">
 <meta name="dw-handout" content="1">'
 
-# Whether FILE is a Handout: a regular file that starts as one (a pipe is never read: it would wait)
-handout_marked() { [ -f "$1" ] && [ "$(head -c ${#HANDOUT_HEAD} "$1" 2>/dev/null)" = "$HANDOUT_HEAD" ]; }
+# Whether FILE is a Handout: a regular file that starts as one. Opened once, without following a link
+# and without waiting, and judged by what is open: a pipe swapped in after a look at the path is never
+# read (reading a pipe waits for a writer forever)
+handout_marked() {
+  perl -MFcntl -e '
+    sysopen(my $file, $ARGV[0], O_RDONLY | O_NONBLOCK | O_NOFOLLOW) or exit 1;
+    -f $file or exit 1;
+    my $read = sysread($file, my $head, length $ARGV[1]);
+    exit(defined $read && $head eq $ARGV[1] ? 0 : 1)' "$1" "$HANDOUT_HEAD"
+}
 
 # The record exported when none is named: the running walkthrough's, else the last one started,
 # resumed or named (dw end keeps that pointer), else the one whose journal changed last (records
@@ -1427,14 +1489,19 @@ handout_default_record() {
   printf '%s' "$dir"
 }
 
-# What the pages of the record in DIR are right now: name, file number (inode), size and modification
-# time to the nanosecond of every page and of sections.tsv. Read before and after the pages are read:
-# any difference means they changed in between (eng D9). A page saved again keeps neither: dw writes a
-# new file and renames it over the page, and an editor's save moves the time
+# What the pages a MANIFEST (record_pages' lines) names are right now, and sections.tsv of the record
+# in DIR: file number (inode), size and modification time to the nanosecond of each. Taken from the
+# manifest a reading stages, then from a fresh one after it: any difference means the pages changed
+# in between (eng D9), a page moved aside and back included. A page saved again keeps neither: dw
+# writes a new file and renames it over the page, and an editor's save moves the time. macOS's own
+# stat (a GNU stat first in PATH reads -f as something else); a page gone meanwhile is a difference
+# too, never an error message naming its file
 handout_listing() {
   local n page
-  while IFS=$'\t' read -r n page; do stat -f '%N %i %z %Fm' "$page"; done < <(record_pages "$1")
-  stat -f '%N %i %z %Fm' "$1/pages/sections.tsv" 2>/dev/null
+  while IFS=$'\t' read -r n page; do
+    /usr/bin/stat -f '%N %i %z %Fm' "$page" 2>/dev/null || printf 'gone: %s\n' "$n"
+  done < "$1"
+  /usr/bin/stat -f '%N %i %z %Fm' "$2/pages/sections.tsv" 2>/dev/null
 }
 
 # Build the renderer when it is missing or its source is newer (like the HUD)
@@ -1459,7 +1526,7 @@ cmd_handout() (
   # tmp is not local: the EXIT trap that removes the scratch folder runs after an exit has left the
   # function's scope, where a local would be unset (the folder holds copies of the pages)
   local name="" out="" dir listing attempt n page copy listed duplicate title section problems result status \
-    pages diagrams count line vendor_name vendor_url vendor_sum
+    pages diagrams count line vendor_name vendor_url vendor_sum shown_out file
   while [ $# -gt 0 ]; do
     case "$1" in
       --out) out="${2:?--out needs a path}"; shift 2 ;;
@@ -1478,23 +1545,32 @@ cmd_handout() (
   name=$(basename "$dir")
   [ -n "$out" ] || out="$dir/handout.html"
   case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
-  echo "handout: record $name ($dir)"
+  # Paths as printed: no control character reaches the terminal (the record's name and --out are the
+  # agent's own words; nothing from a page is printed before the builder masks it)
+  shown_out=$(printf '%s' "$out" | tr -d '\000-\037\177')
+  printf 'handout: record %s (%s)\n' "$name" "$dir" | tr -d '\000-\011\013-\037\177'
   # Never replace what is not a Handout; the renderer checks again at the moment it writes (eng D7)
-  if [ -d "$out" ]; then handout_fail HANDOUT_OUT_EXISTS "$out is a folder: name a file"; exit 1; fi
+  if [ -d "$out" ]; then handout_fail HANDOUT_OUT_EXISTS "$shown_out is a folder: name a file"; exit 1; fi
   if [ ! -d "$(dirname "$out")" ]; then
-    handout_fail HANDOUT_OUT_EXISTS "the folder of $out does not exist: create it, or choose another --out"; exit 1
+    handout_fail HANDOUT_OUT_EXISTS "the folder of $shown_out does not exist: create it, or choose another --out"; exit 1
   fi
   # A link would be replaced by a file, not the file it points to
   if [ -L "$out" ]; then
-    handout_fail HANDOUT_OUT_EXISTS "$out is a symbolic link: name the file itself"; exit 1
+    handout_fail HANDOUT_OUT_EXISTS "$shown_out is a symbolic link: name the file itself"; exit 1
   fi
   # A pipe, a device or a socket is never read (reading a pipe waits for a writer forever)
   if [ -e "$out" ] && [ ! -f "$out" ]; then
-    handout_fail HANDOUT_OUT_EXISTS "$out is not a regular file: it was left as it is; choose another --out"; exit 1
+    handout_fail HANDOUT_OUT_EXISTS "$shown_out is not a regular file: it was left as it is; choose another --out"; exit 1
   fi
   if [ -e "$out" ] && ! handout_marked "$out"; then
-    handout_fail HANDOUT_OUT_EXISTS "$out holds a file that is not a Handout: it was left as it is; choose another --out"; exit 1
+    handout_fail HANDOUT_OUT_EXISTS "$shown_out holds a file that is not a Handout: it was left as it is; choose another --out"; exit 1
   fi
+  # One page per line in every list: a line break in a page's file name would split it
+  for file in "$dir"/pages/[0-9]*-*.md; do
+    case "$file" in *$'\n'*)
+      handout_fail HANDOUT_RECORD "a page file of $name has a line break in its name: rename it (pages/NN-title.md), then export again"; exit 1 ;;
+    esac
+  done
   if [ -z "$(record_pages "$dir")" ]; then
     handout_fail HANDOUT_EMPTY "$name has no pages: pages shown with dw explain while it records end up here"; exit 1
   fi
@@ -1506,10 +1582,11 @@ cmd_handout() (
   mkdir -p "$tmp/explain/pages" "$tmp/explain/vendor"
   while IFS='|' read -r vendor_name vendor_url vendor_sum; do
     [ -n "$vendor_name" ] || continue
-    if [ "$(sha256_of "$EXPLAIN/vendor/$vendor_name")" != "$vendor_sum" ]; then
+    # The copy is what the renderer loads: its digest is the one checked
+    if ! cp "$EXPLAIN/vendor/$vendor_name" "$tmp/explain/vendor/$vendor_name" 2>/dev/null \
+      || [ "$(sha256_of "$tmp/explain/vendor/$vendor_name")" != "$vendor_sum" ]; then
       handout_fail HANDOUT_VENDOR "$vendor_name is missing or not the version dw expects (from $vendor_url): check the network, then run dw doctor"; exit 1
     fi
-    cp "$EXPLAIN/vendor/$vendor_name" "$tmp/explain/vendor/$vendor_name"
   done <<LIST
 $EXPLAIN_VENDOR
 LIST
@@ -1518,12 +1595,17 @@ LIST
   mkdir -p "$tmp/source"
   # Read every page for the Handout audience; pages that changed meanwhile are read once more
   for attempt in 1 2; do
-    listing=$(handout_listing "$dir")
-    # The pages this reading stages, listed once. Two files of one number would both become page N:
-    # which one the colleague reads is not guessed, on this reading's own list
+    # The pages this reading stages, listed once; its listing and its copy of sections.tsv come from
+    # this list, so what is compared afterwards is exactly what was staged
     record_pages "$dir" > "$tmp/manifest.tsv"
+    listing=$(handout_listing "$tmp/manifest.tsv" "$dir")
+    cp "$dir/pages/sections.tsv" "$tmp/sections.tsv" 2>/dev/null || : > "$tmp/sections.tsv"
+    # Two files of one number would both become page N: which one the colleague reads is not guessed.
+    # A page being rewritten has both for a moment (the new file is renamed in, then the old one goes):
+    # the first reading tries again, the second stops
     duplicate=$(cut -f1 "$tmp/manifest.tsv" | uniq -d | head -1)
     if [ -n "$duplicate" ]; then
+      if [ "$attempt" = 1 ]; then echo "handout: two files for page $duplicate (a page being rewritten?): reading the pages again" >&2; continue; fi
       handout_fail HANDOUT_RECORD "$name has two files for page $duplicate in pages/: keep one, then export again"; exit 1
     fi
     : > "$tmp/pages.jsonl"; : > "$tmp/problems.tsv"
@@ -1538,8 +1620,8 @@ LIST
       fi
       problems="$tmp/problems-$n.tsv"
       : > "$problems"
-      title=$(record_title "$dir" "$n" "$page" handout "$copy")
-      section=$(record_section "$dir" "$n")
+      title=$(record_title "$dir" "$n" "$page" handout "$copy" "$tmp/sections.tsv")
+      section=$(record_section "$dir" "$n" "$tmp/sections.tsv")
       # A marker error is collected and reported with the others below; any other failure stops here
       if ! explain_build "$n" "$title" "$section" "$copy" "$n" handout "$problems" && ! grep -q '^error' "$problems"; then
         handout_fail HANDOUT_RECORD "page $n of $name could not be built for the Handout: export again"; exit 1
@@ -1557,7 +1639,9 @@ LIST
     if [ "$(grep -c . "$tmp/pages.jsonl")" != "$listed" ]; then
       handout_fail HANDOUT_RECORD "$listed page(s) were listed but $(grep -c . "$tmp/pages.jsonl") staged: export again"; exit 1
     fi
-    [ "$(handout_listing "$dir")" = "$listing" ] && break
+    # A fresh list after the reading: a page added, gone, moved aside and back, or saved again differs
+    record_pages "$dir" > "$tmp/manifest-after.tsv"
+    [ "$(handout_listing "$tmp/manifest-after.tsv" "$dir")" = "$listing" ] && break
     if [ "$attempt" = 2 ]; then
       handout_fail HANDOUT_RECORD "the pages of $name changed while they were read, twice: export again once no page is being written"; exit 1
     fi
@@ -1594,13 +1678,13 @@ LIST
   fi
   printf '%s' "$result" | jq -r '.warnings[] | (if .page then "page \(.page): " else "" end) + .message | gsub("[[:cntrl:]]"; "")' >> "$tmp/warnings.txt"
   # Publication is the success: a journal that cannot be written is a warning, never a failure
-  if ! { printf -- '- %s 📤 Handout → %s\n' "$(date +%H:%M:%S)" "$out" >> "$dir/journal.md"; } 2>/dev/null; then
+  if ! { printf -- '- %s 📤 Handout → %s\n' "$(date +%H:%M:%S)" "$shown_out" >> "$dir/journal.md"; } 2>/dev/null; then
     echo "$dir/journal.md could not be written: the export is not in the journal" >> "$tmp/warnings.txt"
   fi
   pages=$(printf '%s' "$result" | jq -r '.pages')
   diagrams=$(printf '%s' "$result" | jq -r '.diagrams')
   count=$(grep -c . "$tmp/warnings.txt")
-  echo "handout: written $out ($pages pages, $diagrams diagrams, $count warnings)"
+  echo "handout: written $shown_out ($pages pages, $diagrams diagrams, $count warnings)"
   while IFS= read -r line; do echo "  warning: $line"; done < "$tmp/warnings.txt"
   exit 0
 )

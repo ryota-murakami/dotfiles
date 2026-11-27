@@ -180,12 +180,12 @@
   const handout = data.mode === 'handout';
   if (handout) document.body.classList.add('handout');
   // DOMPurify's defaults, with three changes for the export: a file: image keeps its path, which the
-  // builder reads and embeds (the default URI check drops it); a page's own <style> and responsive
-  // image alternatives go here already, so the page is measured as the Handout will show it (the
-  // builder removes them from the finished file too)
+  // builder reads and embeds (the default URI check drops it); a page's own <style>, responsive image
+  // alternatives and templates go here already, so the page is measured as the Handout will show it
+  // (the builder removes them from the finished file too)
   const handoutPurify = {
     ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
-    FORBID_TAGS: ['style', 'source'],
+    FORBID_TAGS: ['style', 'source', 'template'],
     FORBID_ATTR: ['srcset'],
   };
 

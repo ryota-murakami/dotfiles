@@ -342,3 +342,65 @@ test('a video stops the export before anything is verified: the colleague would 
   expect(outcome).toMatchObject({ ok: false, diagnostics: [{ code: 'HANDOUT_IMAGE', page: 1 }] })
   expect(requests.some((request) => request.type === 'verify')).toBe(false)
 })
+
+test('a link to a local file reaches the agent as a warning even where the sanitizer removes the address', async () => {
+  // Arrange
+  const linking = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: {
+        html: '<h1>書き出しの流れ</h1><p><a href="file:///Users/u/notes.md">メモ</a></p>',
+        diagrams: [],
+      },
+    },
+  }
+  const { host } = fakeHost({ renders: linking })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toMatchObject({
+    ok: true,
+    warnings: [
+      {
+        message: "links to file:///Users/u/notes.md, a file on this Mac: the colleague's copy cannot open it",
+        page: 1,
+      },
+    ],
+  })
+})
+
+test('a Handout with screenshots tells the agent that what a picture shows is not checked', async () => {
+  // Arrange
+  const withPicture = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: { html: '<h1>書き出しの流れ</h1><p><img src="shot.png" alt="画面"></p>', diagrams: [] },
+    },
+  }
+  const { host } = fakeHost({
+    renders: withPicture,
+    files: {
+      '/skill/explainer/page.html': base64(TEMPLATE),
+      '/tmp/e/vendor/highlight.css': base64('.hljs { color: #c9d1d9; }'),
+      '/r/pages/shot.png': 'iVBORw0KGgo=',
+    },
+  })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toMatchObject({
+    ok: true,
+    warnings: [
+      {
+        message:
+          '1 picture(s) embedded: the export checks their bytes and metadata, not what they show; look at each one before sharing',
+      },
+    ],
+  })
+})

@@ -11,6 +11,19 @@
     },
     "test": {
       "dependsOn": ["^build"]
+    },
+    "@dw/handout#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/hooks/secrets.ts"]
+    },
+    "@dw/handout#typecheck": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/hooks/secrets.ts"]
+    },
+    "@dw/handout#test": {
+      "dependsOn": ["^build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/hooks/secrets.ts"]
     }
   }
 }

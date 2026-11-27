@@ -15,7 +15,8 @@ const SANITIZE_CONFIG: Config = {
   ADD_TAGS: ['foreignobject'],
   HTML_INTEGRATION_POINTS: { foreignobject: true },
   ADD_ATTR: ['target'],
-  FORBID_TAGS: ['source'],
+  // A template's contents ship in the file though no reader sees them
+  FORBID_TAGS: ['source', 'template'],
   FORBID_ATTR: ['srcset'],
 }
 
@@ -77,29 +78,8 @@ export function sanitizePage(html: string): string {
   // was measured alone; mermaid's styles sit inside its SVG, scoped by the diagram's id
   for (const style of Array.from(fragment.querySelectorAll('style')))
     if (!style.closest('svg')) style.remove()
-  const holder = document.createElement('div')
+  // Read back in a document without a window: nothing in it loads (an image of a page fetches nothing)
+  const holder = document.implementation.createHTMLDocument('').createElement('div')
   holder.append(fragment)
   return holder.innerHTML
-}
-
-/**
- * The label texts of every diagram in some content, by the diagram's SVG id, as the verify probe
- * reads them (foreignObject and SVG text, empty ones left out).
- *
- * @param html - A page's content.
- * @returns The labels of each diagram in reading order.
- *
- * @example
- * diagramLabels('<div class="diagram"><svg id="p2-d1">…<foreignObject><div>書き出す</div></foreignObject>…</svg></div>')
- * // [{ id: 'p2-d1', labels: ['書き出す'] }]
- */
-export function diagramLabels(html: string): Array<{ id: string; labels: string[] }> {
-  const holder = document.createElement('template')
-  holder.innerHTML = html
-  return Array.from(holder.content.querySelectorAll('.diagram svg')).map((svg) => ({
-    id: svg.id,
-    labels: Array.from(svg.querySelectorAll('foreignObject, text'))
-      .map((label) => (label.textContent ?? '').trim())
-      .filter((text) => text !== ''),
-  }))
 }
