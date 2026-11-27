@@ -178,6 +178,9 @@ enum Publication {
     case notAHandout
     /// dw's process ended before the file was published: nothing was.
     case cancelled
+    /// Stopped while the file was written in place (a volume without exclusive renames): nothing was
+    /// published, and what was left is said (the path is never removed there).
+    case cancelledLeaving(String)
     case failed(String)
 }
 
@@ -521,14 +524,14 @@ func temporaryPath(for target: String) -> String {
     return (folder as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString).tmp")
 }
 
-/// Whether the file at `path` is still the one this run created (same device and inode) holding only
-/// the start of `data`: what a write that failed part way leaves. Anything else (a save another program
-/// made into it, a file put in its place) is not this run's to remove.
-func isOwnPartialWrite(_ path: String, created: stat, data: Data) -> Bool {
+/// Whether the file open at `descriptor` holds nothing but the start of `data`: what a write that failed
+/// or stopped part way leaves. Anything else is a save another program made into it.
+func holdsOnlyStartOf(_ descriptor: Int32, _ data: Data) -> Bool {
     var now = stat()
-    guard lstat(path, &now) == 0, now.st_dev == created.st_dev, now.st_ino == created.st_ino,
-          now.st_size <= off_t(data.count), let content = FileManager.default.contents(atPath: path) else { return false }
-    return data.prefix(content.count) == content
+    guard fstat(descriptor, &now) == 0, now.st_size <= off_t(data.count) else { return false }
+    var content = [UInt8](repeating: 0, count: Int(now.st_size))
+    let count = content.withUnsafeMutableBytes { pread(descriptor, $0.baseAddress, Int(now.st_size), 0) }
+    return count == Int(now.st_size) && data.prefix(count).elementsEqual(content)
 }
 
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
@@ -548,38 +551,39 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
     defer { close(created) }
-    var mine = stat()
-    fstat(created, &mine)
     let inherited = acl_get_fd(created)
     defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
-    // What a stop or a failed write leaves: nothing, unless another program changed the file meanwhile
-    func endWithout(_ outcome: Publication, _ what: String) -> Publication {
-        guard isOwnPartialWrite(target, created: mine, data: data), unlink(target) == 0 else {
+    // What a stop or a failed write leaves. The path is never removed: another program may have put its
+    // file there since it was looked at, and this volume cannot remove only this run's own. This run's
+    // file is emptied through its descriptor, when it still holds only what was written, and the run
+    // says where it is
+    func endWithout(stopped: Bool, _ what: String) -> Publication {
+        guard holdsOnlyStartOf(created, data), ftruncate(created, 0) == 0 else {
             return .failed("\(what), and another program changed \(target) meanwhile: it was left as it is")
         }
-        return outcome
+        let left = "\(target) was left empty (this volume cannot remove it safely): remove it"
+        return stopped ? .cancelledLeaving(left) : .failed("\(what); \(left)")
     }
     // An ACL the folder hands down would let others read the file while it is written: it goes before a
     // byte is written, as in publish (a volume without ACLs has none to remove)
     if let reason = clearInheritedAcl(created) {
-        return endWithout(.failed("could not prepare \(target): its inherited ACL could not be removed (\(reason))"),
-                          "could not prepare \(target) (its inherited ACL could not be removed)")
+        return endWithout(stopped: false, "could not prepare \(target): its inherited ACL could not be removed (\(reason))")
     }
     let handle = FileHandle(fileDescriptor: created, closeOnDealloc: false)
     var offset = 0
     while offset < data.count {
-        guard mayContinue(offset) else { return endWithout(.cancelled, "the export stopped while \(target) was written") }
+        guard mayContinue(offset) else { return endWithout(stopped: true, "the export stopped while \(target) was written") }
         let end = min(offset + publishChunkBytes, data.count)
         do {
             try handle.write(contentsOf: data.subdata(in: offset..<end))
         } catch {
-            return endWithout(.failed("could not write \(target): \(describe(error))"), "could not write \(target) (\(describe(error)))")
+            return endWithout(stopped: false, "could not write \(target): \(describe(error))")
         }
         offset = end
         // Test only (input.json limits.writePauseMs): a pause standing in for a slow volume
         if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
     }
-    guard mayContinue(offset) else { return endWithout(.cancelled, "the export stopped while \(target) was written") }
+    guard mayContinue(offset) else { return endWithout(stopped: true, "the export stopped while \(target) was written") }
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
     let aclRestored = inherited.map { acl_set_fd(created, $0) == 0 } ?? true
     if aclRestored { fchmod(created, newFileMode()) }
@@ -770,6 +774,12 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         }
     }
 
+    /// What a run the worker stopped says: the watchdog's reason when one stopped it, else the clock's.
+    func cancelledMessage() -> String {
+        stopReason ?? (pastDeadline() ? "the export took longer than \(runLimitMs / 1000) s: nothing was published"
+                                      : "dw ended before the export finished: nothing was published")
+    }
+
     /// What a stop that cut into a rename says: where the files may be.
     func stalledMessage() -> String {
         "the volume of \(out) stopped answering while the Handout was being published: look at \(out) and the hidden .dw-handout file beside it"
@@ -847,8 +857,9 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                     "diagrams": outcome["diagrams"] ?? 0, "warnings": warnings], code: 0)
         case .cancelled:
             // The watchdog's reason when one stopped the run; else the worker stopped by itself
-            failRenderer(stopReason ?? (pastDeadline() ? "the export took longer than \(runLimitMs / 1000) s: nothing was published"
-                                                       : "dw ended before the export finished: nothing was published"))
+            failRenderer(cancelledMessage())
+        case .cancelledLeaving(let left):
+            failRenderer("\(cancelledMessage()); \(left)")
         case .isFolder:
             finish(failure(code: "HANDOUT_OUT_EXISTS", message: "\(out) is a folder: name a file", log: logPath), code: 1)
         case .notAHandout:
