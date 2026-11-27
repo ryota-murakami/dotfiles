@@ -611,7 +611,7 @@ took=$(( $(date +%s) - started ))
 result=$(cat "$scratch/stalled.out")
 if [ -n "$left" ] && [ -f "$left" ] && [ ! -e "$scratch/stalled.html" ] && [ "$took" -lt 20 ] \
   && jq -e --arg left "$left" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
-    and (.message | contains("the volume did not answer, so a partly written \($left) may remain beside it: remove it"))' <<< "$result" >/dev/null; then
+    and (.message | contains("the volume did not answer, so a partly written \($left) may remain: remove it"))' <<< "$result" >/dev/null; then
   pass "a volume that stops answering mid-write: the run ends ${took} s after dw, naming the file that may remain"
 else
   fail "stalled write (file: ${left:-none}, ${took} s): $result"

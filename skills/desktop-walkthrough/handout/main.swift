@@ -87,7 +87,7 @@ final class PublicationGate {
     /// rename that outlasted its grace.
     enum Stop {
         case now
-        case afterWorker(temporary: String, written: Int?, total: Int)
+        case afterWorker(path: String, written: Int?, total: Int, inPlace: Bool)
         case afterCommit
         case interrupted
     }
@@ -95,6 +95,7 @@ final class PublicationGate {
     private let lock = NSLock()
     private var stopped = false
     private var writing: String?
+    private var inPlace = false
     private var total = 0
     private var written: Int?
     private var committingSince: Date?
@@ -106,6 +107,17 @@ final class PublicationGate {
         defer { lock.unlock() }
         writing = temporary
         total = bytes
+    }
+
+    /// Said by the worker when it writes the Handout at the target itself (a volume without exclusive
+    /// renames): the exclusive rename it asked for did not happen, so this is a write again, not a commit.
+    func writeInPlace(at path: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        writing = path
+        inPlace = true
+        written = nil
+        committingSince = nil
     }
 
     /// Asked by the worker before each write and once after the last, with the bytes written so far:
@@ -142,7 +154,7 @@ final class PublicationGate {
             return .interrupted
         }
         stopped = true
-        if let writing { return .afterWorker(temporary: writing, written: written, total: total) }
+        if let writing { return .afterWorker(path: writing, written: written, total: total, inPlace: inPlace) }
         return .now
     }
 }
@@ -215,6 +227,17 @@ func newFileMode() -> mode_t {
     return 0o666 & ~mask
 }
 
+/// Whether two looks saw the same file: the same device and inode.
+func sameFile(_ first: stat, _ second: stat) -> Bool {
+    first.st_dev == second.st_dev && first.st_ino == second.st_ino
+}
+
+/// Whether two looks at one file saw the same change time (ctime): a write, a chmod or a utimes changes
+/// it and nobody can set it back, but a rename changes it too.
+func sameChangeTime(_ first: stat, _ second: stat) -> Bool {
+    first.st_ctimespec.tv_sec == second.st_ctimespec.tv_sec && first.st_ctimespec.tv_nsec == second.st_ctimespec.tv_nsec
+}
+
 /// Whether two looks at one file saw the same content: the same size and modification time.
 func sameContentStamp(_ first: stat, _ second: stat) -> Bool {
     first.st_size == second.st_size && first.st_mtimespec.tv_sec == second.st_mtimespec.tv_sec
@@ -247,7 +270,7 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// replaced Handout since it was first looked at is kept: another program's save is never deleted. On a volume without exclusive renames (exFAT, some network shares) only a
 /// new file can be published, created exclusively.
 func publish(_ data: Data, to target: String, temporary: String, writePauseMs: Int = 0,
-             mayContinue: (Int) -> Bool, mayPublish: () -> Bool) -> Publication {
+             mayContinue: (Int) -> Bool, mayPublish: () -> Bool, writingInPlace: (String) -> Void) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -320,7 +343,8 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
     let exclusiveError = errno
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
         unlink(temporary)
-        return publishWithoutRenames(data, to: target, mayPublish: mayPublish)
+        return publishWithoutRenames(data, to: target, writePauseMs: writePauseMs, writingInPlace: writingInPlace,
+                                     mayContinue: mayContinue)
     }
     guard exclusiveError == EEXIST else {
         unlink(temporary)
@@ -330,6 +354,10 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
         unlink(temporary)
         return .cancelled
     }
+    // Looked at once more right before the swap: a save into the earlier Handout while this one was
+    // written changed its change time, which nothing else here touches until the swap renames it
+    var beforeSwap = stat()
+    let lookedAgain = lstat(target, &beforeSwap) == 0
     // A Handout is there: swap, then look at what was swapped out
     guard renamex_np(temporary, target, UInt32(RENAME_SWAP)) == 0 else {
         let reason = errnoText()
@@ -359,9 +387,13 @@ func publish(_ data: Data, to target: String, temporary: String, writePauseMs: I
                 return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(temporary)"])
             }
             var now = stat()
-            let sameAsLookedAt = present.st_dev == replaced.st_dev && present.st_ino == replaced.st_ino
-                && sameContentStamp(present, replaced)
-            if !sameAsLookedAt || fstat(theirs, &now) != 0 || !sameContentStamp(now, replaced) {
+            // Unchanged while this one was written (its change time too: no rename yet), the same file
+            // swapped out (the swap changed its change time), and unchanged since (change time too)
+            let unchangedWhileWritten = lookedAgain && sameFile(present, beforeSwap)
+                && sameContentStamp(present, beforeSwap) && sameChangeTime(present, beforeSwap)
+            let sameSwappedOut = sameFile(beforeSwap, replaced) && sameContentStamp(beforeSwap, replaced)
+            if !unchangedWhileWritten || !sameSwappedOut || fstat(theirs, &now) != 0
+                || !sameContentStamp(now, replaced) || !sameChangeTime(now, replaced) {
                 return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(temporary)"])
             }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
@@ -409,32 +441,56 @@ func isOwnPartialWrite(_ path: String, created: stat, data: Data) -> Bool {
 }
 
 /// Publish on a volume without exclusive renames (exFAT, some network shares): a new file only,
-/// created exclusively and written in place; an existing one is never replaced there.
-func publishWithoutRenames(_ data: Data, to target: String, mayPublish: () -> Bool) -> Publication {
+/// created exclusively and written in place; an existing one is never replaced there. The write is the
+/// publication: the file is readable by its owner alone, without the ACL its folder hands down, until
+/// it is whole, and a stop between two chunks (`mayContinue`) removes what was written. Only the start
+/// of `data` in this run's own file is ever removed: a save another program made into it stays.
+func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, writingInPlace: (String) -> Void,
+                           mayContinue: (Int) -> Bool) -> Publication {
     var present = stat()
     guard lstat(target, &present) != 0 else {
         return .failed("the volume of \(target) cannot replace a file safely (it has no atomic rename): remove the earlier Handout first, or choose an --out on another volume")
     }
+    writingInPlace(target)
     // dw may have ended, or the run's time may be up, while the exclusive rename was tried
-    guard mayPublish() else { return .cancelled }
-    let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, newFileMode())
+    guard mayContinue(0) else { return .cancelled }
+    let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
+    defer { close(created) }
     var mine = stat()
     fstat(created, &mine)
-    let handle = FileHandle(fileDescriptor: created, closeOnDealloc: true)
-    do {
-        try handle.write(contentsOf: data)
-        try handle.close()
-    } catch {
-        // A partial file goes only while it is this run's own and holds nothing but the start of what
-        // was written: another program may have put its file there, or saved into this one meanwhile
-        if isOwnPartialWrite(target, created: mine, data: data) {
-            unlink(target)
-            return .failed("could not write \(target): \(describe(error))")
-        }
-        return .failed("could not write \(target) (\(describe(error))), and another program changed it meanwhile: it was left as it is")
+    let inherited = acl_get_fd(created)
+    defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
+    if let emptyAcl = acl_init(0) {
+        acl_set_fd(created, emptyAcl)
+        acl_free(UnsafeMutableRawPointer(emptyAcl))
     }
-    return .published(warnings: [])
+    // What a stop or a failed write leaves: nothing, unless another program changed the file meanwhile
+    func endWithout(_ outcome: Publication, _ what: String) -> Publication {
+        guard isOwnPartialWrite(target, created: mine, data: data), unlink(target) == 0 else {
+            return .failed("\(what), and another program changed \(target) meanwhile: it was left as it is")
+        }
+        return outcome
+    }
+    let handle = FileHandle(fileDescriptor: created, closeOnDealloc: false)
+    var offset = 0
+    while offset < data.count {
+        guard mayContinue(offset) else { return endWithout(.cancelled, "the export stopped while \(target) was written") }
+        let end = min(offset + publishChunkBytes, data.count)
+        do {
+            try handle.write(contentsOf: data.subdata(in: offset..<end))
+        } catch {
+            return endWithout(.failed("could not write \(target): \(describe(error))"), "could not write \(target) (\(describe(error)))")
+        }
+        offset = end
+        // Test only (input.json limits.writePauseMs): a pause standing in for a slow volume
+        if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
+    }
+    guard mayContinue(offset) else { return endWithout(.cancelled, "the export stopped while \(target) was written") }
+    // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
+    let aclRestored = inherited.map { acl_set_fd(created, $0) == 0 } ?? true
+    if aclRestored { fchmod(created, newFileMode()) }
+    return .published(warnings: aclRestored ? [] : ["the ACL its folder gives its files could not be given to \(target): only you can read it"])
 }
 
 /// A render the builder is waiting for.
@@ -477,6 +533,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let publicationGate = PublicationGate()
     /// Whether a stop already waits for the worker writing the Handout (`stopRun`).
     var workerStopScheduled = false
+    /// Whether the Handout was handed to the worker that publishes: WebKit is no longer needed then.
+    var publicationStarted = false
     /// Why a watchdog stopped the run while the worker wrote: what the run says once the worker
     /// reports that it stopped (`report`), however the clock reads by then.
     var stopReason: String?
@@ -589,7 +647,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         switch publicationGate.stop() {
         case .now:
             failRenderer(message, page: pendingRender?.page)
-        case .afterWorker(let temporary, let written, let total):
+        case .afterWorker(let path, let written, let total, let inPlace):
             guard !workerStopScheduled else { return true }
             workerStopScheduled = true
             let reason = message.hasSuffix("nothing was published") ? message : "\(message): nothing was published"
@@ -597,11 +655,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
             // What may be beside the target, by how far the write had come when the volume stopped answering
             let left: String
             if written == nil {
-                left = "the volume did not answer before the Handout was written: \(temporary) may remain beside it, empty; remove it if it is there"
+                left = "the volume did not answer before the Handout was written: \(path) may remain, empty; remove it if it is there"
             } else if (written ?? 0) < total {
-                left = "the volume did not answer, so a partly written \(temporary) may remain beside it: remove it"
+                left = "the volume did not answer, so a partly written \(path) may remain: remove it"
+            } else if inPlace {
+                left = "the volume did not answer, so \(path) is written but may be readable by you alone: check its permissions"
             } else {
-                left = "the volume did not answer, so \(temporary), written but not published, may remain beside it: remove it"
+                left = "the volume did not answer, so \(path), written but not published, may remain: remove it"
             }
             _ = schedule(after: workerStopWaitMs) { self.failRenderer("\(reason); \(left)") }
             return true
@@ -665,11 +725,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         let temporary = temporaryPath(for: target)
         let pause = writePauseMs
         publicationGate.beginWrite(temporary, total: data.count)
+        publicationStarted = true
         DispatchQueue.global(qos: .userInitiated).async {
             let stillWanted = { self.parentIsAlive() && !self.pastDeadline() }
             let publication = publish(data, to: target, temporary: temporary, writePauseMs: pause,
                                       mayContinue: { self.publicationGate.mayContinue(written: $0, stillWanted) },
-                                      mayPublish: { self.publicationGate.allowCommit(stillWanted) })
+                                      mayPublish: { self.publicationGate.allowCommit(stillWanted) },
+                                      writingInPlace: { self.publicationGate.writeInPlace(at: $0) })
             DispatchQueue.main.async { self.report(publication, outcome: outcome) }
         }
     }
@@ -751,22 +813,29 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     func verify(html: String, probe: String, reply: @escaping (Any?, String?) -> Void) {
         guard pendingVerify == nil else { return reply(nil, "a verification is already running") }
         let file = explainDir.appendingPathComponent("handout-verify.html")
-        do {
-            try Data(html.utf8).write(to: file)
-        } catch {
-            failRenderer("the finished Handout could not be written for verification: \(describe(error))")
-        }
-        // A plain view, as the colleague's browser: no channel, nothing injected
-        let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 1200, height: 1000), configuration: WKWebViewConfiguration())
-        view.navigationDelegate = self
-        window.contentView?.addSubview(view)
-        verifyView = view
+        // The time limit runs from the request, and the copy is written off the main queue, where the
+        // limits run: a write that stalls is caught by them
         let timer = schedule(after: pageLimitMs) {
             self.failRenderer("the finished Handout did not open within \(self.pageLimitMs / 1000) s")
         }
         pendingVerify = PendingVerify(probe: probe, reply: reply, timer: timer)
-        log("verify: opening the finished Handout (\(html.utf8.count) bytes)")
-        view.loadFileURL(file, allowingReadAccessTo: explainDir)
+        log("verify: writing the finished Handout (\(html.utf8.count) bytes)")
+        let data = Data(html.utf8)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let written = Result { try data.write(to: file) }
+            DispatchQueue.main.async {
+                if case .failure(let error) = written {
+                    self.failRenderer("the finished Handout could not be written for verification: \(describe(error))")
+                }
+                // A plain view, as the colleague's browser: no channel, nothing injected
+                let view = WKWebView(frame: NSRect(x: 0, y: 0, width: 1200, height: 1000), configuration: WKWebViewConfiguration())
+                view.navigationDelegate = self
+                self.window.contentView?.addSubview(view)
+                self.verifyView = view
+                self.log("verify: opening the finished Handout")
+                view.loadFileURL(file, allowingReadAccessTo: self.explainDir)
+            }
+        }
     }
 
     // MARK: the page's render report
@@ -803,8 +872,10 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                     pending.timer.cancel()
                     self.pendingVerify = nil
                     self.log("verify: checked")
-                    // The copy opened for the check is of no further use: only the published file stays
-                    try? FileManager.default.removeItem(at: self.explainDir.appendingPathComponent("handout-verify.html"))
+                    // The copy opened for the check is of no further use: only the published file stays.
+                    // Removed off the main queue, like every other file operation of the run
+                    let copy = self.explainDir.appendingPathComponent("handout-verify.html")
+                    DispatchQueue.global(qos: .utility).async { try? FileManager.default.removeItem(at: copy) }
                     pending.reply(["type": "verified", "probe": probe], nil)
                 }
             }
@@ -820,10 +891,13 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     }
 
     func loadFailed(_ webView: WKWebView, _ error: Error) {
+        // Once the Handout is being published WebKit has done its part: the worker finishes or rolls back
+        guard !publicationStarted else { return log("\(name(of: webView)) could not be loaded (ignored: publishing)") }
         failRenderer("\(name(of: webView)) could not be loaded: \(describe(error))", page: pendingRender?.page)
     }
 
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        guard !publicationStarted else { return log("the web content process of \(name(of: webView)) ended (ignored: publishing)") }
         failRenderer("the web content process of \(name(of: webView)) ended", page: pendingRender?.page)
     }
 

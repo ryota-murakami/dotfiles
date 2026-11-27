@@ -139,11 +139,41 @@ function cssLoads(written: string): string[] {
   // CSS lets a name be spelled with escapes (`u\\72l(` is `url(`): read as the browser does
   const css = unescapeCss(written)
   const targets = Array.from(css.matchAll(/url\(\s*(["']?)(.*?)\1\s*\)/gi), (match) => match[2] ?? '')
-  for (const set of css.matchAll(/image-set\(([^)]*)\)/gi)) {
-    for (const string of (set[1] ?? '').matchAll(/(["'])(.*?)\1/g)) targets.push(string[2] ?? '')
+  // An image-set is read to its own closing parenthesis: an option before a picture may be a function
+  // of its own (a gradient)
+  for (const set of css.matchAll(/image-set\(/gi)) {
+    const contents = functionContents(css, (set.index ?? 0) + set[0].length)
+    for (const string of contents.matchAll(/(["'])(.*?)\1/g)) targets.push(string[2] ?? '')
   }
   for (const imported of css.matchAll(/@import\s+(["'])(.*?)\1/gi)) targets.push(imported[2] ?? '')
   return targets.map((target) => target.trim()).filter((target) => target !== '' && !target.startsWith('#'))
+}
+
+/**
+ * What a CSS function holds, from just after its opening parenthesis to the one that closes it:
+ * nested functions and quoted strings (with their parentheses) included.
+ *
+ * @param css - CSS text.
+ * @param start - Where the function's contents start (after its opening parenthesis).
+ * @returns The contents; up to the end of the text when the function is never closed.
+ *
+ * @example
+ * functionContents('image-set(linear-gradient(red, blue) 1x, "a.png" 2x)', 10)
+ * // 'linear-gradient(red, blue) 1x, "a.png" 2x'
+ */
+function functionContents(css: string, start: number): string {
+  let depth = 1
+  let quote = ''
+  for (let index = start; index < css.length; index++) {
+    const character = css[index]
+    if (quote !== '') {
+      if (character === '\\') index++
+      else if (character === quote) quote = ''
+    } else if (character === '"' || character === "'") quote = character
+    else if (character === '(') depth++
+    else if (character === ')' && --depth === 0) return css.slice(start, index)
+  }
+  return css.slice(start)
 }
 
 /**

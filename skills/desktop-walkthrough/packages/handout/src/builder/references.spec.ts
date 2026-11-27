@@ -187,3 +187,17 @@ test('a hexadecimal escape swallows a form feed after it, as a browser does: the
     'page 4: a style loads x.png, which a Handout neither checks nor carries: show the picture with an image instead',
   ])
 })
+
+test('a picture in an image-set after a gradient option still stops the export: the set is read to its own closing parenthesis', () => {
+  // Arrange
+  const html =
+    '<p><span style="background: image-set(linear-gradient(red, blue) 1x, &quot;shot.png&quot; 2x)">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads shot.png, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
