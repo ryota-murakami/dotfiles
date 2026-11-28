@@ -736,7 +736,8 @@ fi
 # A volume without exclusive renames (FAT, like some USB sticks and network shares): the Handout is
 # written at the target itself, after the copy in the run's folder could not be renamed there. dw ends
 # during that write: what was written stays as it is (neither the path nor what it holds is removed
-# there), and the run says where it is. A disk image stands in for the volume
+# there), and the run says what may remain, to be looked at before it is removed (another program may
+# have saved its own file there since). A disk image stands in for the volume
 fat="$scratch/fat"
 mkdir -p "$fat"
 if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$scratch/fat.dmg" \
@@ -757,9 +758,9 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
   ended=yes; wait_bounded "$writer" 60 || ended=no
   result=$(cat "$scratch/fat.out")
   if [ "$ended" = yes ] && jq -e --arg target "$fat/handout.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
-      and (.message | contains("\($target) was left as written so far (this volume cannot remove it safely): remove it"))' <<< "$result" >/dev/null \
+      and (.message | contains("a partly written Handout may remain at \($target) (this volume cannot remove it safely): before removing it, check that the file there is that one, not one another program saved since"))' <<< "$result" >/dev/null \
     && [ -s "$fat/handout.html" ] && [ -z "$(find "$fat" -maxdepth 1 -name '.handout.html.dw-handout-*')" ]; then
-    pass "dw ending while a volume without exclusive renames is written: what was written stays, and the run says where"
+    pass "dw ending while a volume without exclusive renames is written: what was written stays, and the run says to look at it before removing it"
   else
     fail "dw gone mid-write on a FAT volume (ended by itself: $ended): $(ls -la "$fat" 2>&1) / $result"
   fi
@@ -782,6 +783,74 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
     pass "another program replacing the target while it is written in place keeps its file, and nothing is called published"
   else
     fail "target replaced mid-write on a FAT volume (ended by itself: $ended): $(cat "$fat/replaced.html" 2>&1 | head -c 80) / $result"
+  fi
+  # Another program saves into the file while it is written there (the same file, other bytes): that
+  # save stays, and what the path holds is never called the Handout
+  handout_input "$RECORDS/direct" "$fat/saved.html" "$scratch/fat-saved-explain" "$scratch/fat-saved.json"
+  jq '.limits.writePauseMs = 2000' "$scratch/fat-saved.json" > "$scratch/fat-saved-paused.json"
+  "$BIN" "$scratch/fat-saved-paused.json" "$DIST" > "$scratch/fat-saved.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/saved.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  printf 'X' | dd of="$fat/saved.html" bs=1 seek=10 conv=notrunc 2>/dev/null
+  ended=yes; wait_bounded "$writer" 60 || ended=no
+  result=$(cat "$scratch/fat-saved.out")
+  if [ "$ended" = yes ] && jq -e --arg target "$fat/saved.html" '.ok == false
+      and (.diagnostics[0].message | contains("another program saved into \($target) while the Handout was written there: that save stays, and nothing was published"))' <<< "$result" >/dev/null \
+    && [ "$(dd if="$fat/saved.html" bs=1 skip=10 count=1 2>/dev/null)" = X ]; then
+    pass "another program saving into the file while it is written in place keeps that save, and nothing is called published"
+  else
+    fail "save into the target mid-write on a FAT volume (ended by itself: $ended): $result"
+  fi
+  # dw ends after another program put its own file at the target: the run names no file for removal
+  handout_input "$RECORDS/direct" "$fat/stopped.html" "$scratch/fat-stopped-explain" "$scratch/fat-stopped.json"
+  sleep 60 &
+  parent=$!
+  jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 2000' \
+    "$scratch/fat-stopped.json" > "$scratch/fat-stopped-parent.json"
+  "$BIN" "$scratch/fat-stopped-parent.json" "$DIST" > "$scratch/fat-stopped.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/stopped.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  printf 'another program\n' > "$fat/stopped.tmp" && mv -f "$fat/stopped.tmp" "$fat/stopped.html"
+  kill "$parent"; wait "$parent" 2>/dev/null
+  ended=yes; wait_bounded "$writer" 60 || ended=no
+  result=$(cat "$scratch/fat-stopped.out")
+  if [ "$ended" = yes ] && jq -e --arg target "$fat/stopped.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+      and (.message | contains("another program replaced or removed \($target) meanwhile: what is there now stays"))
+      and (.message | contains("removing it") | not)' <<< "$result" >/dev/null \
+    && [ "$(cat "$fat/stopped.html")" = 'another program' ]; then
+    pass "dw ending after another program took the target written in place names no file for removal: that file stays"
+  else
+    fail "dw gone after the target was replaced on a FAT volume (ended by itself: $ended): $(head -c 80 "$fat/stopped.html" 2>&1) / $result"
+  fi
+  # The volume stops answering in the middle of that write (limits.writePauseMs holds the worker 30 s
+  # after its first write): 5 s after dw ends the renderer ends the run itself, and says what may
+  # remain at the target, to be looked at before it is removed
+  handout_input "$RECORDS/direct" "$fat/stalled.html" "$scratch/fat-stalled-explain" "$scratch/fat-stalled.json"
+  sleep 60 &
+  parent=$!
+  jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 30000' \
+    "$scratch/fat-stalled.json" > "$scratch/fat-stalled-parent.json"
+  "$BIN" "$scratch/fat-stalled-parent.json" "$DIST" > "$scratch/fat-stalled.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/stalled.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  kill "$parent"; wait "$parent" 2>/dev/null
+  ended=yes; wait_bounded "$writer" 30 || ended=no
+  result=$(cat "$scratch/fat-stalled.out")
+  if [ "$ended" = yes ] && jq -e --arg target "$fat/stalled.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+      and (.message | contains("the volume did not answer, so a partly written Handout may remain at \($target): before removing it, check that the file there is that one, not one another program saved since"))' <<< "$result" >/dev/null \
+    && [ -s "$fat/stalled.html" ]; then
+    pass "a volume that stops answering while it is written in place: the run says what may remain, to be looked at before it is removed"
+  else
+    fail "stalled write on a FAT volume (ended by itself: $ended): $result"
   fi
   hdiutil detach -quiet "$fat" || hdiutil detach -quiet -force "$fat"
 else
@@ -892,6 +961,36 @@ elif [ "$ended" = yes ] && jq -e --arg target "$scratch/taken.html" '.ok == fals
 else
   fail "target replaced after it was created (ended by itself: $ended): $result"
 fi
+
+# Another program saves into the new Handout right after it is swapped in (the same file, other
+# bytes): that save stays where it is, the earlier Handout stays in the run's folder, and what the
+# target holds is not called the Handout that was checked
+handout_input "$RECORDS/direct" "$scratch/edited.html" "$scratch/edited-explain" "$scratch/edited.json"
+first_export "save into the target after the swap" "$scratch/edited.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/edited.html")
+jq '.limits.writePauseMs = 2000' "$scratch/edited.json" > "$scratch/edited-paused.json"
+"$BIN" "$scratch/edited-paused.json" "$DIST" > "$scratch/edited.out" &
+writer=$!
+waited=0
+until [ "$(/usr/bin/stat -f '%i' "$scratch/edited.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/edited.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+printf 'X' | dd of="$scratch/edited.html" bs=1 seek=10 conv=notrunc 2>/dev/null
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/edited.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.edited.html.dw-handout-*/edited.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "save into the target after the swap: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/edited.html" --arg kept "$kept" '.ok == false
+    and (.diagnostics[0].message | contains("another program saved into \($target) right after the Handout was put there: that save stays (it is not the Handout that was checked), and the Handout that was there before is kept at \($kept);"))' <<< "$result" >/dev/null \
+  && [ "$(dd if="$scratch/edited.html" bs=1 skip=10 count=1 2>/dev/null)" = X ] && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ]; then
+  pass "another program saving into the new Handout right after the swap keeps that save and the earlier Handout, and nothing is called published"
+else
+  fail "save into the target after the swap (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
 
 # An earlier Handout whose content could not be read first (larger than the digest's limit, set to
 # 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning

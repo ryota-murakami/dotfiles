@@ -296,6 +296,20 @@ func stableDigest(atPath path: String, expected: stat, keepGoing: () -> Bool) ->
     return digest
 }
 
+/// Whether the file open at `descriptor` holds exactly the `size` bytes whose SHA-256 is `expected`:
+/// read through the descriptor, so it is this run's own file that is read, wherever its name went. A
+/// save another program made into that file in place keeps its identity (`isAtPath`) and changes this.
+func holds(_ descriptor: Int32, size: Int, digest expected: SHA256.Digest) -> Bool {
+    var now = stat()
+    guard fstat(descriptor, &now) == 0, now.st_size == off_t(size) else { return false }
+    return contentDigest(descriptor) == expected
+}
+
+/// What a message says before it names a file at the target for removal, where the Handout is written
+/// at the target itself (a volume without exclusive renames): another program may have saved its own
+/// file there since, and the run cannot tell once it has stopped.
+let confirmBeforeRemoving = "before removing it, check that the file there is that one, not one another program saved since"
+
 /// Remove the ACL a new file or folder inherited from its folder, by descriptor, before a byte is written.
 /// Returns nil once it has none (or the volume has no ACLs), else why it could not be removed: errno
 /// is read right after the call that failed.
@@ -380,7 +394,8 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// when it holds exactly the bytes written, and a save made into the replaced Handout since it was
 /// first looked at is kept: another program's save is never deleted. After the rename that publishes
 /// and the looks that follow it, the target is looked at last (`takenOver`): a file another program put
-/// there meanwhile stays and is never reported as the Handout. On a volume without exclusive
+/// there meanwhile, or a save it made into the new file, stays and is never reported as the Handout
+/// (the file must still hold the bytes that were checked). On a volume without exclusive
 /// renames (exFAT, some network shares) only a new file can be published, created exclusively.
 func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: Int = 0,
              digestLimit: Int = digestLimitBytes, keepGoing: () -> Bool = { true },
@@ -456,14 +471,23 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     func replacedMeanwhile() -> Publication {
         .failed("another program replaced the Handout being written at \(staged): what it put there stays, and nothing was published")
     }
-    /// The failure of a publication whose target no longer names this run's file; nil while it does.
+    // What was checked before it was written: the published file must still hold exactly this
+    let writtenDigest = SHA256.hash(data: data)
+    /// The failure of a publication whose target no longer holds what this run wrote; nil while it
+    /// does: the path still names this run's file, and that file, read through its descriptor, holds
+    /// the bytes that were checked (a save made into it in place keeps the file and changes them).
     /// Asked last, after the looks that follow a rename (the digest of a large earlier Handout takes a
-    /// while): what another program put there meanwhile stays, and is never called the Handout. `kept`
-    /// is where the file that was there before still lies, when it does.
+    /// while): what another program put or saved there meanwhile stays, and is never called the
+    /// Handout. `kept` is where the file that was there before still lies, when it does.
     func takenOver(earlierKeptAt kept: String? = nil) -> Publication? {
-        if isAtPath(target, written) { return nil }
         let earlier = kept.map { ", and the Handout that was there before is kept at \($0)" } ?? ""
-        return .failed("another program replaced or removed \(target) right after the Handout was put there: what is there now stays (it is not the Handout of this export)\(earlier)")
+        guard isAtPath(target, written) else {
+            return .failed("another program replaced or removed \(target) right after the Handout was put there: what is there now stays (it is not the Handout of this export)\(earlier)")
+        }
+        guard holds(descriptor, size: data.count, digest: writtenDigest) else {
+            return .failed("another program saved into \(target) right after the Handout was put there: that save stays (it is not the Handout that was checked)\(earlier)")
+        }
+        return nil
     }
     /// Test only (input.json limits.writePauseMs): a pause after a rename, standing in for a volume
     /// that is slow to answer the looks that follow it.
@@ -734,8 +758,10 @@ func keepPrivate(_ descriptor: Int32) {
 /// created exclusively and written in place; an existing one is never replaced there. The write is the
 /// publication: the file is readable by its owner alone, without the ACL its folder hands down, until
 /// it is whole. A stop between two chunks (`mayContinue`) or a failed write leaves what was written,
-/// and the run says where: this volume cannot remove only this run's own file, and nothing in it is
-/// erased either (another program may write into it meanwhile).
+/// and the run says what may remain there, to be looked at before it is removed: this volume cannot
+/// remove only this run's own file, and nothing in it is erased either (another program may write
+/// into it, or put its own file there, meanwhile). Once whole, the path must still name this file and
+/// the file must hold exactly what was written (`holds`), or nothing is reported as published.
 func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, writingInPlace: (String) -> Void,
                            mayContinue: (Int) -> Bool) -> Publication {
     var present = stat()
@@ -745,7 +771,8 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     writingInPlace(target)
     // dw may have ended, or the run's time may be up, while the exclusive rename was tried
     guard mayContinue(0) else { return .cancelled }
-    let created = open(target, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
+    // Read again through this descriptor once written (`holds`)
+    let created = open(target, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
     defer { close(created) }
     // What the folder hands down, given back once the file is whole. None to give back without an ACL
@@ -755,9 +782,15 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     let inheritedUnread = inherited == nil && readFailure != ENOENT && readFailure != ENOTSUP && readFailure != EOPNOTSUPP
     defer { if let inherited { acl_free(UnsafeMutableRawPointer(inherited)) } }
     // What a stop or a failed write leaves: the file as written so far, its owner's alone. Neither its
-    // path nor its content is removed, and the run says where it is
+    // path nor its content is removed, and the run says what may be there. The path is named for
+    // removal only as something to look at first: another program may put its own file there, now
+    // (said as such) or after this look
     func endWithout(stopped: Bool, _ what: String) -> Publication {
-        let left = "\(target) was left as written so far (this volume cannot remove it safely): remove it"
+        var ours = stat()
+        let replaced = fstat(created, &ours) == 0 && !isAtPath(target, ours)
+        let left = replaced
+            ? "another program replaced or removed \(target) meanwhile: what is there now stays"
+            : "a partly written Handout may remain at \(target) (this volume cannot remove it safely): \(confirmBeforeRemoving)"
         return stopped ? .cancelledLeaving(left) : .failed("\(what); \(left)")
     }
     // An ACL the folder hands down would let others read the file while it is written: it goes before a
@@ -788,6 +821,11 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     }
     guard isAtPath(target, ours) else {
         return .failed("another program replaced \(target) while the Handout was written there: that file stays, and nothing was published")
+    }
+    // The file lay at the target all the while: it must still hold exactly what was written, or a save
+    // another program made into it would be reported as the Handout. Such a save stays as it is
+    guard holds(created, size: data.count, digest: SHA256.hash(data: data)) else {
+        return .failed("another program saved into \(target) while the Handout was written there: that save stays, and nothing was published")
     }
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
     let aclRestored = !inheritedUnread && (inherited.map { acl_set_fd(created, $0) == 0 } ?? true)
@@ -1017,12 +1055,14 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
             // run's own folder beside it
             let left: String
             if inPlace {
+                // Nothing here can look at the path any more: it is named for removal only as
+                // something to look at first, as another program may have saved its own file there
                 if written == nil {
-                    left = "the volume did not answer before \(path) was written: it may remain, empty; remove it if it is there"
+                    left = "the volume did not answer before \(path) was written: an empty file may remain there; \(confirmBeforeRemoving)"
                 } else if (written ?? 0) < total {
-                    left = "the volume did not answer, so a partly written \(path) may remain: remove it"
+                    left = "the volume did not answer, so a partly written Handout may remain at \(path): \(confirmBeforeRemoving)"
                 } else {
-                    left = "the volume did not answer, so \(path) is written but may be readable by you alone: check its permissions"
+                    left = "the volume did not answer, so the Handout written at \(path) was not published: it may remain, readable by you alone; \(confirmBeforeRemoving)"
                 }
             } else if written == nil {
                 left = "the volume did not answer before the Handout was written: the folder \(path) may remain, empty; remove it if it is there"
