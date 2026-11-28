@@ -53,9 +53,13 @@ capture() {
   fi
   # The new baseline is written beside the earlier one first (the same volume, so each rename below
   # is one step) and compared there page for page: a copy cut short (a volume that filled up) never
-  # takes the earlier baseline's place
-  if ! staged=$(mktemp -d "$GOLDEN/baseline.new.XXXXXX") || [ ! -d "$staged" ]; then
-    echo "hud-golden: the new baseline could not be written beside $GOLDEN/baseline, which is as it was" >&2
+  # takes the earlier baseline's place. Its folder is made like any folder here (mkdir, so with the
+  # usual permissions) and only when no folder of that name exists: one an earlier run left is not
+  # this run's to write into
+  staged="$GOLDEN/baseline.new.$$"
+  aside="$staged.earlier"
+  if [ -e "$aside" ] || ! mkdir "$staged"; then
+    echo "hud-golden: the new baseline could not be staged at $staged (remove what an earlier run left there): $GOLDEN/baseline is as it was" >&2
     rm -rf "$tmp"
     return 1
   fi
@@ -70,8 +74,8 @@ capture() {
     rm -rf "$staged" "$tmp"
     return 1
   fi
-  # The earlier baseline steps aside, and comes back unless the new one took its place
-  aside="$staged.earlier"
+  # The earlier baseline steps aside (to a name nothing holds: checked above), and comes back unless
+  # the new one took its place
   if [ -e "$GOLDEN/baseline" ] && ! mv "$GOLDEN/baseline" "$aside"; then
     echo "hud-golden: the earlier baseline could not be moved aside: $GOLDEN/baseline is as it was" >&2
     rm -rf "$staged" "$tmp"
