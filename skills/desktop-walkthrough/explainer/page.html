@@ -244,12 +244,13 @@
         if (candidate) image.setAttribute('src', candidate);
       }
       // A <use> is removed by the sanitizer below, so the drawing would reach the colleague with that
-      // part gone; an <feImage> stays, but one that loads a file draws nothing in a Handout (a part of
-      // the same SVG, `#id`, or a data: picture is carried). Either stops the export (HANDOUT_IMAGE)
+      // part gone; an <feImage> stays, but only one that draws a part of the same SVG (`#id`) keeps
+      // its href: a file or a data: picture is stripped and draws nothing. Either stops the export
+      // (HANDOUT_IMAGE)
       for (const drawn of parsed.content.querySelectorAll('svg use, svg feImage')) {
         if (drawn.localName === 'feImage') {
           const reference = (drawn.getAttribute('href') ?? drawn.getAttributeNS('http://www.w3.org/1999/xlink', 'href') ?? '').trim();
-          if (reference === '' || reference.startsWith('#') || /^data:/i.test(reference)) continue;
+          if (reference === '' || reference.startsWith('#')) continue;
         }
         errors.push(`drawing: an inline SVG draws a part with <${drawn.localName}>, which a Handout does not carry`);
       }
