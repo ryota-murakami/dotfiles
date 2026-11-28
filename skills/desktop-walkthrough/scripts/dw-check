@@ -299,12 +299,12 @@ else
   fail "clear with an odd page entry (newline $newline; dangling $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
 fi
 rm -f "$DW_HOME/record_dir"
-# Only the numbers the lists read as pages count: an entry numbered 0 or past nine digits is no page,
-# whatever it is, and a folder is said as one
+# Only the numbers the lists read as pages count: an entry numbered 0 or written with more than nine
+# digits (even a ten-digit spelling of 1) is no page, whatever it is, and a folder is said as one
 dir="$RECORDS/odd-numbers"
 mkdir -p "$dir/pages"
 ln -s "$scratch/no-such-page.md" "$dir/pages/0-零.md"
-ln -s "$scratch/no-such-page.md" "$dir/pages/1234567890-長い.md"
+ln -s "$scratch/no-such-page.md" "$dir/pages/0000000001-長い.md"
 in_dw record_odd_entry "$dir"
 none="$code/$out"
 mkdir "$dir/pages/07-フォルダ.md"
