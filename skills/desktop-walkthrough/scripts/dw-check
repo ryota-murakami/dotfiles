@@ -953,6 +953,28 @@ if [ "$capture_code" != 0 ] && diff -r "$scratch/baseline-before" "$scratch/gold
 else
   fail "capture of a broken page (exit $capture_code): $(head -c 400 "$scratch/capture.out")"
 fi
+# A copy cut short (a volume that filled up: cp here writes the first page only and says nothing):
+# the new baseline is compared where it is staged, and the earlier one stays, page for page
+cp -R fixtures/hud-golden "$scratch/golden-short"
+cp -R "$scratch/golden-short/baseline" "$scratch/short-before"
+mkdir -p "$scratch/short-bin"
+cat > "$scratch/short-bin/cp" <<'SHIM'
+#!/bin/bash
+# cp, except into the fixtures being captured: there only the first file arrives
+case "${@: -1}" in
+  "$DW_GOLDEN_DIR"/*) /bin/cp "$1" "${@: -1}"; exit 0 ;;
+esac
+exec /bin/cp "$@"
+SHIM
+chmod +x "$scratch/short-bin/cp"
+PATH="$scratch/short-bin:$PATH" DW_GOLDEN_DIR="$scratch/golden-short" scripts/hud-golden capture > "$scratch/capture.out" 2>&1
+capture_code=$?
+if [ "$capture_code" != 0 ] && diff -r "$scratch/short-before" "$scratch/golden-short/baseline" > /dev/null \
+  && [ -z "$(find "$scratch/golden-short" -maxdepth 1 -name 'baseline.*')" ]; then
+  pass "a baseline copied short fails capture, leaves the earlier one as it was and nothing staged beside it"
+else
+  fail "capture copied short (exit $capture_code): $(ls "$scratch/golden-short" "$scratch/golden-short/baseline/pages" 2>&1 | tr '\n' ' ') / $(head -c 400 "$scratch/capture.out")"
+fi
 
 echo
 if [ "$failures" = 0 ]; then echo "dw-check: every case passed"; else echo "dw-check: $failures case(s) failed"; fi

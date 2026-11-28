@@ -17,7 +17,7 @@ GOLDEN="${DW_GOLDEN_DIR:-$SKILL_DIR/fixtures/hud-golden}"
 
 # Build every fixture page with dw's own explain_build into the baseline folder
 capture() {
-  local tmp page base n title step count=0 failed=0
+  local tmp page base n title step staged aside copied=0 count=0 failed=0
   if ! tmp=$(mktemp -d) || [ ! -d "$tmp" ]; then
     echo "hud-golden: could not make a scratch folder" >&2
     return 1
@@ -51,10 +51,42 @@ capture() {
     rm -rf "$tmp"
     return 1
   fi
-  rm -rf "$GOLDEN/baseline"
-  mkdir -p "$GOLDEN/baseline/pages"
-  cp "$EXPLAIN"/pages/[0-9]*.html "$GOLDEN/baseline/pages/"
-  rm -rf "$tmp"
+  # The new baseline is written beside the earlier one first (the same volume, so each rename below
+  # is one step) and compared there page for page: a copy cut short (a volume that filled up) never
+  # takes the earlier baseline's place
+  if ! staged=$(mktemp -d "$GOLDEN/baseline.new.XXXXXX") || [ ! -d "$staged" ]; then
+    echo "hud-golden: the new baseline could not be written beside $GOLDEN/baseline, which is as it was" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
+  if mkdir "$staged/pages" && cp "$EXPLAIN"/pages/[0-9]*.html "$staged/pages/"; then
+    copied=1
+    for page in "$EXPLAIN"/pages/[0-9]*.html; do
+      cmp -s "$page" "$staged/pages/$(basename "$page")" || copied=0
+    done
+  fi
+  if [ "$copied" = 0 ]; then
+    echo "hud-golden: the new baseline could not be written whole beside $GOLDEN/baseline, which is as it was" >&2
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  # The earlier baseline steps aside, and comes back unless the new one took its place
+  aside="$staged.earlier"
+  if [ -e "$GOLDEN/baseline" ] && ! mv "$GOLDEN/baseline" "$aside"; then
+    echo "hud-golden: the earlier baseline could not be moved aside: $GOLDEN/baseline is as it was" >&2
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  if ! mv "$staged" "$GOLDEN/baseline"; then
+    if [ -e "$aside" ] && ! mv "$aside" "$GOLDEN/baseline"; then
+      echo "hud-golden: the new baseline could not be put in place, and the earlier one is at $aside: move it back to $GOLDEN/baseline" >&2
+    else
+      echo "hud-golden: the new baseline could not be put in place: $GOLDEN/baseline is as it was" >&2
+    fi
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  rm -rf "$aside" "$tmp"
   echo "hud-golden: $count page(s) built into $GOLDEN/baseline/pages"
 }
 
