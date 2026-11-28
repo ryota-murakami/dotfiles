@@ -514,6 +514,19 @@ fi
 printf '%s\n' "$panel" > "$DW_HOME/explain/index.json"
 rm -f "$DW_HOME/explain/pages/003.md" "$DW_HOME/record_dir"
 
+# A page the record holds under another spelling of its number (001-), edited there, is kept: dw
+# record skips it as it skips 01-, and never puts the panel's older copy in its place
+mv "$RECORDS/backfill/pages/01-一枚目.md" "$RECORDS/backfill/pages/001-一枚目.md"
+printf '# 一枚目（記録で直した）\n' > "$RECORDS/backfill/pages/001-一枚目.md"
+in_dw cmd_record backfill
+if [ "$code" = 0 ] && [ "$(cat "$RECORDS/backfill/pages/001-一枚目.md" 2>/dev/null)" = '# 一枚目（記録で直した）' ] \
+  && [ ! -e "$RECORDS/backfill/pages/01-一枚目.md" ]; then
+  pass "dw record keeps a page the record holds as 001-, edited there, and does not replace it with the panel's copy"
+else
+  fail "dw record over a page spelt 001- (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
 # dw record reads the panel's pages under the explainer's lock: while another dw shows a page again
 # it saves none (the title it read could be the earlier one), says so and fails
 holder=$(hold_like_another_dw "$DW_HOME/explain/.dw-lock")

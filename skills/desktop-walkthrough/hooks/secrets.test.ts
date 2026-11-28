@@ -152,6 +152,25 @@ test('an HTTP trace with a tab after Authorization: or before the credential has
   expect(masked).toBe('> Authorization:\tBasic •••\n')
 })
 
+test('an unpadded or base64url Basic credential of sixteen characters or more is still found and masked', () => {
+  // Arrange
+  // base64 without its padding, and base64url (with - and _), assembled at run time
+  const unpadded = ['dXNlcjpwYXNz', 'd29yZDEyMw'].join('')
+  const urlSafe = ['dXNlcjpw-YXNz', '_d29yZDEy'].join('')
+  const traces = [`> Authorization: Basic ${unpadded}\n`, `> Authorization: Basic ${urlSafe}\n`]
+
+  // Act
+  const findings = traces.map((trace) => findSecrets(trace))
+  const masked = traces.map((trace) => maskSecrets(trace))
+
+  // Assert
+  expect(findings).toEqual([
+    [{ pattern: 'authorization-header', index: 2, line: 1 }],
+    [{ pattern: 'authorization-header', index: 2, line: 1 }],
+  ])
+  expect(masked).toEqual(['> Authorization: Basic •••\n', '> Authorization: Basic •••\n'])
+})
+
 test('capitalised prose after Basic and camelCase placeholders after Bearer are not taken for credentials', () => {
   // Arrange
   // The placeholders are assembled at run time, so a scanner reading this file sees no header value

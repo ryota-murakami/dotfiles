@@ -507,7 +507,7 @@ record_clear() {
 
 # Name the record of the running walkthrough, or start recording it; pages already shown are kept too
 cmd_record() {
-  local name="${1:-}" dir old n title file src given rows missing=""
+  local name="${1:-}" dir old n title file src given rows kept missing=""
   if [ -z "$name" ]; then
     dir=$(record_dir)
     if [ -n "$dir" ]; then echo "recording: $dir"; else echo "not recording: dw record <name>"; fi
@@ -531,9 +531,12 @@ cmd_record() {
       return 1
     fi
     rows=$(jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json")
+    # The page numbers the record holds, however their files are spelt (1-, 01-, 001-), as record_page
+    # and dw handout read them: a page already there is never replaced by the panel's copy
+    kept=$(record_pages "$dir" 2>/dev/null | cut -f1)
     while IFS=$'\t' read -r n title file; do
       [ -n "$n" ] || continue
-      ls "$dir/pages/$(printf '%02d' "$n")-"*.md >/dev/null 2>&1 && continue
+      grep -qx "$n" <<< "$kept" && continue
       src="$EXPLAIN/${file%.html}.md"
       [ -f "$src" ] || continue
       # A title the page's own heading does not give was given with --title
