@@ -772,7 +772,7 @@ rm -rf "$DW_HOME/explain"
 
 # dw doctor says what clears have kept aside (nothing removes it): the panel's pages and the records'
 # archives; nothing when there is none
-mkdir -p "$DW_HOME/explain/cleared/pages-20261128-010000-1" "$RECORDS/doctor-archives/pages/cleared-20261128-010000"
+mkdir -p "$DW_HOME/explain/cleared/pages-earlier" "$RECORDS/doctor-archives/pages/cleared-earlier"
 in_dw doctor_cleared
 kept="$out"
 DW_HOME="$scratch/empty-state" DW_CONFIG="$scratch/empty-config" in_dw doctor_cleared
