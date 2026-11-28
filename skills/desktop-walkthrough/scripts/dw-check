@@ -75,6 +75,13 @@ without_scratch() {
   "$@"
 }
 
+# chmod as it is where a file's permission bits cannot be set (an ACL that denies it): it fails and
+# changes nothing. Then "$@"
+mode_cannot_be_set() {
+  chmod() { return 1; }
+  "$@"
+}
+
 # Hold the lock file LOCK as another dw would, in the background; a second after it is held, make LINK
 # a link to a file that does not exist, and let the lock go. A dw started meanwhile has looked at the
 # folder before the link is there and waits for the lock: it takes the lock with the link in place.
@@ -454,6 +461,32 @@ if [ "$after_save" = "0/600" ] && [ "$code" = 0 ] && [ "$(/usr/bin/stat -f %Lp "
   pass "a sections.tsv made private stays private when a save rewrites it and when a clear empties it"
 else
   fail "sections.tsv permissions (after the save $after_save; after the clear $code/$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv"))"
+fi
+# When the new index cannot be given those bits (chmod fails), the save stops and the private index
+# stays: one others can read never takes its place
+dir=$(two_page_record private-sections-kept)
+chmod 600 "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw mode_cannot_be_set record_page 1 "新しい題" "$scratch/plain-body.md" "" quiet
+if [ "$code" = 1 ] && grep -q 'sections.tsv could not be saved' <<< "$out" && [ "$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")" = 600 ] \
+  && [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t\n2\t')" ] && [ -f "$dir/pages/01-一枚目.md" ] && [ ! -e "$dir/pages/01-新しい題.md" ]; then
+  pass "a save that cannot give the new index the private index's permissions stops: the index and the page stay as they were"
+else
+  fail "sections.tsv whose permissions cannot be carried (exit $code: $out): $(ls -l "$dir/pages" | tr '\n' ' ')"
+fi
+# A handbook.md that is a second name of another file is replaced, never written through, and the new
+# file takes the permission bits it had: a handbook made private stays private
+dir=$(two_page_record second-name-handbook)
+printf '# 古い\n' > "$dir/handbook.md"
+chmod 600 "$dir/handbook.md"
+ln "$dir/handbook.md" "$scratch/handbook-other-name.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 1 "一枚目" "$scratch/plain-body.md" "" quiet
+if [ "$code" = 0 ] && [ "$(/usr/bin/stat -f %Lp "$dir/handbook.md")" = 600 ] && grep -q '保存する本文' "$dir/handbook.md" \
+  && [ "$(cat "$scratch/handbook-other-name.md")" = '# 古い' ]; then
+  pass "a private handbook.md that is a second name of another file is replaced by one as private; the other name keeps its text"
+else
+  fail "handbook.md with a second name (exit $code: $out): mode $(/usr/bin/stat -f %Lp "$dir/handbook.md"), other name: $(cat "$scratch/handbook-other-name.md")"
 fi
 # A handbook.md dw cannot write keeps what it held, and dw says it was not rebuilt (the page is saved)
 dir=$(two_page_record readonly-handbook)

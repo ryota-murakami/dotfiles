@@ -353,18 +353,21 @@ EOF
 # the path is never written through. The write is not atomic, and need not be: handbook.md is rebuilt
 # from the pages every time, so one cut short is repaired by the next. A link (symbolic, or a second
 # name of another file), a pipe or a missing DEST is replaced by the staged file itself, never
-# followed. Fails when DEST is a folder, or a plain file that cannot be written (it keeps what it
-# held); the caller removes STAGED either way
+# followed; in place of a second name the new file takes the permission bits that file has, so a
+# handbook made private stays private. Fails when DEST is a folder, or a plain file that cannot be
+# written (it keeps what it held); the caller removes STAGED either way
 replace_entry() {
-  local staged="$1" dest="$2"
-  # 0: written in place; 2: no plain file with one name (the staged file takes the name, below);
+  local staged="$1" dest="$2" mode
+  # 0: written in place; 2: no plain file (the staged file takes the name, below); 4: a plain file
+  # with a second name, its permission bits printed (the staged file takes the name with those bits);
   # 3: a plain file that cannot be written, or a write that failed
-  perl -MFcntl=:DEFAULT,:mode -e '
+  mode=$(perl -MFcntl=:DEFAULT,:mode -e '
     my ($staged, $dest) = @ARGV;
     sysopen(my $out, $dest, O_WRONLY | O_NONBLOCK | O_NOFOLLOW)
       or exit($!{ENOENT} || $!{ELOOP} || $!{ENXIO} || $!{EISDIR} ? 2 : 3);
     my @open = stat($out);
-    exit 2 unless @open && S_ISREG($open[2]) && $open[3] == 1;
+    exit 2 unless @open && S_ISREG($open[2]);
+    if ($open[3] != 1) { printf "%o", $open[2] & 0777; exit 4 }
     open(my $in, "<", $staged) or exit 3;
     binmode $in;
     truncate($out, 0) or exit 3;
@@ -379,14 +382,16 @@ replace_entry() {
         $done += $wrote;
       }
     }
-    close $out or exit 3;' "$staged" "$dest"
+    close $out or exit 3;' "$staged" "$dest")
   case $? in
     0) rm -f "$staged"; return 0 ;;
-    2) ;;
+    # A new name: the permissions a plain write would give it (STAGED may have been made private)
+    2) chmod "$(printf '%o' $((0666 & ~$(umask))))" "$staged" 2>/dev/null ;;
+    # A second name of another file: the bits that file has. Without them the staged file does not
+    # take the name: a handbook made private is never replaced by one others can read
+    4) chmod "$mode" "$staged" 2>/dev/null || return 1 ;;
     *) return 1 ;;
   esac
-  # A new name: the permissions a plain write would give it (STAGED may have been made private)
-  chmod "$(printf '%o' $((0666 & ~$(umask))))" "$staged" 2>/dev/null
   # A link goes first: mv onto a link to a folder would move the file inside that folder
   if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
   [ -d "$dest" ] && return 1
@@ -398,12 +403,13 @@ replace_entry() {
 # it was. The new file takes DEST's permission bits when DEST is a plain file, so a private index
 # stays private whichever command rewrote it (an ACL set on the file itself is not carried: set it on
 # the folder). A DEST that is a link is replaced by the file itself, never followed. Fails when DEST
-# is a folder or cannot be replaced; the caller removes STAGED either way. Called by record_page and
-# record_clear with the record's lock held
+# is a folder, cannot be replaced, or its permission bits cannot be given to the new file; the caller
+# removes STAGED either way. Called by record_page and record_clear with the record's lock held
 install_entry() {
   local staged="$1" dest="$2" mode
   if [ -f "$dest" ] && [ ! -L "$dest" ]; then
-    mode=$(/usr/bin/stat -f %Lp "$dest" 2>/dev/null) && chmod "$mode" "$staged" 2>/dev/null
+    # Its bits first, or no rename: an index made private is never replaced by one others can read
+    mode=$(/usr/bin/stat -f %Lp "$dest" 2>/dev/null) && chmod "$mode" "$staged" 2>/dev/null || return 1
   fi
   # A link goes first: mv onto a link to a folder would move the file inside that folder
   if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
