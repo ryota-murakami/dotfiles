@@ -450,25 +450,40 @@ record_clear() {
   # its row in sections.tsv, and the clear says it did not finish (the panel is left as it was)
   stayed=""
   while IFS=$'\t' read -r n page; do
-    # A page saved again since it was archived (an editor, while the archive was made) stays: removing
-    # it would lose that save, which the archive does not hold
-    if cmp -s "$page" "$archive/$(basename "$page")" && rm -f "$page" 2>/dev/null; then
+    # The page is taken out of pages/ first (a rename: an editor's save after it makes a new file), and
+    # what was taken is compared with the archive. A page saved again since it was archived goes back,
+    # or, when a newer save already took its place, into the archive beside the copy: no save is lost
+    out="$dir/pages/.$n.clearing.$$"
+    if ! mv "$page" "$out" 2>/dev/null; then
+      stayed="$stayed $n"
+    elif cmp -s "$out" "$archive/$(basename "$page")"; then
+      rm -f "$out"
       moved=$((moved + 1))
     else
+      mv -n "$out" "$page" 2>/dev/null
+      [ -e "$out" ] && mv "$out" "$archive/$(basename "$page" .md).saved-later.md" 2>/dev/null
       stayed="$stayed $n"
     fi
   done <<< "$listed"
   if [ -n "$stayed" ]; then
-    awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/sections.tsv" 2>/dev/null
+    # Written beside and renamed: a sections.tsv that is a link is replaced, its target never written
+    awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" 2>/dev/null \
+      && mv -f "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
+    rm -f "$dir/pages/.sections.tsv.$$"
     record_handbook "$dir"
     release_lock 8
     echo "dw: explain --clear: page(s)$stayed could not be removed from pages/, or were saved again meanwhile (they stay, with their sections; pages/$(basename "$archive")/ holds every page as it was archived)" >&2
     return 1
   fi
-  : > "$dir/pages/sections.tsv"
+  # An empty index renamed into place: a link or a second name of sections.tsv is never emptied
+  : > "$dir/pages/.sections.tsv.$$" && mv -f "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
+  rm -f "$dir/pages/.sections.tsv.$$"
   record_handbook "$dir"
   release_lock 8
-  journal "🧹 解説をすべて消去：${moved} 枚を pages/$(basename "$archive")/ に移した"
+  # The pages are archived and gone: a journal that cannot be written is said, and the clear stands
+  journal "🧹 解説をすべて消去：${moved} 枚を pages/$(basename "$archive")/ に移した" \
+    || echo "dw: explain --clear: the journal could not be written; the pages are in pages/$(basename "$archive")/" >&2
+  return 0
 }
 
 # Name the record of the running walkthrough, or start recording it; pages already shown are kept too
@@ -1178,7 +1193,13 @@ cmd_explain() {
         mkdir -p "$EXPLAIN"
         hold_lock "$EXPLAIN/.dw-lock" 7 || exit 1
         record_clear || die "explain --clear: nothing was removed: the panel and the record keep every page"
-        rm -rf "$EXPLAIN/pages" "$EXPLAIN/rendered.json"
+        # The panel's sources are kept aside, not deleted: a page the record could not keep (dw explain
+        # said so, with a retry naming its file here) can still be recovered after a clear
+        if [ -d "$EXPLAIN/pages" ]; then
+          mkdir -p "$EXPLAIN/cleared"
+          mv "$EXPLAIN/pages" "$EXPLAIN/cleared/pages-$(date +%Y%m%d-%H%M%S)-$$" 2>/dev/null || rm -rf "$EXPLAIN/pages"
+        fi
+        rm -f "$EXPLAIN/rendered.json"
         printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
         release_lock 7
         echo "explainer: every page removed"; return 0 ;;
@@ -1201,8 +1222,9 @@ cmd_explain() {
   # the record as they were
   staged=$(mktemp); problems=$(mktemp)
   # Removed however dw ends from here (a stop, a lock it cannot take): the files are this call's alone
-  DW_EXPLAIN_TEMPS="$staged $problems"
-  trap 'rm -f $DW_EXPLAIN_TEMPS' EXIT
+  # Two names, each quoted: a TMPDIR with a space in it never splits a path into others
+  DW_EXPLAIN_STAGED="$staged"; DW_EXPLAIN_PROBLEMS="$problems"
+  trap 'rm -f "$DW_EXPLAIN_STAGED" "$DW_EXPLAIN_PROBLEMS"' EXIT
   label="$src"; [ "$src" = /dev/stdin ] && label="(standard input)"
   # A source that cannot be read (its permissions) is no empty page: nothing changes
   if ! cat "$src" > "$staged"; then
@@ -1738,8 +1760,19 @@ LIST
     listing=$(handout_listing "$tmp/manifest.tsv" "$dir")
     # No sections.tsv is a record without sections; one that cannot be read would drop every section
     # and title from the Handout without a word, so it stops the export
-    if [ ! -e "$dir/pages/sections.tsv" ]; then
+    # A page dw was replacing when it stopped sits under a hidden name no listing reads: exporting
+    # without it would publish the Record a page short, so it stops
+    for file in "$dir"/pages/.[0-9]*.aside.*; do
+      [ -e "$file" ] || continue
+      release_lock 8
+      handout_fail HANDOUT_RECORD "a page of $name was being replaced when a dw stopped (pages/$(basename "$file")): rename it back to pages/NN-title.md or delete it, then export again"; exit 1
+    done
+    if [ ! -e "$dir/pages/sections.tsv" ] && [ ! -L "$dir/pages/sections.tsv" ]; then
       : > "$tmp/sections.tsv"
+    elif [ -L "$dir/pages/sections.tsv" ] || [ ! -f "$dir/pages/sections.tsv" ]; then
+      # A link, a pipe or a folder: dw wrote none of these (a pipe would hold the export and its lock)
+      release_lock 8
+      handout_fail HANDOUT_RECORD "$name's pages/sections.tsv is not a plain file: replace it with the file dw wrote, then export again"; exit 1
     elif ! cp "$dir/pages/sections.tsv" "$tmp/sections.tsv" 2>/dev/null; then
       release_lock 8
       handout_fail HANDOUT_RECORD "$name's pages/sections.tsv could not be read (check its permissions): the pages' sections and titles would be lost"; exit 1
@@ -1756,6 +1789,11 @@ LIST
     # One read of each page: its title, its build and the secret scan all come from this copy, so
     # what is checked is what is shown, however the page changes meanwhile
     while IFS=$'\t' read -r n page; do
+      # A page that is a link would publish whatever file it points to, from outside the Record
+      if [ -L "$page" ]; then
+        release_lock 8
+        handout_fail HANDOUT_RECORD "page $n of $name is a symbolic link: put the page's own file in pages/, then export again"; exit 1
+      fi
       if ! cp "$page" "$tmp/source/$(printf '%03d' "$n").md" 2>/dev/null; then
         handout_fail HANDOUT_RECORD "page $n of $name could not be read: check its permissions, then export again"; exit 1
       fi

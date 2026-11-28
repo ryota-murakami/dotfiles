@@ -243,6 +243,11 @@
         const candidate = largestCandidate(image.getAttribute('srcset'));
         if (candidate) image.setAttribute('src', candidate);
       }
+      // A drawing part made by reference (<use>, <feImage>) is removed by the sanitizer below, so the
+      // drawing would reach the colleague with that part gone: it stops the export (HANDOUT_IMAGE)
+      for (const drawn of parsed.content.querySelectorAll('svg use, svg feImage')) {
+        errors.push(`drawing: an inline SVG draws a part with <${drawn.localName}>, which a Handout does not carry`);
+      }
       prepared = parsed.innerHTML;
     }
     content.innerHTML = handout ? DOMPurify.sanitize(prepared, handoutPurify) : html;

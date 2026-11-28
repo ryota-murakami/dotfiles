@@ -56,6 +56,16 @@ const CREDENTIAL = '[A-Za-z0-9._~+/=-]'
  */
 const machineMade = `(?:(?=${CREDENTIAL}*\\d)|(?=[a-z0-9._~+/=-]*[A-Z])(?=[A-Z0-9._~+/=-]*[a-z]))`
 
+/**
+ * The credential of an explicit `Authorization: Basic` header, at any length: base64 of
+ * `user:password`, whole groups of four with their padding, and not followed by more of a word.
+ * `a:b` encodes to four characters, so no length floor applies. It must look encoded (a digit, `+`,
+ * `/` or `=`, or upper- and lower-case letters both): a word of prose (`Basic auth`) does not.
+ */
+const BASIC_CREDENTIAL =
+  '(?:(?=[A-Za-z]*[0-9+/=])|(?=[a-z0-9+/=]*[A-Z])(?=[A-Z0-9+/=]*[a-z]))' +
+  '(?:[A-Za-z0-9+/]{4}){1,256}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9._~+/=-])'
+
 /** A word as a pattern that matches it in any case (HTTP header names and schemes are case-insensitive). */
 const anyCase = (word: string) =>
   word.replace(/[A-Za-z]/g, (letter) => `[${letter.toUpperCase()}${letter.toLowerCase()}]`)
@@ -76,11 +86,16 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
   // Private key blocks, whole; then the head of one whose end was cut off
   ['private-key', /-----BEGIN ([A-Z ]*)PRIVATE KEY-----[\s\S]*?-----END \1PRIVATE KEY-----/g, `-----BEGIN $1PRIVATE KEY-----${MASK}-----END $1PRIVATE KEY-----`],
   ['private-key-head', /-----BEGIN ([A-Z ]*)PRIVATE KEY-----[A-Za-z0-9+/=\s]{40,}/g, `-----BEGIN $1PRIVATE KEY-----${MASK}`],
-  // Authorization headers that carry the credential itself
+  // Authorization headers that carry the credential itself: a Bearer token, or a Basic credential of
+  // any length (only one of the two groups takes part, so `$1$2` is the header that matched)
   [
     'authorization-header',
-    new RegExp(`\\b(${anyCase('Bearer')}|${anyCase('Authorization')}: *${anyCase('Basic')}) +${REFERENCE}${machineMade}${CREDENTIAL}{16,}`, 'g'),
-    `$1 ${MASK}`,
+    new RegExp(
+      `\\b(?:(${anyCase('Bearer')}) +${REFERENCE}${machineMade}${CREDENTIAL}{16,}` +
+        `|(${anyCase('Authorization')}: *${anyCase('Basic')}) +${REFERENCE}${BASIC_CREDENTIAL})`,
+      'g',
+    ),
+    `$1$2 ${MASK}`,
   ],
   // JSON Web Tokens: header and payload both begin with base64 `{"`
   ['json-web-token', /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, `eyJ${MASK}`],

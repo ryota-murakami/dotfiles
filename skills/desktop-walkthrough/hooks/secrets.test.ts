@@ -119,6 +119,24 @@ test('an HTTP trace with a lower-case basic Authorization header has its credent
   expect(masked).toBe('> GET /me HTTP/1.1\n> authorization: basic •••\n')
 })
 
+test('a short Basic credential (twelve characters) is found and masked, while prose about Basic auth is not', () => {
+  // Arrange
+  // base64 of a nine-byte user:password, under the sixteen characters a Bearer token needs
+  const credential = ['dTpwYXNz', 'd29yZA=='].join('').slice(0, 12)
+  const trace = `> GET /me HTTP/1.1\n> Authorization: Basic ${credential}\n`
+  const prose = 'Authorization: Basic auth sends base64(user:pass), never Authorization: Basic <credentials>.'
+
+  // Act
+  const findings = findSecrets(trace)
+  const masked = maskSecrets(trace)
+  const inProse = findSecrets(prose)
+
+  // Assert
+  expect(findings).toEqual([{ pattern: 'authorization-header', index: 21, line: 2 }])
+  expect(masked).toBe('> GET /me HTTP/1.1\n> Authorization: Basic •••\n')
+  expect(inProse).toEqual([])
+})
+
 test('a bearer token of letters alone is found, while prose about bearer tokens is not', () => {
   // Arrange
   const token = ['AbCdEfGhIj', 'KlMnOpQrSt'].join('')

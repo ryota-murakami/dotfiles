@@ -391,6 +391,18 @@ else
   fail "piped image (exit $code after ${waited} s): $out"
 fi
 
+# An inline SVG part drawn with <use>: the page's sanitizer removes it, so the drawing would arrive
+# with that part gone; the export stops and says how to draw it
+new_record inline-use
+printf '\n<svg viewBox="0 0 20 20" width="20" height="20"><defs><circle id="dot" cx="10" cy="10" r="5"/></defs><use href="#dot"/></svg>\n' \
+  >> "$RECORDS/inline-use/pages/01-書き出しの流れ.md"
+export_record inline-use
+if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1: an inline SVG draws a part with <use>, which a Handout does not carry' <<< "$out"; then
+  pass "an inline SVG that draws a part with <use> stops with HANDOUT_IMAGE instead of arriving blank"
+else
+  fail "inline <use>: $out"
+fi
+
 new_record entity-secret
 printf '\n<a href="https://docs.test/a?expires=1&amp;signature=%s">設計メモ</a>\n' "$SIGNATURE" >> "$RECORDS/entity-secret/pages/01-書き出しの流れ.md"
 export_record entity-secret
@@ -624,6 +636,56 @@ if [ "$code" = 0 ] && grep -q '(1 pages,' <<< "$out" && [ "$(find "$RECORDS/clea
   pass "the record's pages move to pages/cleared-<time>/: the Handout holds only the page shown since"
 else
   fail "explain --clear: $clear_out / $out"
+fi
+# A sections.tsv that is a link: the clear replaces the link, its target is never emptied; a journal
+# that cannot be written is said, and the clear stands; the panel's own sources are kept aside
+new_record cleared-linked
+printf 'kept\n' > "$scratch/linked-target.tsv"
+rm -f "$RECORDS/cleared-linked/pages/sections.tsv"
+ln -s "$scratch/linked-target.tsv" "$RECORDS/cleared-linked/pages/sections.tsv"
+chmod 444 "$RECORDS/cleared-linked/journal.md"
+mkdir -p "$DW_HOME/explain/pages" && printf '# 記録できなかった 1 枚\n' > "$DW_HOME/explain/pages/007.md"
+printf '%s' "$RECORDS/cleared-linked" > "$DW_HOME/record_dir"
+clear_out=$(scripts/dw explain --clear 2>&1); clear_code=$?
+rm -f "$DW_HOME/record_dir"
+if [ "$clear_code" = 0 ] && [ "$(cat "$scratch/linked-target.tsv")" = kept ] && [ ! -L "$RECORDS/cleared-linked/pages/sections.tsv" ] \
+  && grep -q 'the journal could not be written' <<< "$clear_out" \
+  && [ -n "$(find "$DW_HOME/explain/cleared" -name 007.md 2>/dev/null)" ]; then
+  pass "a clear never empties the file a linked sections.tsv points to, stands when the journal is read-only, and keeps the panel's sources"
+else
+  fail "clear with a linked sections.tsv: code $clear_code: $clear_out"
+fi
+
+echo "== what a Record holds that dw never wrote"
+# A page that is a link would publish the file it points to, from outside the Record
+new_record linked-page
+printf '# 外の文書\n' > "$scratch/outside.md"
+rm -f "$RECORDS/linked-page/pages/02-"*.md
+ln -s "$scratch/outside.md" "$RECORDS/linked-page/pages/02-外.md"
+export_record linked-page
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 2 of linked-page is a symbolic link' <<< "$out"; then
+  pass "a page that is a symbolic link stops the export with HANDOUT_RECORD"
+else
+  fail "linked page: $out"
+fi
+# A pipe as sections.tsv would hold the export (and the Record's lock) waiting for a writer
+new_record piped-sections
+rm -f "$RECORDS/piped-sections/pages/sections.tsv"
+mkfifo "$RECORDS/piped-sections/pages/sections.tsv"
+export_record piped-sections
+if [ "$code" = 1 ] && grep -q "HANDOUT_RECORD piped-sections's pages/sections.tsv is not a plain file" <<< "$out"; then
+  pass "a sections.tsv that is a pipe stops the export at once with HANDOUT_RECORD"
+else
+  fail "piped sections.tsv: $out"
+fi
+# A page a stopped dw left moved aside would be missing from the Handout
+new_record aside-left
+mv "$RECORDS/aside-left/pages/02-"*.md "$RECORDS/aside-left/pages/.02.aside.99999.0"
+export_record aside-left
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD a page of aside-left was being replaced when a dw stopped (pages/.02.aside.99999.0)' <<< "$out"; then
+  pass "a page left moved aside by a stopped dw stops the export instead of publishing the Record a page short"
+else
+  fail "aside left: $out"
 fi
 
 echo "== the renderer"

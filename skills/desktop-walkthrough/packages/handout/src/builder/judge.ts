@@ -12,6 +12,9 @@ const DIAGRAM_ERROR = /^diagram (\d+): ([\s\S]*)$/
 /** A render-report error of an audience marker the page met as HTML: `marker: …` (page.html, Handout mode). */
 const MARKER_ERROR = /^marker: /
 
+/** A render-report error of an inline SVG part drawn by reference: `drawing: …` (page.html, Handout mode). */
+const DRAWING_ERROR = /^drawing: .*<(use|feImage)>/
+
 /**
  * The libraries a Handout-mode page did not report as loaded (eng C9).
  *
@@ -40,7 +43,8 @@ export function missingLibraries(report: RenderReport): PageLibrary[] {
  * @param page - The page as dw listed it.
  * @param report - What page.html reported once it rendered.
  * @param measurement - What {@link measurePage} measured.
- * @returns HANDOUT_DIAGRAM and HANDOUT_OVERFLOW diagnostics; empty for a page that rendered well.
+ * @returns HANDOUT_DIAGRAM, HANDOUT_OVERFLOW, HANDOUT_MARKER and HANDOUT_IMAGE (an inline SVG part drawn by
+ *   reference) diagnostics; empty for a page that rendered well.
  *
  * @example
  * judgeRenderedPage(page, { …, errors: ['diagram 1: Parse error on line 2'] }, measurement)
@@ -65,6 +69,16 @@ export function judgeRenderedPage(
       diagnostics.push({
         code: 'HANDOUT_MARKER',
         message: `page ${page.n}: an audience marker reached the page as HTML: dw did not read it (a code fence that opens inside a list item or a quote, or a list that ends inside one, hides the markers after it); put each fence and marker at the left edge, then export again`,
+        page: page.n,
+      })
+      continue
+    }
+    // An inline drawing whose <use> or <feImage> the sanitizer removed: it would arrive with a part gone
+    const drawing = DRAWING_ERROR.exec(error)
+    if (drawing) {
+      diagnostics.push({
+        code: 'HANDOUT_IMAGE',
+        message: `page ${page.n}: an inline SVG draws a part with <${drawing[1] ?? 'use'}>, which a Handout does not carry: draw that part inline (a path or shape in the SVG itself), then export again`,
         page: page.n,
       })
       continue

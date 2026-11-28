@@ -199,6 +199,30 @@ test('an audience marker that reached the page as HTML stops the export: dw’s 
   ])
 })
 
+test('an inline SVG part drawn with <use>, which the page sanitizer removes, stops the export instead of arriving blank', () => {
+  // Arrange
+  const report = {
+    type: 'rendered' as const,
+    page: 2,
+    diagrams: 0,
+    errors: ['drawing: an inline SVG draws a part with <use>, which a Handout does not carry'],
+    libs: [...allLibraries],
+  }
+
+  // Act
+  const diagnostics = judgeRenderedPage(page, report, { html: '', diagrams: [] })
+
+  // Assert
+  expect(diagnostics).toEqual([
+    {
+      code: 'HANDOUT_IMAGE',
+      message:
+        'page 2: an inline SVG draws a part with <use>, which a Handout does not carry: draw that part inline (a path or shape in the SVG itself), then export again',
+      page: 2,
+    },
+  ])
+})
+
 test('a label with text that was not laid out stops the export, even beside a label that fits', () => {
   // Arrange
   const report = { type: 'rendered' as const, page: 2, diagrams: 1, errors: [], libs: [...allLibraries] }

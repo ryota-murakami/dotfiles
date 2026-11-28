@@ -58,6 +58,29 @@ export async function measurePage(args: MeasureArgs): Promise<unknown> {
   try {
     // Two frames: the opened details lay out before anything is measured
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    // The shape an SVG text is drawn in (a sequence diagram's actor or note box): a sibling rect,
+    // polygon, circle or ellipse whose box holds the text's centre. A text in no shape (a message
+    // label on an arrow) has nothing to overflow. Defined here: this function runs inside the page
+    // oxlint-disable-next-line unicorn/consistent-function-scoping -- probeBody serializes this function alone
+    const shapeAround = (text: Element) => {
+      const box = text.getBoundingClientRect()
+      const centreX = box.left + box.width / 2
+      const centreY = box.top + box.height / 2
+      const siblings = text.parentElement ? Array.from(text.parentElement.children) : []
+      for (const sibling of siblings) {
+        if (!['rect', 'polygon', 'circle', 'ellipse'].includes(sibling.localName)) continue
+        const shape = sibling.getBoundingClientRect()
+        // Inside the shape's box, edges included
+        if (
+          centreX >= shape.left &&
+          centreX <= shape.right &&
+          centreY >= shape.top &&
+          centreY <= shape.bottom
+        )
+          return shape
+      }
+      return null
+    }
     diagrams = Array.from(content.querySelectorAll('.diagram')).map((holder) => {
       const svg = holder.querySelector('svg')
       const labels = svg
@@ -74,10 +97,12 @@ export async function measurePage(args: MeasureArgs): Promise<unknown> {
             const ownHeight = Number.parseFloat(label.getAttribute('height') ?? '')
             const scaleX = ownWidth > 0 ? box.width / ownWidth : 1
             const scaleY = ownHeight > 0 ? box.height / ownHeight : 1
+            // An SVG text has room only as wide as the shape drawn around it; with no shape, its own box
+            const room = inner ? box : (shapeAround(label) ?? box)
             return {
               text: (label.textContent ?? '').trim(),
-              width: box.width,
-              height: box.height,
+              width: room.width,
+              height: room.height,
               contentWidth: inner ? Math.max(innerBox.width, inner.scrollWidth * scaleX) : box.width,
               contentHeight: inner ? Math.max(innerBox.height, inner.scrollHeight * scaleY) : box.height,
             }
