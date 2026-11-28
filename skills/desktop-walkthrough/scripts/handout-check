@@ -48,6 +48,23 @@ render_bounded() { # SECONDS ARGS...
   if wait_bounded $! "$seconds"; then harness_timeout=no; else harness_timeout=yes; fi
   result=$(cat "$scratch/bounded.out")
 }
+# Whether the last bounded run (render_bounded) had to be ended: its case LABEL then fails as a
+# timeout, said apart from what the case checks
+timed_out() { # LABEL
+  [ "$harness_timeout" = yes ] || return 1
+  fail "$1: the renderer still ran after its deadline and was ended (harness timeout)"
+}
+# The first export a case builds on (the Handout its next run replaces), bounded like any run: one
+# that had to be ended fails here as the setup of LABEL
+first_export() { # LABEL ARGS...
+  local label="$1"
+  shift
+  render_bounded 120 "$@"
+  [ "$harness_timeout" = no ] || fail "$label: setup: the first export still ran after 120 s and was ended (harness timeout)"
+}
+# How long one `dw handout` may take: longer than dw's own limit for a whole export (600 s), which
+# says why it stopped
+EXPORT_DEADLINE_S=900
 
 # Every path below is made under it: without one the run stops before anything is written
 if ! scratch=$(mktemp -d) || [ ! -d "$scratch" ]; then
@@ -85,10 +102,18 @@ new_record() {
   printf '# 記録：%s\n' "$1" > "$RECORDS/$1/journal.md"
 }
 
-# Run dw handout with ARGS; its output in $out, its exit status in $code
+# Run dw handout with ARGS under a deadline (wait_bounded); its output in $out, its exit status in
+# $code. One that had to be ended has the status "timeout" and says so first in $out: its case fails,
+# said as a timeout
 export_record() {
-  out=$(scripts/dw handout "$@" 2>&1)
-  code=$?
+  scripts/dw handout "$@" > "$scratch/export.out" 2>&1 &
+  if wait_bounded $! "$EXPORT_DEADLINE_S"; then
+    code=$waited_status
+    out=$(cat "$scratch/export.out")
+  else
+    code=timeout
+    out="harness timeout: dw handout still ran after $EXPORT_DEADLINE_S s and was ended. $(cat "$scratch/export.out")"
+  fi
 }
 
 # Write input.json for the renderer: the Record in DIR built for the Handout into EXPLAIN, published to OUT
@@ -185,9 +210,12 @@ printf '\n<!-- hud-only -->\nHUD だけの段落\n<!-- /hud-only -->\n<!-- hando
   printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
   explain_build 1 "書き出しの流れ" "準備" "$RECORDS/markers/pages/01-書き出しの流れ.md" 1
 )
-"$BIN" --hud "$scratch/markers-hud" pages/001.html > "$scratch/markers-hud.jsonl" 2>/dev/null
+render_bounded 120 --hud "$scratch/markers-hud" pages/001.html 2>/dev/null
+hud_timeout=$harness_timeout
 export_record markers
-if jq -e '.content | contains("HUD だけの段落") and (contains("配布物だけの段落") | not)' "$scratch/markers-hud.jsonl" >/dev/null \
+if [ "$hud_timeout" = yes ]; then
+  fail "audience markers: the HUD render still ran after 120 s and was ended (harness timeout)"
+elif jq -e '.content | contains("HUD だけの段落") and (contains("配布物だけの段落") | not)' <<< "$result" >/dev/null \
   && grep -q '配布物だけの段落' "$RECORDS/markers/handout.html" && ! grep -q 'HUD だけの段落' "$RECORDS/markers/handout.html"; then
   pass "the HUD shows hud-only and leaves out handout-only; the Handout does the opposite"
 else
@@ -569,8 +597,9 @@ new_record direct
 printf 'someone else wrote this\n' > "$scratch/other.html"
 cp "$scratch/other.html" "$scratch/other.copy"
 handout_input "$RECORDS/direct" "$scratch/other.html" "$scratch/direct" "$scratch/direct.json"
-result=$("$BIN" "$scratch/direct.json" "$DIST")
-if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/other.html" "$scratch/other.copy" \
+render_bounded 120 "$scratch/direct.json" "$DIST"
+if timed_out "non-Handout at write time"; then :
+elif jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/other.html" "$scratch/other.copy" \
   && [ -z "$(find "$scratch" -maxdepth 1 -name '.other.html.dw-handout-*')" ]; then
   pass "a non-Handout file found at write time is left byte-identical, nothing written beside it (eng D7)"
 else
@@ -579,8 +608,9 @@ fi
 printf '<!doctype html>\n<form><input name="dw-handout"></form>\n' > "$scratch/form.html"
 cp "$scratch/form.html" "$scratch/form.copy"
 handout_input "$RECORDS/direct" "$scratch/form.html" "$scratch/form-explain" "$scratch/form.json"
-result=$("$BIN" "$scratch/form.json" "$DIST")
-if jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/form.html" "$scratch/form.copy"; then
+render_bounded 120 "$scratch/form.json" "$DIST"
+if timed_out "marker text is not a Handout"; then :
+elif jq -e '.diagnostics[0].code == "HANDOUT_OUT_EXISTS"' <<< "$result" >/dev/null && cmp -s "$scratch/form.html" "$scratch/form.copy"; then
   pass "a file that only mentions the marker (a form field named dw-handout) is not taken for a Handout"
 else
   fail "marker text is not a Handout: $result"
@@ -589,8 +619,9 @@ fi
 # explain folder is never written over, and nothing of the check stays there
 handout_input "$RECORDS/direct" "$scratch/verified.html" "$scratch/verified-explain" "$scratch/verified.json"
 printf 'a file of the same name\n' > "$scratch/verified-explain/handout-verify.html"
-result=$("$BIN" "$scratch/verified.json" "$DIST")
-if jq -e '.ok == true' <<< "$result" >/dev/null && [ "$(cat "$scratch/verified-explain/handout-verify.html")" = 'a file of the same name' ] \
+render_bounded 120 "$scratch/verified.json" "$DIST"
+if timed_out "verification copy beside a file of its name"; then :
+elif jq -e '.ok == true' <<< "$result" >/dev/null && [ "$(cat "$scratch/verified-explain/handout-verify.html")" = 'a file of the same name' ] \
   && [ -z "$(find "$scratch/verified-explain" -maxdepth 1 -name 'handout-verify-*')" ]; then
   pass "a file named like the verification copy in the explain folder is left as it was, and nothing of the check stays"
 else
@@ -602,8 +633,9 @@ sleep 0 &
 gone=$!
 wait "$gone"
 jq --argjson pid "$gone" '. + {parentPid: $pid}' "$scratch/orphan.json" > "$scratch/orphan-parent.json"
-result=$("$BIN" "$scratch/orphan-parent.json" "$DIST")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
+render_bounded 120 "$scratch/orphan-parent.json" "$DIST"
+if timed_out "parent gone"; then :
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/orphan.html" ]; then
   pass "the renderer stops without publishing once dw's process is gone"
 else
@@ -760,7 +792,7 @@ fi
 # after its first write). An extended attribute moves its change time alone: it is replaced as usual.
 # A same-size save that puts the modification time back is told by its content: it is kept beside
 handout_input "$RECORDS/direct" "$scratch/meta.html" "$scratch/meta-explain" "$scratch/meta.json"
-"$BIN" "$scratch/meta.json" "$DIST" > /dev/null
+first_export "metadata change during the replace" "$scratch/meta.json" "$DIST"
 jq '.limits.writePauseMs = 2000' "$scratch/meta.json" > "$scratch/meta-paused.json"
 before=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
 "$BIN" "$scratch/meta-paused.json" "$DIST" > "$scratch/meta.out" &
@@ -782,7 +814,7 @@ else
 fi
 
 handout_input "$RECORDS/direct" "$scratch/resaved.html" "$scratch/resaved-explain" "$scratch/resaved.json"
-"$BIN" "$scratch/resaved.json" "$DIST" > /dev/null
+first_export "same-size save during the replace" "$scratch/resaved.json" "$DIST"
 # A whole-second modification time, which the save below can put back exactly
 touch -t 202601010000.00 "$scratch/resaved.html"
 jq '.limits.writePauseMs = 2000' "$scratch/resaved.json" > "$scratch/resaved-paused.json"
@@ -805,14 +837,71 @@ else
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 
+# Another program puts its file at the target right after the Handout is swapped in there, while the
+# run still looks at the Handout it replaced (limits.writePauseMs holds the worker after the rename
+# too): that file stays, the earlier Handout stays in the run's folder, and nothing is called published
+handout_input "$RECORDS/direct" "$scratch/displaced.html" "$scratch/displaced-explain" "$scratch/displaced.json"
+first_export "target replaced after the swap" "$scratch/displaced.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/displaced.html")
+jq '.limits.writePauseMs = 2000' "$scratch/displaced.json" > "$scratch/displaced-paused.json"
+"$BIN" "$scratch/displaced-paused.json" "$DIST" > "$scratch/displaced.out" &
+writer=$!
+waited=0
+# The swap has happened once the target is another file than the earlier Handout
+until [ "$(/usr/bin/stat -f '%i' "$scratch/displaced.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/displaced.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+printf 'another program\n' > "$scratch/displaced.tmp" && mv -f "$scratch/displaced.tmp" "$scratch/displaced.html"
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/displaced.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.displaced.html.dw-handout-*/displaced.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "target replaced after the swap: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/displaced.html" --arg kept "$kept" '.ok == false
+    and (.diagnostics[0].message | contains("another program replaced or removed \($target) right after the Handout was put there: what is there now stays (it is not the Handout of this export), and the Handout that was there before is kept at \($kept);"))' <<< "$result" >/dev/null \
+  && [ "$(cat "$scratch/displaced.html")" = 'another program' ] && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ]; then
+  pass "another program replacing the target right after the swap keeps its file and the earlier Handout, and nothing is called published"
+else
+  fail "target replaced after the swap (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
+# The same right after a first Handout is created there (no earlier one): that file stays, nothing is
+# left beside it, and nothing is called published
+handout_input "$RECORDS/direct" "$scratch/taken.html" "$scratch/taken-explain" "$scratch/taken.json"
+jq '.limits.writePauseMs = 2000' "$scratch/taken.json" > "$scratch/taken-paused.json"
+"$BIN" "$scratch/taken-paused.json" "$DIST" > "$scratch/taken.out" &
+writer=$!
+waited=0
+until [ -e "$scratch/taken.html" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+created=no
+[ -e "$scratch/taken.html" ] && created=yes
+printf 'another program\n' > "$scratch/taken.tmp" && mv -f "$scratch/taken.tmp" "$scratch/taken.html"
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/taken.out")
+if [ "$created" != yes ]; then
+  fail "target replaced after it was created: setup: the Handout never appeared ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/taken.html" '.ok == false
+    and (.diagnostics[0].message | contains("another program replaced or removed \($target) right after the Handout was put there: what is there now stays (it is not the Handout of this export);"))' <<< "$result" >/dev/null \
+  && [ "$(cat "$scratch/taken.html")" = 'another program' ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.taken.html.dw-handout-*')" ]; then
+  pass "another program replacing a new Handout right after it is created keeps its file, and nothing is called published"
+else
+  fail "target replaced after it was created (ended by itself: $ended): $result"
+fi
+
 # An earlier Handout whose content could not be read first (larger than the digest's limit, set to
 # 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning
 handout_input "$RECORDS/direct" "$scratch/unread.html" "$scratch/unread-explain" "$scratch/unread.json"
-"$BIN" "$scratch/unread.json" "$DIST" > /dev/null
+first_export "unread earlier Handout" "$scratch/unread.json" "$DIST"
 jq '.limits.digestLimitBytes = 1' "$scratch/unread.json" > "$scratch/unread-limited.json"
-result=$("$BIN" "$scratch/unread-limited.json" "$DIST")
+render_bounded 120 "$scratch/unread-limited.json" "$DIST"
 kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.unread.html.dw-handout-*/unread.html" | head -1)
-if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout could not be checked for a save made while it was replaced: it is kept at \($kept)") != null)' <<< "$result" >/dev/null \
+if timed_out "unread earlier Handout"; then :
+elif jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout could not be checked for a save made while it was replaced: it is kept at \($kept)") != null)' <<< "$result" >/dev/null \
   && [ -n "$kept" ] && grep -q 'name="dw-handout"' "$kept"; then
   pass "an earlier Handout whose content could not be read first is kept beside, with its own warning"
 else
@@ -830,12 +919,13 @@ mkdir "$scratch/owned/control"
 control=$(ls -led "$scratch/owned/control" | sed -n 's/^ *[0-9]*: //p')
 rmdir "$scratch/owned/control"
 handout_input "$RECORDS/direct" "$scratch/owned/handout.html" "$scratch/owned-explain" "$scratch/owned.json"
-"$BIN" "$scratch/owned.json" "$DIST" > /dev/null
+first_export "owned folder for the swapped-out Handout" "$scratch/owned.json" "$DIST"
 jq '.limits.digestLimitBytes = 1' "$scratch/owned.json" > "$scratch/owned-limited.json"
-result=$("$BIN" "$scratch/owned-limited.json" "$DIST")
+render_bounded 120 "$scratch/owned-limited.json" "$DIST"
 kept=$(find "$scratch/owned" -maxdepth 2 -path "$scratch/owned/.handout.html.dw-handout-*/handout.html" | head -1)
 holder=${kept%/*}
-if [ -z "$control" ]; then
+if timed_out "owned folder for the swapped-out Handout"; then :
+elif [ -z "$control" ]; then
   fail "owned folder for the swapped-out Handout: setup: a folder made in $scratch/owned inherited no ACL"
 elif jq -e '.ok == true' <<< "$result" >/dev/null && [ -n "$kept" ] && [ "$(stat -f '%Lp' "$holder")" = 700 ] \
   && [ -z "$(ls -led "$holder" | sed -n 's/^ *[0-9]*: //p')" ]; then
@@ -921,16 +1011,18 @@ else
 fi
 cp "$DIST/builder.html" "$broken/"
 perl -pi -e 's/HTML_INTEGRATION_POINTS:\{foreignobject:!0\}/HTML_INTEGRATION_POINTS:{}/' "$broken/builder.html"
-result=$("$BIN" "$scratch/broken.json" "$broken")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("lost labels"))' <<< "$result" >/dev/null; then
+render_bounded 120 "$scratch/broken.json" "$broken"
+if timed_out "VERIFY (labels)"; then :
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("lost labels"))' <<< "$result" >/dev/null; then
   pass "a sanitizer setting that drops diagram labels fails HANDOUT_VERIFY"
 else
   fail "VERIFY (labels): $result"
 fi
 cp "$DIST/builder.html" "$broken/"
 rm "$broken/purify.js"
-result=$("$BIN" "$scratch/broken.json" "$broken")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_VENDOR" and (.message | test("purify"))' <<< "$result" >/dev/null; then
+render_bounded 120 "$scratch/broken.json" "$broken"
+if timed_out "VENDOR"; then :
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_VENDOR" and (.message | test("purify"))' <<< "$result" >/dev/null; then
   pass "pages rendered without DOMPurify stop with HANDOUT_VENDOR"
 else
   fail "VENDOR: $result"

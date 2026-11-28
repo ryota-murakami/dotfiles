@@ -378,7 +378,9 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// whether dw still waits and the run's time is not up, and starts that rename's grace; `commitEnded`
 /// ends the exclusive create's when the target turns out to exist. The new file swapped back out is removed only
 /// when it holds exactly the bytes written, and a save made into the replaced Handout since it was
-/// first looked at is kept: another program's save is never deleted. On a volume without exclusive
+/// first looked at is kept: another program's save is never deleted. After the rename that publishes
+/// and the looks that follow it, the target is looked at last (`takenOver`): a file another program put
+/// there meanwhile stays and is never reported as the Handout. On a volume without exclusive
 /// renames (exFAT, some network shares) only a new file can be published, created exclusively.
 func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: Int = 0,
              digestLimit: Int = digestLimitBytes, keepGoing: () -> Bool = { true },
@@ -454,6 +456,20 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     func replacedMeanwhile() -> Publication {
         .failed("another program replaced the Handout being written at \(staged): what it put there stays, and nothing was published")
     }
+    /// The failure of a publication whose target no longer names this run's file; nil while it does.
+    /// Asked last, after the looks that follow a rename (the digest of a large earlier Handout takes a
+    /// while): what another program put there meanwhile stays, and is never called the Handout. `kept`
+    /// is where the file that was there before still lies, when it does.
+    func takenOver(earlierKeptAt kept: String? = nil) -> Publication? {
+        if isAtPath(target, written) { return nil }
+        let earlier = kept.map { ", and the Handout that was there before is kept at \($0)" } ?? ""
+        return .failed("another program replaced or removed \(target) right after the Handout was put there: what is there now stays (it is not the Handout of this export)\(earlier)")
+    }
+    /// Test only (input.json limits.writePauseMs): a pause after a rename, standing in for a volume
+    /// that is slow to answer the looks that follow it.
+    func pauseAfterRename() {
+        if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
+    }
     guard isAtPath(staged, written) else { return replacedMeanwhile() }
     // dw may have ended, or the run's time may be up, while the file was written or looked at (a slow
     // volume): asked last, right before the rename
@@ -464,6 +480,7 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     // Nothing there yet: create it, failing if something appeared in the meantime
     if renamex_np(staged, target, UInt32(RENAME_EXCL)) == 0 {
         rmdir(staging.folder)
+        pauseAfterRename()
         // What any new file there gets: the ACL its folder hands down, then the usual permissions. An
         // ACL that cannot be read or given may have denied someone: the file then stays its owner's alone
         var aclProblem: String?
@@ -478,12 +495,13 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
         case .unreadable(let reason):
             aclProblem = "the ACL of \(folder) could not be read (\(reason))"
         }
-        // Restrictive (0600) without it: never wider than intended
+        // Restrictive (0600) without it: never wider than intended. Published only while the target
+        // still names this file: asked last, after the looks above
         guard let aclProblem else {
             fchmod(descriptor, newFileMode())
-            return .published(warnings: [])
+            return takenOver() ?? .published(warnings: [])
         }
-        return .published(warnings: ["\(aclProblem): only you can read it"])
+        return takenOver() ?? .published(warnings: ["\(aclProblem): only you can read it"])
     }
     let exclusiveError = errno
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
@@ -515,6 +533,7 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
         discard()
         return .failed("could not replace \(target): \(reason)")
     }
+    pauseAfterRename()
     let theirs = open(staged, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)
     var replaced = stat()
     if theirs >= 0, fstat(theirs, &replaced) == 0, startsAsHandout(theirs) {
@@ -524,8 +543,11 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // swapped out must be the one looked at before anything was written (`present`), unchanged
             // since, and unchanged while its permissions were read
             // A Handout that appeared there while this one was written (another export) stays too
+            // Each result below is asked last whether the target still names this run's file
+            // (`takenOver`): another program may have saved over it during these looks
             guard hadTarget else {
-                return .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(staged)"])
+                return takenOver(earlierKeptAt: staged)
+                    ?? .published(warnings: ["a Handout appeared at \(target) while this one was written: it is kept at \(staged)"])
             }
             var now = stat()
             // The same file with the same size and modification time from the first look to the look
@@ -536,7 +558,8 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // kept size and modification time changes it, a metadata change does not), and nothing may
             // change it after that read (its change time would move: no rename follows the swap)
             guard firstDigest != nil else {
-                return .published(warnings: ["the earlier Handout could not be checked for a save made while it was replaced: it is kept at \(staged)"])
+                return takenOver(earlierKeptAt: staged)
+                    ?? .published(warnings: ["the earlier Handout could not be checked for a save made while it was replaced: it is kept at \(staged)"])
             }
             let displacedDigest = stampsKept ? contentDigest(theirs) : nil
             let unchanged = displacedDigest != nil && displacedDigest == firstDigest
@@ -544,15 +567,19 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // Removed only while its name still holds it: a save swapped in there since (a program that
             // followed the file into the folder) stays too
             if !unchanged || !isAtPath(staged, replaced) {
-                return .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
+                return takenOver(earlierKeptAt: staged)
+                    ?? .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
             }
+            // Asked before the earlier Handout goes: when another program put its file at the target
+            // while the looks above read the earlier one, both stay
+            if let conflict = takenOver(earlierKeptAt: staged) { return conflict }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
             // keep what a new export may have been made to remove (a page taken out). A write through a
             // descriptor opened before and landing after the look above is lost, as with any file
             // replaced by a rename
             unlink(staged)
             rmdir(staging.folder)
-            return .published(warnings: [])
+            return takenOver() ?? .published(warnings: [])
         }
         // Who may read it could not be kept: the earlier Handout goes back, the new file goes. Only
         // over this run's own file: one another program put at the target meanwhile stays
@@ -825,7 +852,8 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
     let pageLimitMs: Int
     let runLimitMs: Int
     let parentCheckMs: Int
-    /// Test only (input.json limits.writePauseMs): a pause after each chunk of the Handout is written.
+    /// Test only (input.json limits.writePauseMs): a pause after each chunk of the Handout is written,
+    /// and after the rename that publishes it.
     let writePauseMs: Int
     /// Test only (input.json limits.digestLimitBytes): the largest earlier Handout whose content is read.
     let digestLimit: Int
