@@ -18,7 +18,10 @@ GOLDEN="${DW_GOLDEN_DIR:-$SKILL_DIR/fixtures/hud-golden}"
 # Build every fixture page with dw's own explain_build into the baseline folder
 capture() {
   local tmp page base n title step count=0 failed=0
-  tmp=$(mktemp -d)
+  if ! tmp=$(mktemp -d) || [ ! -d "$tmp" ]; then
+    echo "hud-golden: could not make a scratch folder" >&2
+    return 1
+  fi
   # dw's own functions, everything but its dispatch: explain_build exactly as dw defines it, with what
   # it calls (explain_filter, …). The baseline is what dw builds, not a copy of that code. (A file,
   # not "source <(…)", which bash 3.2 reads as empty)

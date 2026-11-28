@@ -15,8 +15,13 @@ failures=0
 pass() { printf '  ✓ %s\n' "$1"; }
 fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
 
-scratch=$(mktemp -d)
-trap 'chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
+# Every path below is made under it: without one the run stops before anything is written
+if ! scratch=$(mktemp -d) || [ ! -d "$scratch" ]; then
+  echo "dw-check: could not make a scratch folder" >&2
+  exit 1
+fi
+# Pages a case made immutable (chflags uchg) are made removable again first
+trap 'chflags -R nouchg "$scratch" 2>/dev/null; chmod -R u+w "$scratch" 2>/dev/null; rm -rf "$scratch"' EXIT
 export DW_HOME="$scratch/state" DW_CONFIG="$scratch/config" DW_CHECK_SEEN="$scratch/seen-input.json"
 RECORDS="$DW_CONFIG/walkthroughs"
 mkdir -p "$DW_HOME" "$RECORDS"
@@ -509,7 +514,8 @@ printf '%s' "$dir" > "$DW_HOME/record_dir"
 in_dw cmd_explain "$scratch/waiting.md"
 chflags uchg "$dir/pages/02-二枚目.md"
 in_dw cmd_explain --clear
-chflags nouchg "$dir/pages/02-二枚目.md"
+# The archive's copy keeps the flag too (cp -p): both go back to normal, or the scratch folder stays
+chflags -R nouchg "$dir/pages"
 if [ "$code" != 0 ] && grep -q 'could not be removed' <<< "$out" && [ -f "$dir/pages/02-二枚目.md" ] \
   && grep -q "$(printf '^2\t確認$')" "$dir/pages/sections.tsv" && [ -f "$DW_HOME/explain/pages/001.md" ]; then
   pass "a page a clear cannot remove keeps its row in sections.tsv, and the panel is left as it was"

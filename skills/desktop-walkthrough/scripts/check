@@ -99,7 +99,10 @@ handout_contract() {
 # The inline scripts of the page templates parse (a template is only run inside the HUD's web views)
 page_scripts() {
   local tmp status=0 file
-  tmp=$(mktemp -d)
+  if ! tmp=$(mktemp -d) || [ ! -d "$tmp" ]; then
+    echo "check: could not make a scratch folder" >&2
+    return 1
+  fi
   python3 -I - "$tmp" explainer/*.html <<'PY' || { rm -rf "$tmp"; return 1; }
 import re, sys, pathlib
 out = pathlib.Path(sys.argv[1])
