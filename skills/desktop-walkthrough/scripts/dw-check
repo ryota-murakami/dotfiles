@@ -718,15 +718,15 @@ else
 fi
 
 # Where mktemp makes scratch folders (macOS's does not follow TMPDIR): a stopped export must leave no
-# copy of a page there. The page carries a token of this run, so only this run's copies are looked for
+# copy of a page there. The page carries a marker of this run, so only this run's copies are looked for
 temp_root=$(dirname "$(mktemp -u)")
-token="dw-check-leftover-$$-$RANDOM"
+marker="dw-check-leftover-$$-$RANDOM"
 dir=$(two_page_record leftovers)
-printf '%s\n' "$token" >> "$dir/pages/01-一枚目.md"
+printf '%s\n' "$marker" >> "$dir/pages/01-一枚目.md"
 in_dw cmd_handout leftovers
 printf '\n<!-- hud-only -->\n' >> "$dir/pages/01-一枚目.md"
 in_dw cmd_handout leftovers
-left=$(grep -rl "$token" "$temp_root"/tmp.*/source 2>/dev/null)
+left=$(grep -rl "$marker" "$temp_root"/tmp.*/source 2>/dev/null)
 if [ "$code" = 1 ] && [ -z "$left" ]; then
   pass "a stopped export leaves no scratch folder (with copies of the pages) behind"
 else

@@ -193,6 +193,7 @@ test('a long run of quote markers that opens no fence is read at once, not by tr
 
   // Assert
   expect(lines).toEqual([4])
+  // gstack-timing-ok: the bound is the contract; trying every split takes seconds, a linear read well under 200 ms
   expect(performance.now() - started).toBeLessThan(200)
 })
 
