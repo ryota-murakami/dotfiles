@@ -256,9 +256,29 @@ desktop-walkthrough が記録したウォークスルーです（開始 $(date '
 EOF
 }
 
+# Put the staged file STAGED in place of DEST by a rename: the reader of DEST keeps the access it had
+# (a private 0600 file stays private; a new one gets the permissions a plain write would give), and a
+# DEST that is a link is replaced by the file itself, never followed (into a folder or another file).
+# Called where dw rewrites a record's file (handbook.md, sections.tsv); fails when DEST is a folder.
+replace_entry() {
+  local staged="$1" dest="$2" mode
+  if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+    mode=$(perl -e 'printf "%o", (stat shift)[2] & 07777' "$dest" 2>/dev/null)
+  else
+    mode=$(printf '%o' $((0666 & ~$(umask))))
+  fi
+  [ -n "$mode" ] && chmod "$mode" "$staged" 2>/dev/null
+  # A link goes first: mv onto a link to a folder would move the file inside that folder
+  if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
+  [ -d "$dest" ] && return 1
+  mv -f "$staged" "$dest"
+}
+
 # Rebuild handbook.md: every recorded page in reading order, as written (`dw handout` makes the file to share)
 record_handbook() {
   local dir="$1" n page
+  # Staged unreadable to others (umask 077) until replace_entry gives it handbook.md's own permissions
+  ( umask 077
   {
     printf '# %s\n\n' "$(basename "$dir")"
     printf '解説パネルに表示したページを、読む順にまとめたものです（desktop-walkthrough の記録）。\n'
@@ -267,7 +287,7 @@ record_handbook() {
       printf '\n\n---\n\n'
       cat "$page"
     done < <(record_pages "$dir")
-  } > "$dir/.handbook.md.$$" && mv -f "$dir/.handbook.md.$$" "$dir/handbook.md"
+  } > "$dir/.handbook.md.$$" ) && replace_entry "$dir/.handbook.md.$$" "$dir/handbook.md"
   # Written beside and renamed: a handbook.md that is a link is replaced, its target never written
   rm -f "$dir/.handbook.md.$$"
 }
@@ -328,6 +348,9 @@ record_page() {
   local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i base number
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
+  # The number as decimal once (--page 01 or 08 is page 1 or 8): file names, rows and the files it
+  # replaces all compare the same number, and printf never reads 08 as octal
+  case "$n" in ''|*[!0-9]*) ;; *) n=$((10#$n)) ;; esac
   mkdir -p "$dir/pages"
   nn=$(printf '%02d' "$n")
   # A file name from the title: no path separators, code-span backticks or control characters (tabs,
@@ -485,7 +508,7 @@ record_clear() {
   if [ -n "$stayed" ]; then
     # Written beside and renamed: a sections.tsv that is a link is replaced, its target never written
     awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" 2>/dev/null \
-      && mv -f "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
+      && replace_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
     rm -f "$dir/pages/.sections.tsv.$$"
     record_handbook "$dir"
     release_lock 8
@@ -495,7 +518,7 @@ record_clear() {
     return 1
   fi
   # An empty index renamed into place: a link or a second name of sections.tsv is never emptied
-  : > "$dir/pages/.sections.tsv.$$" && mv -f "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
+  : > "$dir/pages/.sections.tsv.$$" && replace_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
   rm -f "$dir/pages/.sections.tsv.$$"
   record_handbook "$dir"
   release_lock 8

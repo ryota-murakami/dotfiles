@@ -200,6 +200,34 @@ if [ "$code" != 0 ] && grep -q 'is not a plain file' <<< "$out" && [ -f "$dir/pa
 else
   fail "folder at the page name: exit $code: $out"
 fi
+# A page number given zero-padded (--page 01) is page 1: a new title replaces 01-一枚目.md, never
+# leaving it beside the new file
+dir=$(two_page_record padded)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 01 "直した題" "$scratch/fixed.md" "" quiet
+if [ "$code" = 0 ] && [ ! -e "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/01-直した題.md" ]; then
+  pass "a page number given as 01 replaces page 1 under its new title"
+else
+  fail "zero-padded page number: exit $code: $out / $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+# handbook.md rebuilt keeps its own permissions (a private one stays 0600), and one that is a link to
+# a folder is replaced by the file itself: nothing is written into that folder
+dir=$(two_page_record private-handbook)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 古い\n' > "$dir/handbook.md"
+chmod 600 "$dir/handbook.md"
+in_dw record_page 1 "一枚目" "$scratch/fixed.md" "" quiet
+mode=$(perl -e 'printf "%o", (stat shift)[2] & 07777' "$dir/handbook.md")
+mkdir "$scratch/handbook-folder"
+rm -f "$dir/handbook.md"
+ln -s "$scratch/handbook-folder" "$dir/handbook.md"
+in_dw record_page 2 "二枚目" "$scratch/fixed.md" "" quiet
+if [ "$mode" = 600 ] && [ "$code" = 0 ] && [ -f "$dir/handbook.md" ] && [ ! -L "$dir/handbook.md" ] \
+  && [ -z "$(ls -A "$scratch/handbook-folder")" ]; then
+  pass "a rebuilt handbook.md keeps its permissions, and a link to a folder in its place is replaced, the folder untouched"
+else
+  fail "handbook replacement: mode $mode, exit $code: $out / $(ls -A "$scratch/handbook-folder" | tr '\n' ' ')"
+fi
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
 mkfifo "$dir/pages/.dw-lock"
