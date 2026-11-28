@@ -158,6 +158,15 @@ final class PublicationGate {
         return true
     }
 
+    /// Said by the worker when the exclusive rename it was allowed did not happen (the target exists):
+    /// that rename's grace ends, so the looks that follow are no rename, and the swap after them asks
+    /// for a grace of its own (`allowCommit`), which lasts through any swap back.
+    func endCommit() {
+        lock.lock()
+        defer { lock.unlock() }
+        committingSince = nil
+    }
+
     /// Asked by a watchdog that would stop the run: see `Stop`. Once it returns anything but
     /// `afterCommit`, no rename starts any more.
     func stop() -> Stop {
@@ -366,13 +375,15 @@ func isUntouched(_ path: String, written: stat, data: Data) -> Bool {
 /// one, and when they cannot be carried the earlier Handout goes back. The file is written a chunk at
 /// a time, and before each and after the last `mayContinue` (given the bytes written so far) says
 /// whether to go on; before the exclusive create and again right before the swap, `mayPublish` says
-/// whether dw still waits and the run's time is not up. The new file swapped back out is removed only
+/// whether dw still waits and the run's time is not up, and starts that rename's grace; `commitEnded`
+/// ends the exclusive create's when the target turns out to exist. The new file swapped back out is removed only
 /// when it holds exactly the bytes written, and a save made into the replaced Handout since it was
 /// first looked at is kept: another program's save is never deleted. On a volume without exclusive
 /// renames (exFAT, some network shares) only a new file can be published, created exclusively.
 func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: Int = 0,
              digestLimit: Int = digestLimitBytes, keepGoing: () -> Bool = { true },
-             mayContinue: (Int) -> Bool, mayPublish: () -> Bool, writingInPlace: (String) -> Void) -> Publication {
+             mayContinue: (Int) -> Bool, mayPublish: () -> Bool, commitEnded: () -> Void,
+             writingInPlace: (String) -> Void) -> Publication {
     var isDirectory: ObjCBool = false
     if FileManager.default.fileExists(atPath: target, isDirectory: &isDirectory), isDirectory.boolValue {
         return .isFolder
@@ -484,6 +495,8 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
         discard()
         return .failed("could not create \(target): \(String(cString: strerror(exclusiveError)))")
     }
+    // That rename did not happen: its grace ends here, and the swap below asks for one of its own
+    commitEnded()
     // A Handout is there. Looked at once more right before the swap: a save into the earlier Handout
     // while this one was written changed its change time, which nothing else here touches until the
     // swap renames it
@@ -1066,6 +1079,7 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
                                       keepGoing: { !self.publicationGate.isStopped() && stillWanted() },
                                       mayContinue: { self.publicationGate.mayContinue(written: $0, stillWanted) },
                                       mayPublish: { self.publicationGate.allowCommit(stillWanted) },
+                                      commitEnded: { self.publicationGate.endCommit() },
                                       writingInPlace: { self.publicationGate.writeInPlace(at: $0) })
             DispatchQueue.main.async { self.report(publication, outcome: outcome) }
         }

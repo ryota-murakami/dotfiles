@@ -39,6 +39,15 @@ wait_bounded() { # PID SECONDS
   waited_status=$?
   return 0
 }
+# Run the renderer with ARGS under a deadline of SECONDS (wait_bounded): its result line in result, and
+# harness_timeout=yes when it had to be ended, which its case reports apart from any diagnostic
+render_bounded() { # SECONDS ARGS...
+  local seconds="$1"
+  shift
+  "$BIN" "$@" > "$scratch/bounded.out" &
+  if wait_bounded $! "$seconds"; then harness_timeout=no; else harness_timeout=yes; fi
+  result=$(cat "$scratch/bounded.out")
+}
 
 # Every path below is made under it: without one the run stops before anything is written
 if ! scratch=$(mktemp -d) || [ ! -d "$scratch" ]; then
@@ -857,8 +866,10 @@ limits_input() { # PAGE_MS RUN_MS N...
 cp -R "$DW_HOME/explain/vendor" "$limits/vendor"
 late_page 1 none
 limits_input 1500 60000 1
-result=$("$BIN" "$scratch/limits.json" "$DIST")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and .page == 1 and (.message | test("within 1 s"))' <<< "$result" >/dev/null \
+render_bounded 60 "$scratch/limits.json" "$DIST"
+if [ "$harness_timeout" = yes ]; then
+  fail "per-page limit: the renderer still ran after 60 s, its page timer never stopped it (harness timeout)"
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and .page == 1 and (.message | test("within 1 s"))' <<< "$result" >/dev/null \
   && jq -e '.log | length > 0' <<< "$result" >/dev/null; then
   pass "a page that never reports stops with HANDOUT_RENDERER, its number and the log"
 else
@@ -867,8 +878,10 @@ fi
 late_page 1 900
 late_page 2 900
 limits_input 5000 1500 1 2
-result=$("$BIN" "$scratch/limits.json" "$DIST")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("took longer than 1 s"))' <<< "$result" >/dev/null; then
+render_bounded 60 "$scratch/limits.json" "$DIST"
+if [ "$harness_timeout" = yes ]; then
+  fail "whole-run limit: the renderer still ran after 60 s, its run timer never stopped it (harness timeout)"
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("took longer than 1 s"))' <<< "$result" >/dev/null; then
   pass "a whole export past its limit stops with HANDOUT_RENDERER"
 else
   fail "whole-run limit: $result"
@@ -884,8 +897,10 @@ sha=$(shasum -a 256 "$DIST/controller.js" | cut -d' ' -f1 | xxd -r -p | base64)
 # around it would read as delimiters
 SHA="$sha" perl -pi -e 's/\Q$ENV{SHA}\E/AAAA$ENV{SHA}/' "$broken/builder.html"
 grep -q "AAAA$sha" "$broken/builder.html" || fail "the CSP case could not break the builder's hash (test setup)"
-result=$("$BIN" "$scratch/broken.json" "$broken")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("controller did not run"))' <<< "$result" >/dev/null \
+render_bounded 120 "$scratch/broken.json" "$broken"
+if [ "$harness_timeout" = yes ]; then
+  fail "VERIFY (CSP): the renderer still ran after 120 s (harness timeout)"
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_VERIFY" and (.message | test("controller did not run"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/broken.html" ]; then
   pass "a CSP that blocks the controller fails HANDOUT_VERIFY and nothing is published"
 else
@@ -895,8 +910,10 @@ fi
 # controller's wait: the finished file never answers within the limit
 late_page 1 0
 limits_input 1500 60000 1
-result=$("$BIN" "$scratch/limits.json" "$broken")
-if jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("did not open within 1 s"))' <<< "$result" >/dev/null \
+render_bounded 60 "$scratch/limits.json" "$broken"
+if [ "$harness_timeout" = yes ]; then
+  fail "verify limit: the renderer still ran after 60 s, its page timer never stopped the check (harness timeout)"
+elif jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("did not open within 1 s"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/limits.html" ]; then
   pass "a finished file that does not answer within the per-page limit stops with HANDOUT_RENDERER, nothing published"
 else
