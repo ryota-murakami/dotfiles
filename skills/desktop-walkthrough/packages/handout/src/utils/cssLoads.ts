@@ -11,102 +11,211 @@
  * @param written - A style attribute, a presentation attribute or a style sheet, as written.
  * @returns The targets that load something.
  *
+ * The text is read a token at a time, as CSS reads it ({@link cssTokens}): an escape is decoded where
+ * it stands, so an escaped quote or parenthesis is part of a target and never ends it, and a comment
+ * hides nothing.
+ *
  * @example
  * cssLoads('fill: url(#gradient); background: image-set("bg.png" 1x)') // ['bg.png']
  * cssLoads('@import "theme.css";')                                     // ['theme.css']
  * cssLoads('background: url("im\\a age.png")')                         // ['image.png']
  */
 export function cssLoads(written: string): string[] {
-  // CSS lets a name be spelled with escapes (`u\\72l(` is `url(`): read as the browser does
-  const css = unescapeCss(written)
-  const targets = urlTargets(css)
-  // An image-set is read to its own closing parenthesis: an option before a picture may be a function
-  // of its own (a gradient). A string, like the set itself, may run unclosed to the end of the text,
-  // where CSS ends it (across lines too: an escape may put a line feed inside)
-  for (const set of css.matchAll(/image-set\(/gi)) {
-    const contents = functionContents(css, (set.index ?? 0) + set[0].length)
-    for (const string of contents.matchAll(/(["'])(.*?)(?:\1|$)/gs)) targets.push(string[2] ?? '')
-  }
-  // @import's string may follow at once or after comments, as CSS reads its tokens
-  for (const imported of css.matchAll(/@import(?:\s|\/\*.*?\*\/)*(["'])(.*?)(?:\1|$)/gis))
-    targets.push(imported[2] ?? '')
-  // A URL drops the tabs and line feeds it holds, as the browser's URL parser does: `im\a age.png`
-  // loads image.png, and `\a #arrow` is the marker #arrow
-  return targets
-    .map((target) => target.replace(/[\t\n\r]/g, '').trim())
+  const tokens = cssTokens(written)
+  const urls: string[] = []
+  const sets: string[] = []
+  const imports: string[] = []
+  // Whether each function or parenthesis still open is an image-set: its strings load, also the ones
+  // inside a function of its own (an option before a picture may be one, like a gradient)
+  const open: boolean[] = []
+  tokens.forEach((token, position) => {
+    const next = tokens[position + 1]
+    switch (token.kind) {
+      case 'url':
+        urls.push(token.value)
+        break
+      case 'function':
+        // url("…"): the string right after it is the target
+        if (token.name === 'url' && next?.kind === 'string') urls.push(next.value)
+        open.push(token.name.endsWith('image-set'))
+        break
+      case 'open':
+        open.push(false)
+        break
+      case 'close':
+        open.pop()
+        break
+      case 'string':
+        if (open.includes(true)) sets.push(token.value)
+        break
+      case 'at':
+        // @import's string may follow at once or after comments, which are no tokens
+        if (token.name === 'import' && next?.kind === 'string') imports.push(next.value)
+        break
+      default:
+        break
+    }
+  })
+  // As the browser's URL parser reads a target: the control characters and spaces around it go
+  // (U+0000 to U+0020, not a no-break space, which stays part of the address), then the tabs and line
+  // feeds inside it. `im\a age.png` loads image.png, and `\a #arrow` is the marker #arrow
+  return [...urls, ...sets, ...imports]
+    .map((target) => withoutEdgeControls(target).replace(/[\t\n\r]/g, ''))
     .filter((target) => target !== '' && !target.startsWith('#'))
 }
 
 /**
- * The target of each `url(…)` in decoded CSS, read as CSS reads it: a quoted string to its closing
- * quote, anything else to the closing parenthesis, and either one to the end of the text when it is
- * never closed (CSS ends both there, and the URL still loads). Called by {@link cssLoads}.
+ * A URL without the control characters and spaces around it (U+0000 to U+0020), which a browser's URL
+ * parser drops; a no-break space is none of them and stays. Called by {@link cssLoads}.
  *
- * @param css - CSS text, its escapes decoded ({@link unescapeCss}).
- * @returns Each target as written, quotes left out, not yet trimmed.
+ * @param target - A URL as CSS holds it.
+ * @returns The URL from its first to its last character above U+0020; '' when it has none.
  *
  * @example
- * urlTargets('a { background: url("x.png") } b { background: url(y.png') // ['x.png', 'y.png']
+ * withoutEdgeControls('\n picture.png ') // 'picture.png'
+ * withoutEdgeControls('\u00a0#arrow')    // '\u00a0#arrow'
  */
-function urlTargets(css: string): string[] {
-  return Array.from(css.matchAll(/url\(\s*/gi), (match) => {
-    const start = (match.index ?? 0) + match[0].length
-    const quote = css[start] === '"' || css[start] === "'" ? css[start] : undefined
-    // Quoted: the string is the target; else the text up to the parenthesis, both as far as the end
-    const end = quote === undefined ? css.indexOf(')', start) : css.indexOf(quote, start + 1)
-    return css.slice(quote === undefined ? start : start + 1, end === -1 ? css.length : end)
-  })
+function withoutEdgeControls(target: string): string {
+  const characters = Array.from(target)
+  const first = characters.findIndex((character) => character > ' ')
+  if (first === -1) return ''
+  return characters.slice(first, characters.findLastIndex((character) => character > ' ') + 1).join('')
 }
 
 /**
- * What a CSS function holds, from just after its opening parenthesis to the one that closes it:
- * nested functions and quoted strings (with their parentheses) included.
- *
- * @param css - CSS text.
- * @param start - Where the function's contents start (after its opening parenthesis).
- * @returns The contents; up to the end of the text when the function is never closed.
- *
- * @example
- * functionContents('image-set(linear-gradient(red, blue) 1x, "a.png" 2x)', 10)
- * // 'linear-gradient(red, blue) 1x, "a.png" 2x'
+ * What {@link cssTokens} tells apart in CSS text: a quoted string and an unquoted `url(…)` with their
+ * escapes decoded, a function's name (lower case) at its opening parenthesis, an at-keyword's name
+ * (lower case), a parenthesis, and anything else. White space and comments are no tokens.
  */
-function functionContents(css: string, start: number): string {
-  let depth = 1
-  let quote = ''
-  for (let index = start; index < css.length; index++) {
-    const character = css[index]
-    // The text is decoded already (unescapeCss): a backslash in it is a character, never an escape
-    if (quote !== '') {
-      if (character === quote) quote = ''
-    } else if (character === '"' || character === "'") quote = character
-    else if (character === '(') depth++
-    else if (character === ')' && --depth === 0) return css.slice(start, index)
-  }
-  return css.slice(start)
-}
+type CssToken =
+  | { kind: 'string'; value: string }
+  | { kind: 'url'; value: string }
+  | { kind: 'function'; name: string }
+  | { kind: 'at'; name: string }
+  | { kind: 'open' }
+  | { kind: 'close' }
+  | { kind: 'other' }
+
+/** Whether a character can be part of a CSS name: a letter, a digit, `_`, `-` or anything not ASCII. */
+const isNameCharacter = (character: string): boolean => /[\w-]/.test(character) || character >= '\u0080'
 
 /**
- * CSS text with its escapes decoded: `\\72` (hexadecimal, up to six digits, one space after it
- * swallowed), `\\l` (any other character as itself), and a backslash before a line break (both
- * removed, as a string continues on the next line).
+ * CSS text as the tokens a browser reads (CSS Syntax 3, as far as loading goes): comments skipped,
+ * escapes decoded where they stand (`u\\72l(` is the function `url`, and `"\\22 x"` is a string that
+ * starts with a quote), a string ended by its quote, by the end of its line or by the end of the text,
+ * and an unquoted `url(…)` read to its closing parenthesis or the end of the text. A string or URL
+ * that CSS would call bad is still told, with what it holds so far: a Handout would rather check one
+ * target too many. Called by {@link cssLoads}.
  *
  * @param written - CSS as written.
- * @returns The same CSS as a browser reads its names and strings.
+ * @returns Its tokens in order.
  *
  * @example
- * unescapeCss('u\\72l(x.png)') // 'url(x.png)'
+ * cssTokens('url( "a.png" )') // [{ kind: 'function', name: 'url' }, { kind: 'string', value: 'a.png' }, { kind: 'close' }]
+ * cssTokens('url(a\\29 .png)') // [{ kind: 'url', value: 'a).png' }]
  */
-function unescapeCss(written: string): string {
-  // As a browser reads CSS: CRLF, CR and form feed are line feeds before anything else. A backslash
-  // before a line feed continues a string on the next line (both go); a hexadecimal escape swallows
-  // one whitespace after it
-  return written
-    .replace(/\r\n|[\r\f]/g, '\n')
-    .replace(
-      /\\\n|\\([0-9a-fA-F]{1,6})[ \t\n]?|\\([^\n0-9a-fA-F])/g,
-      (_written, hexadecimal?: string, character?: string) =>
-        hexadecimal
-          ? String.fromCodePoint(Math.min(Number.parseInt(hexadecimal, 16), 0x10ffff))
-          : (character ?? ''),
-    )
+function cssTokens(written: string): CssToken[] {
+  // As a browser reads CSS: CRLF, CR and form feed are line feeds before anything else
+  const css = written.replace(/\r\n|[\r\f]/g, '\n')
+  const tokens: CssToken[] = []
+  let index = 0
+  /** Whether an escape starts at `index`: a backslash followed by anything but a line feed or the end. */
+  const atEscape = (): boolean => css[index] === '\\' && index + 1 < css.length && css[index + 1] !== '\n'
+  /** Read the escape at `index`: up to six hexadecimal digits and one white space after them, or one character as itself. */
+  const escape = (): string => {
+    index++
+    const hexadecimal = /^[0-9a-fA-F]{1,6}/.exec(css.slice(index, index + 6))?.[0]
+    if (hexadecimal === undefined) {
+      const character = String.fromCodePoint(css.codePointAt(index) ?? 0xfffd)
+      index += character.length
+      return character
+    }
+    index += hexadecimal.length
+    if (/[ \t\n]/.test(css[index] ?? '')) index++
+    const point = Number.parseInt(hexadecimal, 16)
+    // Zero, a surrogate and a number past Unicode's end are the replacement character
+    return point === 0 || point > 0x10ffff || (point >= 0xd800 && point <= 0xdfff)
+      ? '�'
+      : String.fromCodePoint(point)
+  }
+  /** Read the name at `index`, its escapes decoded. */
+  const name = (): string => {
+    let value = ''
+    while (index < css.length) {
+      if (atEscape()) value += escape()
+      else if (isNameCharacter(css[index] ?? '')) value += css[index++]
+      else break
+    }
+    return value
+  }
+  /** Read the string that opens at `index` with QUOTE: to that quote, the end of the line or the end of the text. */
+  const string = (quote: string): string => {
+    let value = ''
+    index++
+    while (index < css.length) {
+      const character = css[index] ?? ''
+      if (character === quote) {
+        index++
+        break
+      }
+      // A line feed that is not escaped ends the string (CSS calls it bad); the line feed stays
+      if (character === '\n') break
+      if (atEscape()) value += escape()
+      // A backslash before a line feed continues the string on the next line; one at the end is nothing
+      else if (character === '\\') index += 2
+      else value += css[index++]
+    }
+    return value
+  }
+  /** Read the unquoted URL at `index` to its closing parenthesis (an escaped one is part of it) or the end. */
+  const unquotedUrl = (): string => {
+    let value = ''
+    while (index < css.length) {
+      if (css[index] === ')') {
+        index++
+        break
+      }
+      if (atEscape()) value += escape()
+      else value += css[index++]
+    }
+    return value
+  }
+  while (index < css.length) {
+    const character = css[index] ?? ''
+    if (css.startsWith('/*', index)) {
+      // A comment runs to its end, or to the end of the text: nothing in it is a token
+      const end = css.indexOf('*/', index + 2)
+      index = end === -1 ? css.length : end + 2
+    } else if (character === '"' || character === "'") {
+      tokens.push({ kind: 'string', value: string(character) })
+    } else if (/\s/.test(character)) {
+      index++
+    } else if (character === '(' || character === ')') {
+      index++
+      tokens.push({ kind: character === '(' ? 'open' : 'close' })
+    } else if (character === '@') {
+      index++
+      const keyword = name()
+      tokens.push(keyword === '' ? { kind: 'other' } : { kind: 'at', name: keyword.toLowerCase() })
+    } else if (isNameCharacter(character) || atEscape()) {
+      const word = name().toLowerCase()
+      if (css[index] !== '(') {
+        tokens.push({ kind: 'other' })
+        continue
+      }
+      index++
+      // url( with a quote after optional white space is a function holding a string; else the URL
+      // itself follows, unquoted
+      const quoted = /^[ \t\n]*["']/.test(css.slice(index))
+      if (word !== 'url' || quoted) {
+        tokens.push({ kind: 'function', name: word })
+        continue
+      }
+      tokens.push({ kind: 'url', value: unquotedUrl() })
+    } else {
+      index++
+      tokens.push({ kind: 'other' })
+    }
+  }
+  return tokens
 }

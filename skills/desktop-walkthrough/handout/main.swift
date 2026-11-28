@@ -600,14 +600,22 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             }
             // Asked before the earlier Handout goes: when another program put its file at the target
             // while the looks above read the earlier one, both stay
+            // The new Handout's stamps from before that check reads it: a save made into it after the
+            // read moves them (nothing of this run's touches the file from here)
+            var checked = stat()
+            let stamped = fstat(descriptor, &checked) == 0
             if let conflict = takenOver(earlierKeptAt: staged) { return conflict }
             pauseAfterRename()
             // Both looked at once more right before it goes: that check read the whole new Handout, and
             // a save made into the earlier one meanwhile (through a descriptor opened before the swap)
             // moved its change time. Such a save stays, where it is; and while the target no longer
-            // names this run's file, the earlier Handout stays too (said by `takenOver`)
+            // names this run's file, or that file was saved into since it was read, the earlier Handout
+            // stays too (said by `takenOver`)
+            var newest = stat()
             guard fstat(theirs, &now) == 0, sameContentStamp(now, replaced), sameChangeTime(now, replaced),
-                  isAtPath(staged, replaced), isAtPath(target, written) else {
+                  isAtPath(staged, replaced), isAtPath(target, written),
+                  stamped, fstat(descriptor, &newest) == 0, sameContentStamp(newest, checked),
+                  sameChangeTime(newest, checked) else {
                 return takenOver(earlierKeptAt: staged)
                     ?? .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
             }
@@ -749,7 +757,7 @@ func carryPermissions(from source: Int32, to descriptor: Int32) -> Bool {
         // A volume without ACLs has none to carry
         let carried = fstat(source, &before) == 0 && before.st_uid == geteuid()
             && fchown(descriptor, uid_t.max, before.st_gid) == 0
-            && (fcopyfile(source, descriptor, nil, copyfile_flags_t(COPYFILE_ACL)) == 0 || errno == ENOTSUP)
+            && carryAcl(from: source, to: descriptor)
             && fchmod(descriptor, before.st_mode & 0o7777) == 0
         guard carried else { break }
         var after = stat()
@@ -760,6 +768,22 @@ func carryPermissions(from source: Int32, to descriptor: Int32) -> Bool {
     }
     keepPrivate(descriptor)
     return false
+}
+
+/// Give the file open at `descriptor` exactly the ACL of the file open at `source`: every entry, the
+/// ones it inherited from its folder included (a copy by `fcopyfile` leaves those out, and a denial
+/// among them would be lost: someone the earlier Handout kept out could read the new one). A source
+/// without an ACL, or a volume without ACLs, leaves the new file without one. Called by
+/// `carryPermissions` before it gives the mode. Returns false when the ACL cannot be read or given.
+func carryAcl(from source: Int32, to descriptor: Int32) -> Bool {
+    if let acl = acl_get_fd(source) {
+        defer { acl_free(UnsafeMutableRawPointer(acl)) }
+        return acl_set_fd(descriptor, acl) == 0
+    }
+    let failure = errno
+    // None to carry: the new file must have none either. Any other failure to read it is one
+    guard failure == ENOENT || failure == ENOTSUP || failure == EOPNOTSUPP else { return false }
+    return clearInheritedAcl(descriptor) == nil
 }
 
 /// Make the file open at `descriptor` its owner's alone again: mode 0600 and no ACL.

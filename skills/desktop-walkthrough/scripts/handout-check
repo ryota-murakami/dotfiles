@@ -512,6 +512,22 @@ if [ "$first" = 0 ] && [ "$code" = 0 ] && [ -z "$replaced" ]; then
 else
   fail "ACL on a replaced Handout (exit $first/$code): $replaced / first: $first_out / then: $out"
 fi
+# An entry the earlier Handout inherited (here a denial) is carried like any other: who it kept out
+# cannot read the new one. The folder hands nothing down by then, so the entry comes from the file
+mkdir -p "$scratch/acl-denied"
+chmod +a "user:_www deny read,file_inherit" "$scratch/acl-denied"
+export_record acl --out "$scratch/acl-denied/handout.html"
+first=$code
+first_out=$out
+before=$(ls -le "$scratch/acl-denied/handout.html" | sed -n 's/^ *[0-9]*: //p')
+chmod -N "$scratch/acl-denied"
+export_record acl --out "$scratch/acl-denied/handout.html"
+denied=$(ls -le "$scratch/acl-denied/handout.html" | sed -n 's/^ *[0-9]*: //p')
+if [ "$first" = 0 ] && [ "$code" = 0 ] && [ "$before" = "user:_www inherited deny read" ] && [ "$denied" = "$before" ]; then
+  pass "a replaced Handout keeps a denial the earlier one inherited: who was kept out stays out"
+else
+  fail "inherited denial on a replaced Handout (exit $first/$code): before: $before / after: $denied / first: $first_out / then: $out"
+fi
 # Every kind of entry a folder hands down (to files, to files and subfolders, to subfolders only, to
 # its contents only, one generation only): a new Handout gets exactly what a file made there gets
 mkdir -p "$scratch/acl-kinds"
@@ -1116,6 +1132,36 @@ elif [ "$ended" = yes ] && jq -e --arg target "$scratch/outrun.html" --arg kept 
   pass "another program replacing the target just before the earlier Handout would go keeps both its file and the earlier Handout"
 else
   fail "target replaced before the earlier Handout goes (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
+# Another program saves into the new Handout just before the earlier one would go (the same pause):
+# that save stays, and so does the earlier Handout, in the run's folder
+handout_input "$RECORDS/direct" "$scratch/resave.html" "$scratch/resave-explain" "$scratch/resave.json"
+first_export "save into the target before the earlier Handout goes" "$scratch/resave.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/resave.html")
+jq '.limits.writePauseMs = 3000' "$scratch/resave.json" > "$scratch/resave-paused.json"
+"$BIN" "$scratch/resave-paused.json" "$DIST" > "$scratch/resave.out" &
+writer=$!
+waited=0
+until [ "$(/usr/bin/stat -f '%i' "$scratch/resave.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/resave.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+sleep 4.5
+printf 'X' | dd of="$scratch/resave.html" bs=1 seek=10 conv=notrunc 2>/dev/null
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/resave.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.resave.html.dw-handout-*/resave.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "save into the target before the earlier Handout goes: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/resave.html" --arg kept "$kept" '.ok == false
+    and (.diagnostics[0].message | contains("another program saved into \($target) right after the Handout was put there: that save stays (it is not the Handout that was checked), and the Handout that was there before is kept at \($kept);"))' <<< "$result" >/dev/null \
+  && [ "$(dd if="$scratch/resave.html" bs=1 skip=10 count=1 2>/dev/null)" = X ] && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ]; then
+  pass "another program saving into the new Handout just before the earlier one would go keeps that save and the earlier Handout"
+else
+  fail "save into the target before the earlier Handout goes (kept: ${kept:-none}, ended by itself: $ended): $result"
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 
