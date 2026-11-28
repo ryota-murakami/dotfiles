@@ -192,6 +192,12 @@ record_pages() {
 # and opening a pipe waits for its other end. Called before dw opens or replaces such a file
 plain_or_absent() { [ ! -L "$1" ] && { [ ! -e "$1" ] || [ -f "$1" ]; }; }
 
+# An empty file at PATH that its owner alone can read, for what dw stages beside a record's index: the
+# rows may be those of an index made private, and the staged file gets its final permission bits only
+# when it takes the index's place (install_entry). What was under that name goes first (a link there is
+# removed, never written through). Fails when the file cannot be made (a folder under that name)
+private_file() { ( umask 077; rm -f "$1"; : > "$1" ) 2>/dev/null; }
+
 # The bytes of FILE on standard output when it is a plain file: opened once, without following a link
 # and without waiting (a pipe's writer may never come), and judged by what is open, as handout_marked
 # does, so a pipe or a link put there after a look at the path is never read as the file. Exit 0: read;
@@ -400,16 +406,19 @@ replace_entry() {
 
 # Put the staged file STAGED in place of DEST by a rename, for the record's sections.tsv: a reader
 # sees the old index or the new one, never half of one, and a write that fails leaves the old one as
-# it was. The new file takes DEST's permission bits when DEST is a plain file, so a private index
-# stays private whichever command rewrote it (an ACL set on the file itself is not carried: set it on
-# the folder). A DEST that is a link is replaced by the file itself, never followed. Fails when DEST
-# is a folder, cannot be replaced, or its permission bits cannot be given to the new file; the caller
-# removes STAGED either way. Called by record_page and record_clear with the record's lock held
+# it was. STAGED is made unreadable to others (private_file) and gets its permission bits here: DEST's
+# when DEST is a plain file, so a private index stays private whichever command rewrote it (an ACL set
+# on the file itself is not carried: set it on the folder), else those a plain write gives a new file.
+# A DEST that is a link is replaced by the file itself, never followed. Fails when DEST is a folder,
+# cannot be replaced, or the bits cannot be given to the new file; the caller removes STAGED either
+# way. Called by record_page and record_clear with the record's lock held
 install_entry() {
   local staged="$1" dest="$2" mode
   if [ -f "$dest" ] && [ ! -L "$dest" ]; then
     # Its bits first, or no rename: an index made private is never replaced by one others can read
     mode=$(/usr/bin/stat -f %Lp "$dest" 2>/dev/null) && chmod "$mode" "$staged" 2>/dev/null || return 1
+  else
+    chmod "$(printf '%o' $((0666 & ~$(umask))))" "$staged" 2>/dev/null || return 1
   fi
   # A link goes first: mv onto a link to a folder would move the file inside that folder
   if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
@@ -476,7 +485,8 @@ hold_lock() {
     return 1
   fi
   # What is open is judged itself before it is locked: a plain file, and the one the path names now
-  # (not a pipe, nor the file a link put there since points to). 3: it is not; 1: another dw holds it
+  # (not a pipe, nor the file a link put there since points to; such a link can have had the open make
+  # an empty file where it points, and nothing is written to it). 3: it is not; 1: another dw holds it
   perl -MFcntl=:flock,:mode -e '
       open(my $held, "+<&=", $ARGV[0]) or exit 2;
       my @open = stat($held);
@@ -546,9 +556,10 @@ record_page() {
   # The other pages' rows, read before anything changes: a sections.tsv that cannot be read would
   # otherwise be replaced by this page's row alone. It is read as a plain file only (read_plain): a
   # pipe there would hold dw, and both locks it holds, waiting for a writer, and a link is not dw's.
-  # The scratch file for those rows is made first: one that cannot be made (a folder under its name)
-  # would otherwise pass for "no other row", and this page's row alone would replace the index
-  if ! : > "$rows" 2>/dev/null; then
+  # The scratch file for those rows is made first (unreadable to others: the index may be private): one
+  # that cannot be made (a folder under its name) would otherwise pass for "no other row", and this
+  # page's row alone would replace the index
+  if ! private_file "$rows"; then
     release_lock 8
     echo "dw: page $n: the record's sections.tsv could not be written: the record was left as it was" >&2
     return 1
@@ -573,7 +584,7 @@ record_page() {
   # The new index is staged before the page changes: a page is never published without its row
   step=$(jq -j --argjson n "$n" '.pages[] | select(.n == $n) | .step // ""' "$EXPLAIN/index.json" 2>/dev/null | tr '\t\r\n' '   ')
   given=$(printf '%s' "$given" | tr '\t\r\n' '   ')
-  if ! {
+  if ! private_file "$sections.part.$$" || ! {
     cat "$rows"
     if [ -n "$given" ]; then printf '%s\t%s\t%s\n' "$n" "$step" "$given"; else printf '%s\t%s\n' "$n" "$step"; fi
   } | sort -n > "$sections.part.$$" 2>/dev/null; then
@@ -640,7 +651,7 @@ record_page() {
 # (install_entry). Called by record_clear, with the record's lock held, once no page is left
 record_sections_empty() {
   local staged="$1/pages/.sections.tsv.$$" failed=0
-  { : > "$staged" && install_entry "$staged" "$1/pages/sections.tsv"; } 2>/dev/null || failed=1
+  { private_file "$staged" && install_entry "$staged" "$1/pages/sections.tsv"; } 2>/dev/null || failed=1
   rm -f "$staged"
   return $failed
 }
@@ -716,7 +727,8 @@ record_clear() {
     # (install_entry): a reader never sees half an index, and a sections.tsv that is a link is
     # replaced, its target never written
     if [ -f "$archive/sections.tsv" ]; then
-      if ! { awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" \
+      if ! { private_file "$dir/pages/.sections.tsv.$$" \
+        && awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" \
         && install_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"; } 2>/dev/null; then
         reset=1
       fi
@@ -1821,8 +1833,10 @@ explain_restore() {
   stand_in="$EXPLAIN/pages/.stand-in.$$"
   # The record's sections and given titles, read once and as a plain file only (read_plain): a pipe
   # there would hold the resume waiting for a writer, and a link is not followed. Without them the
-  # pages come back all the same, under their own headings
+  # pages come back all the same, under their own headings. The copy is unreadable to others: the
+  # index may be private
   sections="$EXPLAIN/pages/.sections.$$"
+  private_file "$sections"
   read_plain "$dir/pages/sections.tsv" > "$sections" 2>/dev/null
   case $? in
     0|1) ;;

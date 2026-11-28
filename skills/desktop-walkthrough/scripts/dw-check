@@ -54,7 +54,8 @@ hold_like_another_dw() {
 # A watchdog for a case that puts the pipe PIPE where dw reads a file: a dw that opens it to read
 # would wait for a writer forever. After 10 s, and for the 10 s that follow, it opens and closes the
 # pipe's writing end again and again (nonblocking: that succeeds only while a reader waits), so each
-# such read ends and the case fails instead of hanging. Prints its process id; the caller kills it
+# such read ends and the suite goes on. The case itself measures the time: a dw that needed the
+# watchdog took 10 s and fails. Prints its process id; the caller kills it
 feed_stuck_readers() {
   # Its output goes nowhere: a $(…) around this function waits for every holder of its pipe
   perl -MFcntl -e 'sleep 10; for (1 .. 200) { sysopen(my $h, $ARGV[0], O_WRONLY | O_NONBLOCK) and close $h; select(undef, undef, undef, 0.05) }' "$1" > /dev/null 2>&1 &
@@ -79,6 +80,22 @@ without_scratch() {
 # changes nothing. Then "$@"
 mode_cannot_be_set() {
   chmod() { return 1; }
+  "$@"
+}
+
+# The permission bits of the file dw stages for sections.tsv, as it is when install_entry is given it
+# (before it gets the index's own), written to $scratch/staged-mode. Then "$@"
+staged_index_mode_seen() {
+  eval "$(declare -f install_entry | sed '1s/^install_entry/dw_install_entry/')"
+  install_entry() { /usr/bin/stat -f %Lp "$1" > "$scratch/staged-mode"; dw_install_entry "$@"; }
+  "$@"
+}
+
+# The permission bits of the copy of sections.tsv a resume reads its sections from (record_section's
+# third argument), written to $scratch/sections-copy-mode. Then "$@"
+sections_copy_mode_seen() {
+  eval "$(declare -f record_section | sed '1s/^record_section/dw_record_section/')"
+  record_section() { /usr/bin/stat -f %Lp "$3" > "$scratch/sections-copy-mode"; dw_record_section "$@"; }
   "$@"
 }
 
@@ -393,13 +410,16 @@ printf '%s' "$dir" > "$DW_HOME/record_dir"
 perl -MFcntl -e 'sleep 10; sysopen(my $h, $ARGV[0], O_RDONLY | O_NONBLOCK); sleep 2' \
   "$dir/pages/.dw-lock" > /dev/null 2>&1 &
 watchdog=$!
+started=$(date +%s)
 in_dw record_page 1 "一枚目" "$scratch/fixed.md" "" quiet
+waited=$(($(date +%s) - started))
 kill "$watchdog" 2> /dev/null
 wait "$watchdog" 2> /dev/null
-if [ "$code" != 0 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
+# Refused before the watchdog let a waiting dw go (10 s): a dw that waited and then refused is no pass
+if [ "$code" != 0 ] && [ "$waited" -lt 8 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
   pass "a pipe at the lock file's name is refused at once, never waited on"
 else
-  fail "piped lock: exit $code: $out"
+  fail "piped lock: exit $code after $waited s: $out"
 fi
 rm -f "$DW_HOME/record_dir"
 # The same for a pipe put there after dw looked at the path: the open does not wait for the pipe's
@@ -409,13 +429,15 @@ mkfifo "$dir/pages/.dw-lock"
 perl -MFcntl -e 'sleep 10; sysopen(my $h, $ARGV[0], O_RDONLY | O_NONBLOCK); sleep 2' \
   "$dir/pages/.dw-lock" > /dev/null 2>&1 &
 watchdog=$!
+started=$(date +%s)
 in_dw swapped_in_after_the_look hold_lock "$dir/pages/.dw-lock" 8
+waited=$(($(date +%s) - started))
 kill "$watchdog" 2> /dev/null
 wait "$watchdog" 2> /dev/null
-if [ "$code" = 1 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
+if [ "$code" = 1 ] && [ "$waited" -lt 8 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
   pass "a pipe put in the lock file's place after dw looked at it is not waited on: what was opened is refused"
 else
-  fail "lock swapped for a pipe after the look: exit $code: $out"
+  fail "lock swapped for a pipe after the look: exit $code after $waited s: $out"
 fi
 
 # A pipe where sections.tsv goes would hold a save, and both locks it holds, waiting for a writer: the
@@ -426,13 +448,15 @@ rm -f "$dir/pages/sections.tsv"
 mkfifo "$dir/pages/sections.tsv"
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 watchdog=$(feed_stuck_readers "$dir/pages/sections.tsv")
+started=$(date +%s)
 in_dw record_page 1 "新しい題" "$scratch/plain-body.md" "" quiet
+waited=$(($(date +%s) - started))
 kill "$watchdog" 2> /dev/null
-if [ "$code" = 1 ] && grep -q 'sections.tsv is not a plain file' <<< "$out" && [ -p "$dir/pages/sections.tsv" ] \
+if [ "$code" = 1 ] && [ "$waited" -lt 8 ] && grep -q 'sections.tsv is not a plain file' <<< "$out" && [ -p "$dir/pages/sections.tsv" ] \
   && [ -f "$dir/pages/01-一枚目.md" ] && [ ! -e "$dir/pages/01-新しい題.md" ]; then
   pass "a pipe where sections.tsv goes is refused by a save at once, never read: the record stays as it was"
 else
-  fail "piped sections.tsv on a save (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+  fail "piped sections.tsv on a save (exit $code after $waited s: $out): $(ls "$dir/pages" | tr '\n' ' ')"
 fi
 # A sections.tsv that is a link is not the record's: a save neither reads its target as the record's
 # rows nor puts a file in its place
@@ -473,6 +497,23 @@ if [ "$code" = 1 ] && grep -q 'sections.tsv could not be saved' <<< "$out" && [ 
   pass "a save that cannot give the new index the private index's permissions stops: the index and the page stay as they were"
 else
   fail "sections.tsv whose permissions cannot be carried (exit $code: $out): $(ls -l "$dir/pages" | tr '\n' ' ')"
+fi
+# The rows are staged in a file others cannot read, whatever the umask: they may be those of a private
+# index, and the staged file gets its bits only when it takes the index's place. A new index gets the
+# bits a plain write gives a file (644 under umask 022)
+dir=$(two_page_record staged-index)
+rm -f "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+umask_before=$(umask)
+umask 022
+in_dw staged_index_mode_seen record_page 1 "一枚目" "$scratch/plain-body.md" "" quiet
+in_dw private_file "$scratch/private-file"
+umask "$umask_before"
+if [ "$code" = 0 ] && [ "$(cat "$scratch/staged-mode")" = 600 ] && [ "$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")" = 644 ] \
+  && [ "$(/usr/bin/stat -f %Lp "$scratch/private-file")" = 600 ]; then
+  pass "the index is staged in a file others cannot read; a new index is published with the usual permissions"
+else
+  fail "staged index permissions (exit $code: $out): staged $(cat "$scratch/staged-mode" 2>/dev/null), published $(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv" 2>/dev/null)"
 fi
 # A handbook.md that is a second name of another file is replaced, never written through, and the new
 # file takes the permission bits it had: a handbook made private stays private
@@ -720,6 +761,22 @@ else
 fi
 rm -rf "$DW_HOME/explain"
 
+# The copy of sections.tsv a resume reads from is one others cannot read: the index may be private
+dir=$(two_page_record private-sections-resume)
+chmod 600 "$dir/pages/sections.tsv"
+rm -rf "$DW_HOME/explain"
+umask_before=$(umask)
+umask 022
+in_dw sections_copy_mode_seen explain_restore "$dir"
+umask "$umask_before"
+if [ "$(cat "$scratch/sections-copy-mode" 2>/dev/null)" = 600 ] && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ] \
+  && [ -z "$(find "$DW_HOME/explain/pages" -name '.sections.*')" ]; then
+  pass "on resume the copy of a private sections.tsv is unreadable to others, and gone once the pages are back"
+else
+  fail "copy of sections.tsv on resume (exit $code: $out): mode $(cat "$scratch/sections-copy-mode" 2>/dev/null)"
+fi
+rm -rf "$DW_HOME/explain"
+
 # On resume a pipe where sections.tsv goes is not read (it would hold the resume waiting for a writer):
 # the pages come back, and dw says their sections and given titles did not
 dir=$(two_page_record piped-sections-resume)
@@ -727,13 +784,15 @@ rm -f "$dir/pages/sections.tsv"
 mkfifo "$dir/pages/sections.tsv"
 rm -rf "$DW_HOME/explain"
 watchdog=$(feed_stuck_readers "$dir/pages/sections.tsv")
+started=$(date +%s)
 in_dw explain_restore "$dir"
+waited=$(($(date +%s) - started))
 kill "$watchdog" 2> /dev/null
-if grep -q 'sections.tsv is not a plain file or cannot be read' <<< "$out" \
+if [ "$waited" -lt 8 ] && grep -q 'sections.tsv is not a plain file or cannot be read' <<< "$out" \
   && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ]; then
   pass "on resume a pipe where sections.tsv goes is never read: the pages come back and dw says their sections did not"
 else
-  fail "piped sections.tsv on resume (exit $code: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
+  fail "piped sections.tsv on resume (exit $code after $waited s: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
 fi
 rm -rf "$DW_HOME/explain"
 
