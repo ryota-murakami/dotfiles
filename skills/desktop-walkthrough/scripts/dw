@@ -209,6 +209,8 @@ record_title() {
     # The file is named after the title the HUD showed: when that was a heading only the HUD shows,
     # a Handout names the page by its number, as the HUD does a page without a heading
     if [ "$audience" = handout ] && [ -n "$(filtered_h1 hud "$read")" ]; then title="解説 $n"; fi
+    # A file named after the panel's own 解説 N (its space made a hyphen) reads as that title again
+    [ "$title" = "解説-$n" ] && title="解説 $n"
   fi
   printf '%s' "$title"
 }
@@ -551,7 +553,7 @@ record_clear() {
 
 # Name the record of the running walkthrough, or start recording it; pages already shown are kept too
 cmd_record() {
-  local name="${1:-}" dir old n title file src given rows missing=""
+  local name="${1:-}" dir old n title file src given heading rows missing=""
   if [ -z "$name" ]; then
     dir=$(record_dir)
     if [ -n "$dir" ]; then echo "recording: $dir"; else echo "not recording: dw record <name>"; fi
@@ -582,7 +584,10 @@ cmd_record() {
       src="$EXPLAIN/${file%.html}.md"
       [ -f "$src" ] || continue
       # A title the page's own heading does not give was given with --title
-      given=""; [ "$title" = "$(filtered_h1 hud "$src")" ] || given="$title"
+      # (the panel's fallback 解説 N for a page with no HUD heading was given by nobody)
+      heading=$(filtered_h1 hud "$src")
+      given=""
+      if [ "$title" != "$heading" ] && { [ -n "$heading" ] || [ "$title" != "解説 $n" ]; }; then given="$title"; fi
       # A page the record cannot keep now is said; dw record again saves it (pages kept are skipped)
       record_page "$n" "$title" "$src" "$given" quiet || missing="$missing $n"
     done <<< "$rows"
