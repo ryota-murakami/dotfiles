@@ -253,3 +253,44 @@ test('a diagram reference to its own marker spelled with an escaped line feed st
   // Assert
   expect(diagnostics).toEqual([])
 })
+
+test('a style whose url( runs to the end of the attribute unclosed still stops the export, as CSS reads it to the end', () => {
+  // Arrange
+  const html = '<p><span style="background-image: url(data:image/png;base64,AAAA">一覧</span></p>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads data:image/png;base64,AAAA, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
+
+test('a quoted url, an image-set string and an @import string left open at the end still stop the export', () => {
+  // Arrange
+  const html =
+    '<p><span style="background: url(&quot;open.png">一</span><span style="background: image-set(&quot;set.png">二</span></p>' +
+    '<svg><style>@import "theme.css</style></svg>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 4: a style loads open.png, which a Handout neither checks nor carries: show the picture with an image instead',
+    'page 4: a style loads set.png, which a Handout neither checks nor carries: show the picture with an image instead',
+    'page 4: a style loads theme.css, which a Handout neither checks nor carries: show the picture with an image instead',
+  ])
+})
+
+test('a diagram reference to its own marker left unclosed at the end still loads nothing', () => {
+  // Arrange
+  const html = '<svg><defs><marker id="arrow"></marker></defs><path marker-end="url(#arrow"></path></svg>'
+
+  // Act
+  const diagnostics = unembeddableResources(page, html)
+
+  // Assert
+  expect(diagnostics).toEqual([])
+})

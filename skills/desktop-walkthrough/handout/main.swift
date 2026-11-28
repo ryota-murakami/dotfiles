@@ -740,6 +740,15 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
         if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
     }
     guard mayContinue(offset) else { return endWithout(stopped: true, "the export stopped while \(target) was written") }
+    // Written by descriptor: the path must still name this file, or another program's file would be
+    // reported as the Handout. One put in its place stays as it is
+    var ours = stat()
+    guard fstat(created, &ours) == 0 else {
+        return endWithout(stopped: false, "could not look at \(target) once written: \(errnoText())")
+    }
+    guard isAtPath(target, ours) else {
+        return .failed("another program replaced \(target) while the Handout was written there: that file stays, and nothing was published")
+    }
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
     let aclRestored = !inheritedUnread && (inherited.map { acl_set_fd(created, $0) == 0 } ?? true)
     if aclRestored { fchmod(created, newFileMode()) }

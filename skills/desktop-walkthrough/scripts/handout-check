@@ -16,6 +16,24 @@ SKILL_DIR=$(pwd)
 failures=0
 pass() { printf '  ✓ %s\n' "$1"; }
 fail() { printf '  ✗ %s\n' "$1"; failures=$((failures + 1)); }
+# Wait for the background renderer PID to end, up to SECONDS; one still running then is ended (TERM,
+# then KILL), reaped and said so: a renderer that no longer stops by itself fails its case, which then
+# finds no result, instead of holding up the suite
+wait_bounded() { # PID SECONDS
+  local pid="$1" ticks=$(($2 * 20))
+  while kill -0 "$pid" 2>/dev/null && [ "$ticks" -gt 0 ]; do
+    sleep 0.05
+    ticks=$((ticks - 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    printf '  (process %s still ran after %s s: ended it)\n' "$pid" "$2"
+    kill "$pid" 2>/dev/null
+    sleep 1
+    kill -9 "$pid" 2>/dev/null
+  fi
+  wait "$pid" 2>/dev/null
+  return 0
+}
 
 scratch=$(mktemp -d)
 # The disk image the FAT case mounts is detached however the run ends
@@ -592,7 +610,7 @@ setup=ok
 grep -q 'builder loaded' "$scratch/late-orphan-explain/host.log" 2>/dev/null || setup="the builder never loaded"
 kill -0 "$late" 2>/dev/null || setup="the renderer had finished before dw was ended"
 kill "$parent"; wait "$parent" 2>/dev/null
-wait "$late"
+wait_bounded "$late" 60
 result=$(cat "$scratch/late-orphan.out")
 if [ "$setup" != ok ]; then
   fail "parent gone during the export: setup: $setup ($result)"
@@ -624,7 +642,7 @@ private=no
 [ -n "$seen" ] && [ "$(stat -f '%Lp' "${seen%/*}")" = 700 ] \
   && [ -z "$(find "$scratch" -maxdepth 1 -type f -name '.mid-write.html.dw-handout-*')" ] && private=yes
 kill "$parent"; wait "$parent" 2>/dev/null
-wait "$writer"
+wait_bounded "$writer" 60
 result=$(cat "$scratch/mid-write.out")
 if [ "$private" = yes ] && jq -e '.diagnostics[0] | .code == "HANDOUT_RENDERER" and (.message | test("ended before the export finished: nothing was published$"))' <<< "$result" >/dev/null \
   && [ ! -e "$scratch/mid-write.html" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.mid-write.html.dw-handout-*')" ]; then
@@ -652,7 +670,7 @@ done
 left=$(find "$scratch" -maxdepth 2 -path "$scratch/.stalled.html.dw-handout-*/stalled.html" | head -1)
 started=$(date +%s)
 kill "$parent"; wait "$parent" 2>/dev/null
-wait "$writer"
+wait_bounded "$writer" 30
 took=$(( $(date +%s) - started ))
 result=$(cat "$scratch/stalled.out")
 if [ -n "$left" ] && [ -f "$left" ] && [ ! -e "$scratch/stalled.html" ] && [ "$took" -lt 20 ] \
@@ -685,7 +703,7 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
     sleep 0.05; waited=$((waited + 1))
   done
   kill "$parent"; wait "$parent" 2>/dev/null
-  wait "$writer"
+  wait_bounded "$writer" 60
   result=$(cat "$scratch/fat.out")
   if jq -e --arg target "$fat/handout.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
       and (.message | contains("\($target) was left as written so far (this volume cannot remove it safely): remove it"))' <<< "$result" >/dev/null \
@@ -693,6 +711,26 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
     pass "dw ending while a volume without exclusive renames is written: what was written stays, and the run says where"
   else
     fail "dw gone mid-write on a FAT volume: $(ls -la "$fat" 2>&1) / $result"
+  fi
+  # Another program puts its file at the target while the Handout is written there: that file stays,
+  # and the run publishes nothing (what it wrote went with the name it no longer has)
+  handout_input "$RECORDS/direct" "$fat/replaced.html" "$scratch/fat-replaced-explain" "$scratch/fat-replaced.json"
+  jq '.limits.writePauseMs = 2000' "$scratch/fat-replaced.json" > "$scratch/fat-replaced-paused.json"
+  "$BIN" "$scratch/fat-replaced-paused.json" "$DIST" > "$scratch/fat-replaced.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/replaced.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  printf 'another program\n' > "$fat/other.tmp" && mv -f "$fat/other.tmp" "$fat/replaced.html"
+  wait_bounded "$writer" 60
+  result=$(cat "$scratch/fat-replaced.out")
+  if jq -e --arg target "$fat/replaced.html" '.ok == false
+      and (.diagnostics[0].message | contains("another program replaced \($target) while the Handout was written there: that file stays"))' <<< "$result" >/dev/null \
+    && [ "$(cat "$fat/replaced.html")" = 'another program' ]; then
+    pass "another program replacing the target while it is written in place keeps its file, and nothing is called published"
+  else
+    fail "target replaced mid-write on a FAT volume: $(cat "$fat/replaced.html" 2>&1 | head -c 80) / $result"
   fi
   hdiutil detach -quiet "$fat" || hdiutil detach -quiet -force "$fat"
 else
@@ -714,7 +752,7 @@ until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.meta.html.dw-handout-
 done
 xattr -w com.dw.check 1 "$scratch/meta.html"
 touched=$(/usr/bin/stat -f '%i %Fc' "$scratch/meta.html")
-wait "$writer"
+wait_bounded "$writer" 60
 result=$(cat "$scratch/meta.out")
 if [ "${before%% *}" = "${touched%% *}" ] && [ "${before#* }" != "${touched#* }" ] && jq -e '.ok == true and (.warnings | length) == 0' <<< "$result" >/dev/null \
   && [ "$(/usr/bin/stat -f '%i' "$scratch/meta.html")" != "${before%% *}" ] && [ -z "$(find "$scratch" -maxdepth 1 -name '.meta.html.dw-handout-*')" ] \
@@ -737,7 +775,7 @@ until [ -s "$(find "$scratch" -maxdepth 2 -path "$scratch/.resaved.html.dw-hando
 done
 printf 'X' | dd of="$scratch/resaved.html" bs=1 seek=200 conv=notrunc 2>/dev/null
 touch -t 202601010000.00 "$scratch/resaved.html"
-wait "$writer"
+wait_bounded "$writer" 60
 result=$(cat "$scratch/resaved.out")
 kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.resaved.html.dw-handout-*/resaved.html" | head -1)
 if jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout was saved while it was replaced: that save is kept at \($kept)") != null)' <<< "$result" >/dev/null \
