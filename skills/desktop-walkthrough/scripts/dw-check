@@ -594,6 +594,33 @@ else
 fi
 rm -f "$DW_HOME/record_dir"
 
+# A panel page with no heading the HUD shows is titled 解説 N by the panel: dw record saves no
+# --title for it, so a Handout still names it by its handout-only heading, as after dw explain
+panel=$(cat "$DW_HOME/explain/index.json")
+printf '{"current":1,"pages":[{"n":1,"title":"解説 1","step":"","file":"pages/001.html"}]}\n' > "$DW_HOME/explain/index.json"
+mv "$DW_HOME/explain/pages/001.md" "$scratch/panel-001.md"
+printf '<!-- handout-only -->\n# 配布用の題\n<!-- /handout-only -->\n\n本文\n' > "$DW_HOME/explain/pages/001.md"
+in_dw cmd_record fallback-title
+if [ "$code" = 0 ] && [ "$(cut -f3 "$RECORDS/fallback-title/pages/sections.tsv" 2>/dev/null)" = "" ] \
+  && [ "$(cut -f1 "$RECORDS/fallback-title/pages/sections.tsv" 2>/dev/null)" = 1 ]; then
+  pass "dw record saves no title for a page the panel named 解説 N for want of a HUD heading"
+else
+  fail "fallback title saved as --title (exit $code: $out): $(cat "$RECORDS/fallback-title/pages/sections.tsv" 2>&1)"
+fi
+# A page with no heading at all keeps the panel's title 解説 1 in the Handout (its file is 01-解説-1.md)
+dir="$RECORDS/fallback-title"
+printf '本文だけ\n' > "$dir/pages/01-解説-1.md"
+printf '1\t\n' > "$dir/pages/sections.tsv"
+in_dw record_title "$dir" 1 "$dir/pages/01-解説-1.md" handout
+if [ "$out" = "解説 1" ]; then
+  pass "a page with no heading is titled 解説 1 in the Handout, not by its file name's 解説-1"
+else
+  fail "headless page title: $out"
+fi
+mv "$scratch/panel-001.md" "$DW_HOME/explain/pages/001.md"
+printf '%s\n' "$panel" > "$DW_HOME/explain/index.json"
+rm -f "$DW_HOME/record_dir"
+
 # dw explain --rebuild holds the explainer's lock: a page added meanwhile is never dropped
 before=$(cat "$DW_HOME/explain/index.json")
 holder=$(hold_like_another_dw "$DW_HOME/explain/.dw-lock")
