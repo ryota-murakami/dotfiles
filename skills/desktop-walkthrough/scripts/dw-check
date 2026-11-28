@@ -565,8 +565,9 @@ in_dw cmd_explain --clear
 # The archive's copy keeps the flag too (cp -p): both go back to normal, or the scratch folder stays
 chflags -R nouchg "$dir/pages"
 if [ "$code" != 0 ] && grep -q 'could not be removed' <<< "$out" && [ -f "$dir/pages/02-二枚目.md" ] \
+  && grep -q 'only part of the record was cleared' <<< "$out" && ! grep -q 'nothing was removed' <<< "$out" \
   && grep -q "$(printf '^2\t確認$')" "$dir/pages/sections.tsv" && [ -f "$DW_HOME/explain/pages/001.md" ]; then
-  pass "a page a clear cannot remove keeps its row in sections.tsv, and the panel is left as it was"
+  pass "a page a clear cannot remove keeps its row in sections.tsv, the clear says only part was cleared, and the panel is left as it was"
 else
   fail "clear with a page that cannot be removed (exit $code: $out): $(cat "$dir/pages/sections.tsv" | tr '\n' '|')"
 fi

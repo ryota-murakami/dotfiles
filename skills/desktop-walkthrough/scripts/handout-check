@@ -402,6 +402,16 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1: an inline SVG draws a part 
 else
   fail "inline <use>: $out"
 fi
+# An <feImage> that draws a part of the same SVG stays after sanitizing: it is carried, not refused
+new_record inline-feimage
+printf '\n<svg viewBox="0 0 20 20" width="20" height="20"><defs><circle id="dot" cx="10" cy="10" r="5"/><filter id="f"><feImage href="#dot"/></filter></defs><rect width="20" height="20" filter="url(#f)"/></svg>\n' \
+  >> "$RECORDS/inline-feimage/pages/01-書き出しの流れ.md"
+export_record inline-feimage
+if [ "$code" = 0 ] && ! grep -q 'HANDOUT_IMAGE' <<< "$out"; then
+  pass "an inline SVG whose <feImage> draws a part of the same SVG is exported"
+else
+  fail "inline <feImage href=#id>: $out"
+fi
 
 new_record entity-secret
 printf '\n<a href="https://docs.test/a?expires=1&amp;signature=%s">設計メモ</a>\n' "$SIGNATURE" >> "$RECORDS/entity-secret/pages/01-書き出しの流れ.md"
@@ -682,10 +692,19 @@ fi
 new_record aside-left
 mv "$RECORDS/aside-left/pages/02-"*.md "$RECORDS/aside-left/pages/.02.aside.99999.0"
 export_record aside-left
-if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD a page of aside-left was being replaced when a dw stopped (pages/.02.aside.99999.0)' <<< "$out"; then
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD a page of aside-left was being replaced or cleared when a dw stopped (pages/.02.aside.99999.0)' <<< "$out"; then
   pass "a page left moved aside by a stopped dw stops the export instead of publishing the Record a page short"
 else
   fail "aside left: $out"
+fi
+# A save a killed clear left under its hidden name would be dropped the same way
+new_record clearing-left
+mv "$RECORDS/clearing-left/pages/02-"*.md "$RECORDS/clearing-left/pages/.2.clearing.99999"
+export_record clearing-left
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD a page of clearing-left was being replaced or cleared when a dw stopped (pages/.2.clearing.99999)' <<< "$out"; then
+  pass "a page left under a clear's hidden name stops the export instead of dropping that save"
+else
+  fail "clearing left: $out"
 fi
 
 echo "== the renderer"

@@ -49,21 +49,23 @@ const URL_REFERENCE = '(?![$`{<]|%(?![0-9A-Fa-f]{2}))'
 const CREDENTIAL = '[A-Za-z0-9._~+/=-]'
 
 /**
- * A credential that looks made by a machine: it has a digit, or upper- and lower-case letters both
- * (base64 of `user:password` often has no digit). A word of prose after `Bearer` has neither. Each
- * look runs once along the credential (the classes before `[A-Z]` and `[a-z]` cannot hold the letter
- * looked for), so a long run of letters costs as much as reading it, never its square.
+ * A credential that looks made by a machine: it has a digit, or, letters alone, two capitals at most
+ * one small letter apart beside small letters (random letters, `AbCd`, `dXNl`). A word of prose after
+ * `Bearer` has neither, and neither has a camelCase placeholder (`YourGitHubTokenHere`), whose capitals
+ * each start a word. Each look reads the credential once from where it starts, so a long run of
+ * letters costs as much as reading it, never its square.
  */
-const machineMade = `(?:(?=${CREDENTIAL}*\\d)|(?=[a-z0-9._~+/=-]*[A-Z])(?=[A-Z0-9._~+/=-]*[a-z]))`
+const machineMade = `(?:(?=${CREDENTIAL}*\\d)|(?=${CREDENTIAL}*?[A-Z][a-z]?[A-Z])(?=[A-Z0-9._~+/=-]*[a-z]))`
 
 /**
  * The credential of an explicit `Authorization: Basic` header, at any length: base64 of
  * `user:password`, whole groups of four with their padding, and not followed by more of a word.
  * `a:b` encodes to four characters, so no length floor applies. It must look encoded (a digit, `+`,
- * `/` or `=`, or upper- and lower-case letters both): a word of prose (`Basic auth`) does not.
+ * `/` or `=`, or, letters alone, two capitals at most one small letter apart beside small letters):
+ * a word of prose (`Basic auth`, `Basic Auth`, `Basic AuthData`) does not.
  */
 const BASIC_CREDENTIAL =
-  '(?:(?=[A-Za-z]*[0-9+/=])|(?=[a-z0-9+/=]*[A-Z])(?=[A-Z0-9+/=]*[a-z]))' +
+  '(?:(?=[A-Za-z]*[0-9+/=])|(?=[A-Za-z0-9+/]*?[A-Z][a-z]?[A-Z])(?=[A-Z0-9+/=]*[a-z]))' +
   '(?:[A-Za-z0-9+/]{4}){1,256}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9._~+/=-])'
 
 /** A word as a pattern that matches it in any case (HTTP header names and schemes are case-insensitive). */

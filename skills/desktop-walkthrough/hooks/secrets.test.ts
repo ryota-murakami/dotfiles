@@ -137,6 +137,22 @@ test('a short Basic credential (twelve characters) is found and masked, while pr
   expect(inProse).toEqual([])
 })
 
+test('capitalised prose after Basic and camelCase placeholders after Bearer are not taken for credentials', () => {
+  // Arrange
+  const texts = [
+    'Set Authorization: Basic Auth only over HTTPS.',
+    'Authorization: Basic AuthData',
+    'curl -H "Authorization: Bearer YourGitHubTokenHere" https://api.test/me',
+    'Authorization: Bearer myPersonalAccessToken',
+  ]
+
+  // Act
+  const findings = texts.map((text) => findSecrets(text))
+
+  // Assert
+  expect(findings).toEqual([[], [], [], []])
+})
+
 test('a bearer token of letters alone is found, while prose about bearer tokens is not', () => {
   // Arrange
   const token = ['AbCdEfGhIj', 'KlMnOpQrSt'].join('')
