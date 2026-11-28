@@ -39,6 +39,26 @@ const NAMED_VALUE = '[A-Za-z0-9_+/=~@%!^#*-]'
 const mixed = (chars: string) => `(?=${chars}*\\d)(?=${chars}*[A-Za-z])`
 
 /**
+ * A value in a link's query that stands for a secret without being one. A `%` followed by two
+ * hexadecimal digits is an escaped character of the value itself (`%2B` is `+`, which a signature
+ * may begin with); any other `%` starts a placeholder (`%s`, `%TOKEN%`).
+ */
+const URL_REFERENCE = '(?![$`{<]|%(?![0-9A-Fa-f]{2}))'
+
+/** The characters of an Authorization header's credential. */
+const CREDENTIAL = '[A-Za-z0-9._~+/=-]'
+
+/**
+ * A credential that looks made by a machine: it has a digit, or upper- and lower-case letters both
+ * (base64 of `user:password` often has no digit). A word of prose after `Bearer` has neither.
+ */
+const machineMade = `(?=${CREDENTIAL}*\\d|${CREDENTIAL}*[A-Z]${CREDENTIAL}*[a-z]|${CREDENTIAL}*[a-z]${CREDENTIAL}*[A-Z])`
+
+/** A word as a pattern that matches it in any case (HTTP header names and schemes are case-insensitive). */
+const anyCase = (word: string) =>
+  word.replace(/[A-Za-z]/g, (letter) => `[${letter.toUpperCase()}${letter.toLowerCase()}]`)
+
+/**
  * The shapes a secret takes in text, each with what is shown in its place (`$1`, `$2` are the
  * pattern's groups), in the order they are applied: a later one never matches what an earlier one left.
  *
@@ -55,7 +75,11 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
   ['private-key', /-----BEGIN ([A-Z ]*)PRIVATE KEY-----[\s\S]*?-----END \1PRIVATE KEY-----/g, `-----BEGIN $1PRIVATE KEY-----${MASK}-----END $1PRIVATE KEY-----`],
   ['private-key-head', /-----BEGIN ([A-Z ]*)PRIVATE KEY-----[A-Za-z0-9+/=\s]{40,}/g, `-----BEGIN $1PRIVATE KEY-----${MASK}`],
   // Authorization headers that carry the credential itself
-  ['authorization-header', new RegExp(`\\b(Bearer|Authorization: *Basic) +${REFERENCE}(?=[A-Za-z0-9._~+/=-]*\\d)[A-Za-z0-9._~+/=-]{16,}`, 'g'), `$1 ${MASK}`],
+  [
+    'authorization-header',
+    new RegExp(`\\b(${anyCase('Bearer')}|${anyCase('Authorization')}: *${anyCase('Basic')}) +${REFERENCE}${machineMade}${CREDENTIAL}{16,}`, 'g'),
+    `$1 ${MASK}`,
+  ],
   // JSON Web Tokens: header and payload both begin with base64 `{"`
   ['json-web-token', /\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g, `eyJ${MASK}`],
   // API keys known by a prefix whose body is letters and digits alone: GitHub, npm, Hugging Face, Groq,
@@ -92,7 +116,7 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
   [
     'signed-url-parameter',
     new RegExp(
-      `([?&]${NOT_A_PAGE_TOKEN}[A-Za-z0-9_.-]*(?:signature|sig|token|api[_-]?key|secret|password|passwd|credentials?)=)${REFERENCE}${mixed(URL_VALUE)}${URL_VALUE}{16,}`,
+      `([?&]${NOT_A_PAGE_TOKEN}[A-Za-z0-9_.-]*(?:signature|sig|token|api[_-]?key|secret|password|passwd|credentials?)=)${URL_REFERENCE}${mixed(URL_VALUE)}${URL_VALUE}{16,}`,
       'gi',
     ),
     `$1${MASK}`,

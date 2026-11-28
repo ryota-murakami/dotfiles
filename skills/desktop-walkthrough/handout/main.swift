@@ -52,6 +52,9 @@ let commitRecheckMs = 1_000
 let workerStopWaitMs = 5_000
 /// How much of the Handout is written at a time: between two writes the worker looks whether it should stop.
 let publishChunkBytes = 1 << 20
+/// How much of the Handout's name the staging folder's name repeats, in UTF-8 bytes: with the dot,
+/// `.dw-handout-`, a pid and a UUID it stays under the 255 bytes a file name may take.
+let stagingNameBytes = 160
 /// The largest earlier Handout whose content is read to tell a save from a change of metadata alone; a
 /// larger one whose change time moved counts as saved (it is kept beside the new one).
 let digestLimitBytes = 512 << 20
@@ -674,7 +677,15 @@ struct Staging {
     init(for target: String) {
         let parent = (target as NSString).deletingLastPathComponent
         let name = (target as NSString).lastPathComponent
-        folder = (parent as NSString).appendingPathComponent(".\(name).dw-handout-\(getpid())-\(UUID().uuidString)")
+        // The folder's name starts with the Handout's, so a folder left behind says whose it is; cut to
+        // stagingNameBytes (whole characters) so the name, a pid and a UUID stay within a file name's
+        // 255 bytes however long the Handout's own name is
+        var shown = ""
+        for character in name {
+            if shown.utf8.count + String(character).utf8.count > stagingNameBytes { break }
+            shown.append(character)
+        }
+        folder = (parent as NSString).appendingPathComponent(".\(shown).dw-handout-\(getpid())-\(UUID().uuidString)")
         staged = (folder as NSString).appendingPathComponent(name)
     }
 }
@@ -818,8 +829,10 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     writingInPlace(target)
     // dw may have ended, or the run's time may be up, while the exclusive rename was tried
     guard mayContinue(0) else { return .cancelled }
-    // Read again through this descriptor once written (`holds`)
-    let created = open(target, O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0o600)
+    // Read again through this descriptor once written (`holds`). Every write lands at the end of the
+    // file (O_APPEND): bytes another program adds meanwhile stay where they are, ahead of the next
+    // chunk, and the read-back finds them, instead of being written over
+    let created = open(target, O_RDWR | O_CREAT | O_EXCL | O_APPEND | O_CLOEXEC, 0o600)
     guard created >= 0 else { return .failed("could not create \(target): \(errnoText())") }
     defer { close(created) }
     // What the folder hands down, given back once the file is whole. None to give back without an ACL

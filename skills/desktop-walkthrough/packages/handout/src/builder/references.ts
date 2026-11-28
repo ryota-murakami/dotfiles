@@ -1,4 +1,5 @@
 import { maskSecrets } from '../../../../hooks/secrets'
+import { XLINK_NAMESPACE } from '../constants'
 import type { Diagnostic, HandoutPage, Warning } from '../contract'
 import { cssLoads } from '../utils/cssLoads'
 import { excerpt } from '../utils/excerpt'
@@ -10,10 +11,11 @@ const MEDIA_ELEMENTS: ReadonlySet<string> = new Set(['video', 'audio'])
 const LOADED_ATTRIBUTES: ReadonlySet<string> = new Set(['src', 'poster', 'background', 'data'])
 
 /**
- * Attributes by which a diagram's element names what it draws: a gradient, pattern or symbol of the
- * page (`#id`), or else a file it loads (an `<feImage>`, a `<use>` of another file).
+ * Diagram elements that draw the file their `href` names: a filter's picture, and a `<use>` of a
+ * shape in another file. Every other `href` in a diagram names a part of the page (a gradient, a
+ * pattern, a path) or is a link; an `<image>` is embedded by {@link embedImages}.
  */
-const SVG_REFERENCE_ATTRIBUTES: ReadonlySet<string> = new Set(['href', 'xlink:href'])
+const DRAWN_BY_REFERENCE: ReadonlySet<string> = new Set(['feImage', 'use'])
 
 /** Attributes whose value a reader follows: a link. */
 const LINK_ATTRIBUTES: ReadonlySet<string> = new Set([
@@ -52,8 +54,7 @@ const CSS_ATTRIBUTES: ReadonlySet<string> = new Set([
  * loads would show as a dead player or a missing picture, carrying the author's paths (their user
  * name) besides, and a style's `url(data:…)` would put bytes in the file that no secret check read.
  * CSS is read where CSS is (style attributes, SVG presentation attributes, a diagram's `<style>`):
- * `url(…)`, the strings of `image-set(…)` and `@import`; in a diagram, an element that draws a file it
- * names by `href` (an `<feImage>`, a `<use>` of another file). Called by {@link buildHandout} for every
+ * `url(…)`, the strings of `image-set(…)` and `@import`. Called by {@link buildHandout} for every
  * page after sanitizing: what the colleague receives.
  *
  * @param page - The page the content belongs to (its number names it in messages).
@@ -82,24 +83,57 @@ export function unembeddableResources(page: HandoutPage, html: string): Diagnost
     if (element.closest('video, audio')) continue
     // A diagram's own style sheet loads like a style attribute
     if (name === 'style') for (const target of cssLoads(element.textContent ?? '')) stop(styleLoads(target))
-    const inDiagram = element.closest('svg') !== null
-    const embeddedPicture = name === 'img' || (name === 'image' && inDiagram)
-    // In a diagram, an href of anything but a link or an embedded picture draws what it names: a file
-    // unless it is a part of the page (`#id`)
-    const drawsByReference = inDiagram && name !== 'a' && !embeddedPicture
+    const embeddedPicture = name === 'img' || (name === 'image' && element.closest('svg') !== null)
     for (const attribute of Array.from(element.attributes)) {
       if (CSS_ATTRIBUTES.has(attribute.name))
         for (const target of cssLoads(attribute.value)) stop(styleLoads(target))
-      const value = attribute.value.trim()
-      const loadsFile =
-        (LOADED_ATTRIBUTES.has(attribute.name) && !embeddedPicture) ||
-        (drawsByReference && SVG_REFERENCE_ATTRIBUTES.has(attribute.name) && !value.startsWith('#'))
-      if (loadsFile && value !== '') {
+      if (LOADED_ATTRIBUTES.has(attribute.name) && !embeddedPicture && attribute.value.trim() !== '') {
         stop(
           `the ${name} element loads ${quoted(attribute.value)}, which a Handout does not carry: show the picture with an image instead`,
         )
       }
     }
+  }
+  return diagnostics
+}
+
+/**
+ * Find the diagram elements of a page that draw a file they name by `href` (an `<feImage>`, a `<use>`
+ * of another file): the Handout carries no such file, so the drawing would be incomplete.
+ *
+ * Why it exists: the sanitizer removes a `<use>` and a `file:` address, so after it such a drawing
+ * would lose its part without a word; read before it, the agent learns. Only the `href` a browser
+ * follows counts: SVG 2's, else XLink's, so an unused legacy fallback beside a `#id` stops nothing.
+ * Called by {@link buildHandout} for every page after its pictures are embedded and before it is
+ * sanitized.
+ *
+ * @param page - The page the content belongs to (its number names it in messages).
+ * @param html - The page's content, pictures embedded, not yet sanitized.
+ * @returns One HANDOUT_IMAGE per element that draws a file; empty when every reference is within the page.
+ *
+ * @example
+ * drawnFiles(page, '<svg><use href="parts.svg#box"></use></svg>')
+ * // [{ code: 'HANDOUT_IMAGE', message: 'page 4: the use element loads parts.svg#box, …', page: 4 }]
+ * drawnFiles(page, '<svg><use href="#box"></use></svg>') // []
+ */
+export function drawnFiles(page: HandoutPage, html: string): Diagnostic[] {
+  const holder = document.createElement('template')
+  holder.innerHTML = html
+  const diagnostics: Diagnostic[] = []
+  for (const element of Array.from(holder.content.querySelectorAll('*'))) {
+    if (!DRAWN_BY_REFERENCE.has(element.localName) || element.closest('svg') === null) continue
+    const reference = (
+      element.getAttribute('href') ??
+      element.getAttributeNS(XLINK_NAMESPACE, 'href') ??
+      ''
+    ).trim()
+    // Nothing named, or a part of the page (`#id`): nothing loads
+    if (reference === '' || reference.startsWith('#')) continue
+    diagnostics.push({
+      code: 'HANDOUT_IMAGE',
+      message: `page ${page.n}: the ${element.localName} element loads ${quoted(reference)}, which a Handout does not carry: show the picture with an image instead`,
+      page: page.n,
+    })
   }
   return diagnostics
 }

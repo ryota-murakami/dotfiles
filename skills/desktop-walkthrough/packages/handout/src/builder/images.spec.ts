@@ -766,6 +766,22 @@ test('an SVG that draws a picture by linking it stops the export: a picture show
   ])
 })
 
+test('an SVG that draws a shape from another file with <use> stops the export: a picture shown as an image loads no file', async () => {
+  // Arrange
+  const svg =
+    '<svg xmlns="http://www.w3.org/2000/svg"><symbol id="own"/><use href="#own"/><use href="parts.svg#symbol"/></svg>'
+  const host = hostWithFiles({ '/r/pages/reused.svg': toBase64(svg) })
+  const html = '<p><img src="reused.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](reused.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image reused.svg draws a picture it links to (parts.svg#symbol), which it cannot show inside the Handout: embed that picture in the SVG',
+  ])
+})
+
 test('an SVG that loads a picture through a style or an HTML image stops the export like a linked <image>', async () => {
   // Arrange
   const styled =
@@ -1082,6 +1098,32 @@ test('a font an SVG carries for its text does not stop the export, and is no pic
   // Assert
   expect(result.diagnostics).toEqual([])
   expect(ledger.rasterPictures).toBe(0)
+})
+
+test('a font an SVG carries with a signed link among its names stops the export as a secret, never printing it', async () => {
+  // Arrange: how a TrueType font starts, then a name record stored as UTF-16 (big-endian)
+  const signature = '0f3a'.repeat(16)
+  const name = `https://fonts.test/f?sig=${signature}`
+  const utf16 = Array.from(name).flatMap((character) => [0x00, character.charCodeAt(0)])
+  const font = bytesToBase64(new Uint8Array([0x00, 0x01, 0x00, 0x00, 0x00, 0x04, ...utf16]))
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><style>@font-face { font-family: Hand; src: url(data:font/ttf;base64,${font}) }</style><text font-family="Hand">図</text></svg>`
+  const host = hostWithFiles({ '/r/pages/lettered.svg': toBase64(svg) })
+
+  // Act
+  const result = await embedImages(
+    page('![図](lettered.svg)\n'),
+    '<p><img src="lettered.svg"></p>',
+    '/r',
+    host,
+    createImageLedger(),
+  )
+  const messages = result.diagnostics.map((diagnostic) => diagnostic.message)
+
+  // Assert
+  expect(messages).toEqual([
+    'page 3:1: the image lettered.svg carries a secret shape (signed-url-parameter) in a font it carries; save the picture again without it',
+  ])
+  expect(messages.join('\n')).not.toContain(signature.slice(0, 8))
 })
 
 test('data an SVG carries that is neither a picture nor a font stops the export: a style sheet imported as data could load pictures unchecked', async () => {

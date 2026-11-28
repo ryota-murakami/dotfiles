@@ -488,6 +488,19 @@ else
   fail "permissions on re-export ($(stat -f '%Lp' "$RECORDS/private/handout.html")): $out"
 fi
 
+# A Handout name near a file name's 255-byte limit: the staging folder beside it (named after it, with
+# a pid and a UUID) must still fit, so the export publishes and leaves no folder behind
+new_record long-name
+long_name="$(printf 'h%.0s' $(seq 1 240)).html"
+export_record long-name --out "$scratch/$long_name"
+if [ "$code" = 0 ] && grep -q '<meta name="dw-handout" content="1">' "$scratch/$long_name" \
+  && [ -z "$(find "$scratch" -maxdepth 1 -name '.hhhh*.dw-handout-*')" ]; then
+  pass "a Handout whose name is 245 bytes long publishes: the staging folder's name stays within the limit"
+else
+  fail "long Handout name (exit $code): $out"
+fi
+rm -f "$scratch/$long_name"
+
 # The ACL a folder hands down: a new Handout gets it, like any new file there; a replaced one keeps
 # the earlier Handout's (none here), whatever the folder hands down since
 mkdir -p "$scratch/acl-new" "$scratch/acl-replaced"

@@ -14,7 +14,7 @@
  * embed local images (bytes, secrets, sizes) ────▶ HANDOUT_IMAGE, HANDOUT_SECRET
  *   links to local files ────────────────────────▶ warnings        (before the sanitizer drops file: links)
  * sanitize; scan each page as rendered ──────────▶ HANDOUT_SECRET
- * media, styles that load files ─────────────────▶ HANDOUT_IMAGE
+ * media, styles that load files, diagram parts drawn from files ▶ HANDOUT_IMAGE
  * assemble (CSS, controller, CSP, marker)
  * host reopens the file under its CSP: labels equal, controller runs ─▶ HANDOUT_VERIFY
  *   a picture that does not decode ─────────────▶ HANDOUT_IMAGE
@@ -38,7 +38,7 @@ import { readFile, renderPage, verifyInHost } from './host'
 import { createImageLedger, embedImages } from './images'
 import { judgeRenderedPage, missingLibraries } from './judge'
 import { checkHandout, handoutCheckSchema, measurePage, pageMeasurementSchema, probeBody } from './probes'
-import { localLinks, unembeddableResources } from './references'
+import { drawnFiles, localLinks, unembeddableResources } from './references'
 import { sanitizePage } from './sanitize'
 import { scanForSecrets, scanRenderedPage } from './scan'
 import { handoutCss } from './template'
@@ -145,6 +145,8 @@ export async function buildHandout(
   if (diagnostics.length > 0) return fail(diagnostics)
   // Links to local files, read while every link still has its address (the sanitizer drops file: ones)
   const linkWarnings = embedded.flatMap(({ page, html }) => localLinks(page, html))
+  // Diagram parts drawn from another file, read before the sanitizer drops a <use> or a file: address
+  const drawn = embedded.flatMap(({ page, html }) => drawnFiles(page, html))
 
   const sanitized = embedded.map(({ page, html }) => ({ page, html: sanitizePage(html) }))
   // The colleague receives the sanitized HTML: a value the source spelled with HTML entities or
@@ -152,7 +154,7 @@ export async function buildHandout(
   const disguised = sanitized.flatMap(({ page, html }) => scanRenderedPage(page, html))
   if (disguised.length > 0) return fail(disguised)
   // What a page loads besides its embedded pictures would not work in the colleague's copy
-  const unembeddable = sanitized.flatMap(({ page, html }) => unembeddableResources(page, html))
+  const unembeddable = [...drawn, ...sanitized.flatMap(({ page, html }) => unembeddableResources(page, html))]
   if (unembeddable.length > 0) return fail(unembeddable)
 
   const pages = sanitized.map(({ page, html }) => ({

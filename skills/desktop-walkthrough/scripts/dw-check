@@ -697,6 +697,19 @@ else
   fail "unreadable page (exit $code): $out"
 fi
 
+# A sections.tsv that exists but cannot be read would drop every section and title: the export stops
+dir=$(two_page_record unreadable-sections)
+printf '1\t準備\t一枚目\n' > "$dir/pages/sections.tsv"
+chmod 000 "$dir/pages/sections.tsv"
+rm -f "$DW_CHECK_SEEN"
+in_dw cmd_handout unreadable-sections
+chmod 644 "$dir/pages/sections.tsv"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD.*sections.tsv could not be read' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "a sections.tsv that cannot be read stops the export (HANDOUT_RECORD) rather than losing every section"
+else
+  fail "unreadable sections.tsv (exit $code): $out"
+fi
+
 dir=$(two_page_record duplicate)
 printf '# 別の二枚目\n' > "$dir/pages/02-別の二枚目.md"
 rm -f "$DW_CHECK_SEEN"

@@ -228,3 +228,26 @@ test('a label clipped inside its wrapper is measured by the text it holds, not b
   // Assert
   expect(measured.diagrams[0]?.labels[0]).toMatchObject({ width: 70, contentWidth: 140, contentHeight: 24 })
 })
+
+test('a label of a wide diagram fitted to the page at half size is measured at that size: it fits, no overflow', async () => {
+  // Arrange: the label is 100 by 24 in the diagram's units and shown at 50 by 12; its text fills it
+  vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(() => new DOMRect(0, 0, 50, 12))
+  document.body.innerHTML =
+    '<main id="content"><div class="diagram"><svg id="p1-d1" viewBox="0 0 800 200"><foreignObject width="100" height="24"><div>書き出しの流れ</div></foreignObject></svg></div></main>'
+  const wrapper = document.querySelector('foreignObject > div')
+  if (wrapper) {
+    Object.defineProperty(wrapper, 'scrollWidth', { configurable: true, value: 100 })
+    Object.defineProperty(wrapper, 'scrollHeight', { configurable: true, value: 24 })
+  }
+
+  // Act
+  const measured = pageMeasurementSchema.parse(await measurePage({ contentId: 'content' }))
+
+  // Assert
+  expect(measured.diagrams[0]?.labels[0]).toMatchObject({
+    width: 50,
+    height: 12,
+    contentWidth: 50,
+    contentHeight: 12,
+  })
+})

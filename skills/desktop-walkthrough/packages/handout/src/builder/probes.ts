@@ -67,12 +67,19 @@ export async function measurePage(args: MeasureArgs): Promise<unknown> {
             // wrapper's scroll size is the text it holds. An SVG text is its own box
             const inner = label.localName === 'foreignObject' ? label.firstElementChild : null
             const innerBox = inner ? inner.getBoundingClientRect() : box
+            // A diagram drawn smaller than its viewBox (a wide one fitted to the page) shrinks its labels:
+            // the boxes are measured on screen, the scroll size in the label's own units, so that one is
+            // scaled the same way before the two are compared (1 when the label states no size)
+            const ownWidth = Number.parseFloat(label.getAttribute('width') ?? '')
+            const ownHeight = Number.parseFloat(label.getAttribute('height') ?? '')
+            const scaleX = ownWidth > 0 ? box.width / ownWidth : 1
+            const scaleY = ownHeight > 0 ? box.height / ownHeight : 1
             return {
               text: (label.textContent ?? '').trim(),
               width: box.width,
               height: box.height,
-              contentWidth: inner ? Math.max(innerBox.width, inner.scrollWidth) : box.width,
-              contentHeight: inner ? Math.max(innerBox.height, inner.scrollHeight) : box.height,
+              contentWidth: inner ? Math.max(innerBox.width, inner.scrollWidth * scaleX) : box.width,
+              contentHeight: inner ? Math.max(innerBox.height, inner.scrollHeight * scaleY) : box.height,
             }
           })
         : []

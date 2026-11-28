@@ -445,7 +445,14 @@ async function inspectImage(
           ok: false,
           failure: { code: 'HANDOUT_IMAGE', reason: `carries a picture that ${data.reason}` },
         }
-      if (isFont(data.bytes)) continue
+      if (isFont(data.bytes)) {
+        // A font is no picture, but its names (family, copyright, a vendor's address) are text stored
+        // as ASCII or UTF-16 like a picture's metadata: read the same way. Tables a WOFF2 compresses
+        // stay unread
+        const inFont = metadataSecretShape(data.bytes)
+        if (inFont) return secretIn(inFont, METADATA_ADVICE, ' in a font it carries')
+        continue
+      }
       // A style sheet imported as data could load pictures of its own, and other data is read by
       // no check here
       if (sniffImage(data.bytes) === null) {
@@ -627,7 +634,7 @@ function attributeData(attribute: Attr): string[] {
 }
 
 /**
- * The first picture an SVG loads instead of carrying: an `<image>` or `<feImage>` whose `href` or
+ * The first picture an SVG loads instead of carrying: an `<image>`, `<feImage>` or `<use>` whose `href` or
  * `xlink:href` is neither data nor a reference within the drawing (`#id`), an HTML `<img>` of a label
  * (foreignObject) whose `src` is not data, or a file a style loads ({@link styleLoads}: a `url(…)`,
  * an `image-set(…)`, an `@import`).
@@ -642,10 +649,10 @@ function attributeData(attribute: Attr): string[] {
 function linkedPicture(parsed: Document): string | null {
   for (const element of Array.from(parsed.querySelectorAll('*'))) {
     const name = element.localName
-    // An <image> or a filter's <feImage> names its picture in href (SVG 2's first, then XLink's under
-    // whatever prefix); a label's HTML <img> in src
+    // An <image>, a filter's <feImage> or a <use> of another file names what it draws in href (SVG 2's
+    // first, then XLink's under whatever prefix); a label's HTML <img> in src
     const linked =
-      name === 'image' || name === 'feImage'
+      name === 'image' || name === 'feImage' || name === 'use'
         ? asUrl(element.getAttribute('href') ?? element.getAttributeNS(XLINK_NAMESPACE, 'href') ?? '')
         : name === 'img'
           ? asUrl(element.getAttribute('src') ?? '')

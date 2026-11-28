@@ -103,3 +103,47 @@ test('the example in the finder documentation holds', () => {
   // Assert
   expect(findings).toEqual([{ pattern: 'signed-url-parameter', index: 26, line: 1 }])
 })
+
+test('an HTTP trace with a lower-case basic Authorization header has its credential found, digits or not', () => {
+  // Arrange
+  // base64 of a user and password, which has no digit
+  const credential = ['dXNlcjpw', 'YXNzd29yZA=='].join('')
+  const trace = `> GET /me HTTP/1.1\n> authorization: basic ${credential}\n`
+
+  // Act
+  const findings = findSecrets(trace)
+  const masked = maskSecrets(trace)
+
+  // Assert
+  expect(findings.map((finding) => finding.pattern)).toEqual(['authorization-header'])
+  expect(masked).toBe('> GET /me HTTP/1.1\n> authorization: basic •••\n')
+})
+
+test('a bearer token of letters alone is found, while prose about bearer tokens is not', () => {
+  // Arrange
+  const token = ['AbCdEfGhIj', 'KlMnOpQrSt'].join('')
+  const header = `curl -H "Authorization: bearer ${token}" https://api.test/me`
+  const prose = 'Bearer authentication sends a token in the header.'
+
+  // Act
+  const inHeader = findSecrets(header)
+  const inProse = findSecrets(prose)
+
+  // Assert
+  expect(inHeader.map((finding) => finding.pattern)).toEqual(['authorization-header'])
+  expect(inProse).toEqual([])
+})
+
+test('a signed link whose signature begins with an escaped + is found; a %s placeholder is not', () => {
+  // Arrange
+  const signed = `https://cdn.test/v.mp4?Expires=1&Signature=%2B${'0f3a'.repeat(8)}`
+  const placeholder = 'https://cdn.test/v.mp4?Expires=1&Signature=%s'
+
+  // Act
+  const inSigned = findSecrets(signed)
+  const inPlaceholder = findSecrets(placeholder)
+
+  // Assert
+  expect(inSigned.map((finding) => finding.pattern)).toEqual(['signed-url-parameter'])
+  expect(inPlaceholder).toEqual([])
+})

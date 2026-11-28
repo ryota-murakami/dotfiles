@@ -2,7 +2,7 @@
 // jsdom: happy-dom drops the text of an SVG <style> inside a template, which WebKit keeps
 import { expect, test } from 'vitest'
 
-import { localLinks, unembeddableResources } from './references'
+import { drawnFiles, localLinks, unembeddableResources } from './references'
 
 const page = { n: 4, title: '画面', section: '', markdown: '', built: 'pages/004.html' }
 
@@ -318,6 +318,7 @@ test('an embed, an object and an iframe each stop the export, and a signed addre
   ])
   expect(messages[0]).toContain('page 4: the embed element loads https://docs.test/a?expires=1&signature=')
   expect(messages.join('\n')).not.toContain(signature)
+  expect(messages.join('\n')).not.toContain(signature.slice(0, 8))
   expect(messages[1]).toContain('the object element loads /Users/u/doc.pdf')
   expect(messages[2]).toContain('the iframe element loads https://docs.test/frame')
 })
@@ -329,7 +330,7 @@ test('a diagram element that draws a file it names by href (feImage, use of anot
     '<use xlink:href="parts.svg#box"></use></svg>'
 
   // Act
-  const diagnostics = unembeddableResources(page, html)
+  const diagnostics = drawnFiles(page, html)
 
   // Assert
   expect(diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
@@ -338,14 +339,26 @@ test('a diagram element that draws a file it names by href (feImage, use of anot
   ])
 })
 
-test('a diagram reusing its own parts by href (#id), and its links, load nothing', () => {
+test('a diagram reusing its own parts by href (#id), its links and an href nothing draws from load nothing', () => {
   // Arrange
   const html =
-    '<svg><defs><linearGradient id="g"></linearGradient><linearGradient id="h" href="#g"></linearGradient>' +
-    '<symbol id="s"></symbol></defs><use href="#s"></use><a href="https://docs.test/">設計</a></svg>'
+    '<svg><defs><linearGradient id="g"></linearGradient><linearGradient id="h" href="#g" xlink:href="legacy.svg#g"></linearGradient>' +
+    '<symbol id="s"></symbol></defs><use href=" #s"></use><g href="https://license.test/by"><circle r="2"></circle></g>' +
+    '<a href="https://docs.test/">設計</a></svg>'
 
   // Act
-  const diagnostics = unembeddableResources(page, html)
+  const diagnostics = drawnFiles(page, html)
+
+  // Assert
+  expect(diagnostics).toEqual([])
+})
+
+test('a use whose SVG 2 href names a part of the page draws it, even with an XLink fallback naming a file', () => {
+  // Arrange
+  const html = '<svg><symbol id="box"></symbol><use href="#box" xlink:href="parts.svg#box"></use></svg>'
+
+  // Act
+  const diagnostics = drawnFiles(page, html)
 
   // Assert
   expect(diagnostics).toEqual([])

@@ -7,9 +7,9 @@ import { encodeBase64 } from './encodeBase64'
 
 test('a picture of a million bytes, many chunks long, is encoded whole and decodes back byte for byte', () => {
   // Arrange
-  const bytes = new Uint8Array(1_048_576).fill(0xff)
-  bytes[32_768] = 0x00
-  bytes[1_048_575] = 0x01
+  // Each byte holds its position's low bits mixed with its chunk number: a chunk dropped, repeated or
+  // moved changes the decoded bytes
+  const bytes = Uint8Array.from({ length: 1_048_576 }, (_, index) => (index ^ (index >> 15)) & 0xff)
 
   // Act
   const encoded = encodeBase64(bytes)
@@ -17,11 +17,5 @@ test('a picture of a million bytes, many chunks long, is encoded whole and decod
 
   // Assert
   expect(encoded.length).toBe(1_398_104)
-  expect(encoded.slice(0, 4)).toBe('////')
-  expect(encoded.slice(-4)).toBe('AQ==')
-  expect(decoded.length).toBe(1_048_576)
-  expect(decoded[32_767]).toBe(0xff)
-  expect(decoded[32_768]).toBe(0x00)
-  expect(decoded[32_769]).toBe(0xff)
-  expect(decoded[1_048_575]).toBe(0x01)
+  expect(decoded).toEqual(bytes)
 })

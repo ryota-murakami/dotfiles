@@ -343,6 +343,35 @@ test('a video stops the export before anything is verified: the colleague would 
   expect(requests.some((request) => request.type === 'verify')).toBe(false)
 })
 
+test('a diagram that draws a shape from another file stops the export, rather than losing that shape to the sanitizer', async () => {
+  // Arrange
+  const withUse = {
+    ...renders,
+    1: {
+      report: { type: 'rendered' as const, page: 1, diagrams: 0, errors: [], libs: allLibraries },
+      probe: { html: '<h1>書き出しの流れ</h1><svg><use href="parts.svg#box"></use></svg>', diagrams: [] },
+    },
+  }
+  const { host, requests } = fakeHost({ renders: withUse })
+
+  // Act
+  const outcome = await buildHandout(input, dependencies(host))
+
+  // Assert
+  expect(outcome).toMatchObject({
+    ok: false,
+    diagnostics: [
+      {
+        code: 'HANDOUT_IMAGE',
+        message:
+          'page 1: the use element loads parts.svg#box, which a Handout does not carry: show the picture with an image instead',
+        page: 1,
+      },
+    ],
+  })
+  expect(requests.some((request) => request.type === 'verify')).toBe(false)
+})
+
 test('a link to a local file reaches the agent as a warning even where the sanitizer removes the address', async () => {
   // Arrange
   const linking = {
