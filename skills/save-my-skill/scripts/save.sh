@@ -26,12 +26,15 @@ EXCLUDES=(--exclude metadata.json --exclude .git --exclude __pycache__ --exclude
 
 die() { echo "save.sh: $*" >&2; exit 1; }
 
-# Installed copy of a skill: the first agent home that has it, resolved through symlinks
+# Installed copy of a skill: the first agent home that has it, resolved through symlinks.
+# Prints nothing for a skill that is not installed, and still succeeds: callers assign the output with
+# `src=$(installed_dir ...)`, which under `set -e` would otherwise end the whole script without a message.
 installed_dir() {
   local c
   for c in "$HOME/.claude/skills/$1" "$HOME/.agents/skills/$1" "$HOME/.codex/skills/$1" "$HOME/.cursor/skills/$1"; do
-    [ -f "$c/SKILL.md" ] && { (cd "$c" && pwd -P); return; }
+    [ -f "$c/SKILL.md" ] && { (cd "$c" && pwd -P); return 0; }
   done
+  return 0
 }
 
 # Print the result line, after the skill's own static checks (scripts/check) when it ships them,
