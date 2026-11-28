@@ -51,6 +51,29 @@ hold_like_another_dw() {
   printf '%s' "$holder"
 }
 
+# Hold the lock file LOCK as another dw would, in the background; a second after it is held, make LINK
+# a link to a file that does not exist, and let the lock go. A dw started meanwhile has looked at the
+# folder before the link is there and waits for the lock: it takes the lock with the link in place.
+# Prints the holder's process id once the lock is held
+hold_then_leave_link() {
+  rm -f "$scratch/held"
+  # Its output goes nowhere: a $(…) around this function waits for every holder of its pipe
+  perl -MFcntl=:flock -e 'open(my $f, ">>", $ARGV[0]) or exit 1; flock($f, LOCK_EX) or exit 1; open(my $r, ">", $ARGV[1]); close $r; sleep 1; symlink($ARGV[2], $ARGV[3])' "$1" "$scratch/held" "$scratch/no-such-page.md" "$2" > /dev/null 2>&1 &
+  local holder=$! waited=0
+  until [ -e "$scratch/held" ] || [ "$waited" -ge 100 ]; do sleep 0.05; waited=$((waited + 1)); done
+  printf '%s' "$holder"
+}
+
+# Make DW_CHECK_LINK a link to a file that does not exist while an export reads its pages: dw looks up
+# each page's section then (record_section), after it has listed the pages and before it lists them
+# again. Then "$@"
+link_while_reading() {
+  # dw's own record_section under another name, called by the stand-in that makes the link first
+  eval "$(declare -f record_section | sed '1s/^record_section/dw_record_section/')"
+  record_section() { ln -s "$scratch/no-such-page.md" "$DW_CHECK_LINK" 2>/dev/null; dw_record_section "$@"; }
+  "$@"
+}
+
 # Run "$@" (a dw function and its arguments) in a subshell with dw's functions loaded; the HUD, the
 # network, the renderer and waiting are stand-ins. Both output streams in $out, the exit status in $code
 in_dw() {
@@ -277,6 +300,58 @@ else
   fail "linked journal line (exit $code: $out): $(cat "$scratch/journal-target.json")"
 fi
 rm -f "$DW_HOME/record_dir"
+
+# A clear stops before removing anything when pages/ holds an entry its archive could not keep: a page
+# file with a line break in its name (older records), or a link whose file is gone. It says the
+# entry's page number and kind, never its name (a page's title, which nothing has scanned)
+dir=$(two_page_record odd-newline)
+printf '# 古い\n' > "$dir/pages/"$'03-古い\n題.md'
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_clear
+newline="$code/$out"
+rm -f "$dir/pages/"$'03-古い\n題.md'
+ln -s "$scratch/no-such-page.md" "$dir/pages/03-消えた.md"
+in_dw record_clear
+if [[ "$newline" == 1/*"page 3 in pages/ is a file with a line break in its name"*"nothing was removed"* ]] \
+  && [[ "$newline" != *古い* ]] \
+  && [ "$code" = 1 ] && grep -q 'page 3 in pages/ is a link whose file is gone' <<< "$out" && ! grep -q '消えた' <<< "$out" \
+  && [ -f "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/02-二枚目.md" ] \
+  && [ -z "$(find "$dir/pages" -maxdepth 1 -name 'cleared-*')" ]; then
+  pass "a clear stops, nothing removed, when a page file has a line break in its name or is a link whose file is gone, said by number"
+else
+  fail "clear with an odd page entry (newline $newline; dangling $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+# An entry put there while the clear waits for the record's lock is seen too: the clear looks again
+# once it holds the lock, where it takes the list of pages to archive
+dir=$(two_page_record odd-late)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+holder=$(hold_then_leave_link "$dir/pages/.dw-lock" "$dir/pages/03-後から.md")
+in_dw record_clear
+wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q 'page 3 in pages/ is a link whose file is gone' <<< "$out" \
+  && [ -f "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/02-二枚目.md" ] \
+  && [ -z "$(find "$dir/pages" -maxdepth 1 -name 'cleared-*')" ]; then
+  pass "an entry that is no page file, put there while a clear waits for the record's lock, stops it: nothing removed"
+else
+  fail "odd entry during the wait for the lock (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+# Only the numbers the lists read as pages count: an entry numbered 0 or written with more than nine
+# digits (even a ten-digit spelling of 1) is no page, whatever it is, and a folder is said as one
+dir="$RECORDS/odd-numbers"
+mkdir -p "$dir/pages"
+ln -s "$scratch/no-such-page.md" "$dir/pages/0-零.md"
+ln -s "$scratch/no-such-page.md" "$dir/pages/0000000001-長い.md"
+in_dw record_odd_entry "$dir"
+none="$code/$out"
+mkdir "$dir/pages/07-フォルダ.md"
+in_dw record_odd_entry "$dir"
+if [ "$none" = "1/" ] && [ "$code" = 0 ] && [ "$out" = "$(printf '7\ta folder')" ]; then
+  pass "an entry numbered 0 or past nine digits is no page entry; a folder under a page's name is one, said as page 7"
+else
+  fail "odd entry numbers (none $none; folder $code: $out)"
+fi
 
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
@@ -1066,6 +1141,28 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD.*line break' <<< "$out" && [ ! -e 
   pass "a page file with a line break in its name stops the export (HANDOUT_RECORD): it would split every list"
 else
   fail "line break in a page's file name (exit $code: $out)"
+fi
+
+# An entry that is no page file is looked for with every list of the pages the export takes, not only
+# at its start: one put there while the export waits for the record's lock is in no list it compares
+dir=$(two_page_record odd-snapshot)
+rm -f "$DW_CHECK_SEEN"
+holder=$(hold_then_leave_link "$dir/pages/.dw-lock" "$dir/pages/03-後から.md")
+in_dw cmd_handout odd-snapshot
+wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 3 of odd-snapshot is a link whose file is gone' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "an entry that is no page file, put there after the export's first look, stops it when the pages are listed"
+else
+  fail "odd entry after the export's first look (exit $code: $out)"
+fi
+# The same for one put there while the pages are read: the list taken afterwards would leave it out too
+dir=$(two_page_record odd-reading)
+rm -f "$DW_CHECK_SEEN"
+DW_CHECK_LINK="$dir/pages/03-後から.md" in_dw link_while_reading cmd_handout odd-reading
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 3 of odd-reading is a link whose file is gone' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ]; then
+  pass "an entry that is no page file, put there while the export reads the pages, stops it before the renderer starts"
+else
+  fail "odd entry while the export reads the pages (exit $code: $out)"
 fi
 
 in_dw cmd_handout ../escape
