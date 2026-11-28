@@ -672,9 +672,10 @@ function linkedPicture(parsed: Document): string | null {
  * carriedData(parse('<svg …><rect style="fill: u\\72l(data:;base64,iVBOR…)"/></svg>')) // ['data:;base64,iVBOR…']
  */
 function carriedData(parsed: Document): string[] {
-  return Array.from(parsed.querySelectorAll('*')).flatMap((element) =>
-    [...Array.from(element.attributes).flatMap(attributeData), ...styleLoads(element).filter(isDataUri)],
-  )
+  return Array.from(parsed.querySelectorAll('*')).flatMap((element) => [
+    ...Array.from(element.attributes).flatMap(attributeData),
+    ...styleLoads(element).filter(isDataUri),
+  ])
 }
 
 /**
