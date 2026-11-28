@@ -888,6 +888,33 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
   else
     fail "dw gone once the file was whole on a FAT volume (ended by itself: $ended): $result"
   fi
+  # Another program saves into the file after the run read it back, before it is reported (the pause
+  # after that read): it is read once more at the end, the save stays, and nothing is called published
+  handout_input "$RECORDS/direct" "$fat/reread.html" "$scratch/fat-reread-explain" "$scratch/fat-reread.json"
+  jq '.limits.writePauseMs = 3000' "$scratch/fat-reread.json" > "$scratch/fat-reread-paused.json"
+  "$BIN" "$scratch/fat-reread-paused.json" "$DIST" > "$scratch/fat-reread.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/reread.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  # Whole, and read back, once its size has stayed the same for longer than the pause after each write
+  size=$(/usr/bin/stat -f '%z' "$fat/reread.html" 2>/dev/null); steady=0; waited=0
+  until [ "$steady" -ge 42 ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.1; waited=$((waited + 1))
+    now=$(/usr/bin/stat -f '%z' "$fat/reread.html" 2>/dev/null)
+    if [ "$now" = "$size" ]; then steady=$((steady + 1)); else size=$now; steady=0; fi
+  done
+  printf 'X' | dd of="$fat/reread.html" bs=1 seek=10 conv=notrunc 2>/dev/null
+  ended=yes; wait_bounded "$writer" 60 || ended=no
+  result=$(cat "$scratch/fat-reread.out")
+  if [ "$ended" = yes ] && jq -e --arg target "$fat/reread.html" '.ok == false
+      and (.diagnostics[0].message | contains("another program saved into \($target) while the Handout was written there: that save stays, and nothing was published"))' <<< "$result" >/dev/null \
+    && [ "$(dd if="$fat/reread.html" bs=1 skip=10 count=1 2>/dev/null)" = X ]; then
+    pass "another program saving into a Handout written in place after it was read back keeps that save, and nothing is called published"
+  else
+    fail "save into the target after the read back on a FAT volume (ended by itself: $ended): $result"
+  fi
   hdiutil detach -quiet "$fat" || hdiutil detach -quiet -force "$fat"
 else
   fail "dw gone mid-write on a FAT volume: setup: a FAT disk image could not be made and mounted"
@@ -1059,6 +1086,36 @@ elif [ "$ended" = yes ] && jq -e --arg kept "$kept" '.ok == true and (.warnings 
   pass "a save made into the earlier Handout just before it would go is kept beside, with its warning"
 else
   fail "late save into the earlier Handout (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
+# Another program puts its file at the target just before the earlier Handout would go (the same
+# pause): its file stays, and so does the earlier Handout, in the run's folder
+handout_input "$RECORDS/direct" "$scratch/outrun.html" "$scratch/outrun-explain" "$scratch/outrun.json"
+first_export "target replaced before the earlier Handout goes" "$scratch/outrun.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/outrun.html")
+jq '.limits.writePauseMs = 3000' "$scratch/outrun.json" > "$scratch/outrun-paused.json"
+"$BIN" "$scratch/outrun-paused.json" "$DIST" > "$scratch/outrun.out" &
+writer=$!
+waited=0
+until [ "$(/usr/bin/stat -f '%i' "$scratch/outrun.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/outrun.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+sleep 4.5
+printf 'another program\n' > "$scratch/outrun.tmp" && mv -f "$scratch/outrun.tmp" "$scratch/outrun.html"
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/outrun.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.outrun.html.dw-handout-*/outrun.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "target replaced before the earlier Handout goes: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/outrun.html" --arg kept "$kept" '.ok == false
+    and (.diagnostics[0].message | contains("another program replaced or removed \($target) right after the Handout was put there: what is there now stays (it is not the Handout of this export), and the Handout that was there before is kept at \($kept);"))' <<< "$result" >/dev/null \
+  && [ "$(cat "$scratch/outrun.html")" = 'another program' ] && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ]; then
+  pass "another program replacing the target just before the earlier Handout would go keeps both its file and the earlier Handout"
+else
+  fail "target replaced before the earlier Handout goes (kept: ${kept:-none}, ended by itself: $ended): $result"
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 

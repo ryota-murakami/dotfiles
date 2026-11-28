@@ -602,11 +602,12 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // while the looks above read the earlier one, both stay
             if let conflict = takenOver(earlierKeptAt: staged) { return conflict }
             pauseAfterRename()
-            // Looked at once more right before it goes: that check read the whole new Handout, and a
-            // save made into the earlier one meanwhile (through a descriptor opened before the swap)
-            // moved its change time. Such a save stays, where it is
+            // Both looked at once more right before it goes: that check read the whole new Handout, and
+            // a save made into the earlier one meanwhile (through a descriptor opened before the swap)
+            // moved its change time. Such a save stays, where it is; and while the target no longer
+            // names this run's file, the earlier Handout stays too (said by `takenOver`)
             guard fstat(theirs, &now) == 0, sameContentStamp(now, replaced), sameChangeTime(now, replaced),
-                  isAtPath(staged, replaced) else {
+                  isAtPath(staged, replaced), isAtPath(target, written) else {
                 return takenOver(earlierKeptAt: staged)
                     ?? .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
             }
@@ -777,7 +778,8 @@ func keepPrivate(_ descriptor: Int32) {
 /// the file must hold exactly what was written (`holds`), or nothing is reported as published. After
 /// that read `mayPublish` is asked, as before a rename: a stop made meanwhile leaves the file its
 /// owner's alone and unpublished, and otherwise the watchdogs leave the last steps (its permissions,
-/// a last look at the path) to this worker, so a stopped run never reports a Handout.
+/// a last read of the file and look at its path) to this worker, so a stopped run never reports a
+/// Handout.
 func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, writingInPlace: (String) -> Void,
                            mayContinue: (Int) -> Bool, mayPublish: () -> Bool) -> Publication {
     var present = stat()
@@ -855,7 +857,11 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
     let aclRestored = !inheritedUnread && (inherited.map { acl_set_fd(created, $0) == 0 } ?? true)
     if aclRestored { fchmod(created, newFileMode()) }
-    // The name is looked at last: a file put there during the read or the steps above is not the Handout
+    // Read once more, then the name looked at last: a save made into the file, or a file put there,
+    // during the steps above is not the Handout that was checked. Either stays as it is
+    guard holds(created, size: data.count, digest: SHA256.hash(data: data)) else {
+        return .failed("another program saved into \(target) while the Handout was written there: that save stays, and nothing was published")
+    }
     guard isAtPath(target, ours) else {
         return .failed("another program replaced \(target) while the Handout was written there: that file stays, and nothing was published")
     }
