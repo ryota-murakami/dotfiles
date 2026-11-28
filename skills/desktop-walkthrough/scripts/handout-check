@@ -744,6 +744,17 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 2 of linked-page is a symboli
 else
   fail "linked page: $out"
 fi
+# A page that is a link whose file is gone is in no list: the export stops instead of publishing the
+# Record a page short
+new_record dangling-page
+ln -s "$scratch/no-such-page.md" "$RECORDS/dangling-page/pages/09-消えた.md"
+export_record dangling-page
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD pages/09-消えた.md of dangling-page is not a page file dw can read' <<< "$out" \
+  && [ ! -e "$RECORDS/dangling-page/handout.html" ]; then
+  pass "a page that is a link whose file is gone stops the export with HANDOUT_RECORD, nothing published"
+else
+  fail "dangling page link: $out"
+fi
 # A pipe as sections.tsv would hold the export (and the Record's lock) waiting for a writer
 new_record piped-sections
 rm -f "$RECORDS/piped-sections/pages/sections.tsv"

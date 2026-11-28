@@ -243,6 +243,24 @@ journal_writable() {
   return 0
 }
 
+# The first numbered entry of DIR's pages/ that record_pages leaves out of its list: a link whose
+# file is gone, a folder or pipe, or a name with a line break. Prints its name (control characters as
+# spaces) and succeeds; fails when every entry is listed. Called by dw handout and record_clear,
+# which would otherwise export or archive the record a page short without a word.
+record_odd_entry() {
+  local dir="$1" entry base number
+  for entry in "$dir"/pages/[0-9]*-*.md; do
+    [ -e "$entry" ] || [ -L "$entry" ] || continue
+    base="${entry##*/}"
+    number="${base%%-*}"
+    case "$number" in ''|*[!0-9]*) continue ;; esac
+    case "$base" in *$'\n'*) ;; *) [ -f "$entry" ] && continue ;; esac
+    printf '%s' "$base" | tr '\000-\037\177' ' '
+    return 0
+  done
+  return 1
+}
+
 # Whether the record in DIR may have its pages written: a pages/ that is a link would change another
 # folder's pages. Called by record_page and record_clear before they list, lock or write anything.
 record_pages_writable() {
@@ -498,10 +516,16 @@ record_page() {
 # archive is complete (every page and sections.tsv copied and compared) before anything leaves the
 # record: a clear that fails part way has removed nothing
 record_clear() {
-  local dir base archive tries=0 n page moved=0 listed stayed
+  local dir base archive tries=0 n page moved=0 listed stayed odd
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   record_pages_writable "$dir" || return 1
+  # An entry the archive could not hold (a link, a name with a line break) would be left behind and
+  # later replaced by a new page of its number: the clear stops before anything is removed
+  if odd=$(record_odd_entry "$dir"); then
+    echo "dw: explain --clear: pages/$odd is not a page file dw can keep (a link whose file is gone, a folder, or a line break in its name): rename or remove it, then clear again; nothing was removed" >&2
+    return 1
+  fi
   listed=$(record_pages "$dir")
   # No pages: no archive, the sections stay as they are
   [ -n "$listed" ] || return 0
@@ -1863,6 +1887,12 @@ LIST
     # Its listing comes from this list, so what is compared afterwards is exactly what was staged
     if [ -w "$dir/pages" ] && ! hold_lock "$dir/pages/.dw-lock" 8 2>/dev/null; then
       handout_fail HANDOUT_RECORD "the pages of $name are being written by another dw: export again in a moment"; exit 1
+    fi
+    # A numbered entry no list holds (a link whose file is gone, a folder) would be missing: exporting
+    # without it would publish the Record a page short, so it stops
+    if odd=$(record_odd_entry "$dir"); then
+      release_lock 8
+      handout_fail HANDOUT_RECORD "pages/$odd of $name is not a page file dw can read (a link whose file is gone, a folder, or a line break in its name): put the page's own file there or remove it, then export again"; exit 1
     fi
     record_pages "$dir" > "$tmp/manifest.tsv"
     listing=$(handout_listing "$tmp/manifest.tsv" "$dir")

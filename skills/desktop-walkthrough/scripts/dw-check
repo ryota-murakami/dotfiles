@@ -278,6 +278,26 @@ else
 fi
 rm -f "$DW_HOME/record_dir"
 
+# A clear stops before removing anything when pages/ holds an entry its archive could not keep: a page
+# file with a line break in its name (older records), or a link whose file is gone
+dir=$(two_page_record odd-newline)
+printf '# 古い\n' > "$dir/pages/"$'03-古い\n題.md'
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_clear
+newline="$code/$out"
+rm -f "$dir/pages/"$'03-古い\n題.md'
+ln -s "$scratch/no-such-page.md" "$dir/pages/03-消えた.md"
+in_dw record_clear
+if [[ "$newline" == 1/*"is not a page file dw can keep"*"nothing was removed"* ]] \
+  && [ "$code" = 1 ] && grep -q 'pages/03-消えた.md is not a page file dw can keep' <<< "$out" \
+  && [ -f "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/02-二枚目.md" ] \
+  && [ -z "$(find "$dir/pages" -maxdepth 1 -name 'cleared-*')" ]; then
+  pass "a clear stops, nothing removed, when a page file has a line break in its name or is a link whose file is gone"
+else
+  fail "clear with an odd page entry (newline $newline; dangling $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
 mkfifo "$dir/pages/.dw-lock"
