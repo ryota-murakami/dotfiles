@@ -29,7 +29,6 @@ test('the renderer accepts the input dw writes for a two-page Record', () => {
         n: 1,
         title: '権限の全体像',
         section: '準備',
-        source: 'pages/01-権限の全体像.md',
         markdown: '# 権限の全体像\n\n本文\n',
         built: 'pages/001.html',
       },
@@ -37,7 +36,6 @@ test('the renderer accepts the input dw writes for a two-page Record', () => {
         n: 2,
         title: 'Gate で判定する',
         section: '',
-        source: 'pages/02-Gate-で判定する.md',
         markdown: '# Gate で判定する\n',
         built: 'pages/002.html',
       },
@@ -61,9 +59,7 @@ test('the renderer refuses input written for another protocol version', () => {
     out: '/r/handout.html',
     log: '/tmp/host.log',
     limits: { pageMs: 30000, runMs: 600000 },
-    pages: [
-      { n: 1, title: 'A', section: '', source: 'pages/01-A.md', markdown: '# A', built: 'pages/001.html' },
-    ],
+    pages: [{ n: 1, title: 'A', section: '', markdown: '# A', built: 'pages/001.html' }],
   }
 
   // Act

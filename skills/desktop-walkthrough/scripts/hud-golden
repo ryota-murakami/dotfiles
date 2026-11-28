@@ -12,18 +12,25 @@
 set -u
 cd "$(dirname "$0")/.." || exit 1
 SKILL_DIR=$(pwd)
-GOLDEN="$SKILL_DIR/fixtures/hud-golden"
+# DW_GOLDEN_DIR: a copy of the fixtures to capture into instead (scripts/dw-check checks capture there)
+GOLDEN="${DW_GOLDEN_DIR:-$SKILL_DIR/fixtures/hud-golden}"
 
 # Build every fixture page with dw's own explain_build into the baseline folder
 capture() {
-  local tmp EXPLAIN page base n title step count=0
-  tmp=$(mktemp -d)
+  local tmp page base n title step staged aside copied=0 count=0 failed=0
+  if ! tmp=$(mktemp -d) || [ ! -d "$tmp" ]; then
+    echo "hud-golden: could not make a scratch folder" >&2
+    return 1
+  fi
+  # dw's own functions, everything but its dispatch: explain_build exactly as dw defines it, with what
+  # it calls (explain_filter, …). The baseline is what dw builds, not a copy of that code. (A file,
+  # not "source <(…)", which bash 3.2 reads as empty)
+  sed '/^case "\${1:-}" in$/,$d' scripts/dw > "$tmp/dwlib"
+  # shellcheck source=/dev/null
+  source "$tmp/dwlib"
   EXPLAIN="$tmp/explain"
   mkdir -p "$EXPLAIN/pages"
   printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
-  # explain_build exactly as dw defines it: the baseline is what dw builds, not a copy of that code.
-  # It reads EXPLAIN and SKILL_DIR, which it sees from here
-  eval "$(sed -n '/^explain_build() {$/,/^}$/p' scripts/dw)"
   # Title and section as dw resume finds them: the first H1, the page's row in sections.tsv
   for page in "$GOLDEN"/record/pages/[0-9]*-*.md; do
     [ -f "$page" ] || continue
@@ -31,15 +38,60 @@ capture() {
     n=$((10#${base%%-*}))
     title=$(sed -n 's/^# \{1,\}//p' "$page" | head -1)
     step=$(awk -F '\t' -v n="$n" '$1 == n { print $2 }' "$GOLDEN/record/pages/sections.tsv")
-    explain_build "$n" "$title" "$step" "$page" "$n"
-    count=$((count + 1))
+    if explain_build "$n" "$title" "$step" "$page" "$n"; then
+      count=$((count + 1))
+    else
+      echo "hud-golden: $(basename "$page") could not be built" >&2
+      failed=1
+    fi
   done
-  [ "$count" -gt 0 ] || { echo "hud-golden: no fixture pages in $GOLDEN/record/pages" >&2; rm -rf "$tmp"; return 1; }
-  rm -rf "$GOLDEN/baseline"
-  mkdir -p "$GOLDEN/baseline/pages"
-  cp "$EXPLAIN"/pages/[0-9]*.html "$GOLDEN/baseline/pages/"
-  rm -rf "$tmp"
-  echo "hud-golden: $count page(s) built into fixtures/hud-golden/baseline/pages"
+  # Every page built, or the baseline stays as it was
+  if [ "$failed" = 1 ] || [ "$count" = 0 ]; then
+    echo "hud-golden: no baseline was written: fixtures/hud-golden/baseline is as it was" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
+  # The new baseline is written beside the earlier one first (the same volume, so each rename below
+  # is one step) and compared there page for page: a copy cut short (a volume that filled up) never
+  # takes the earlier baseline's place. Its folder is made like any folder here (mkdir, so with the
+  # usual permissions) and only when no folder of that name exists: one an earlier run left is not
+  # this run's to write into
+  staged="$GOLDEN/baseline.new.$$"
+  aside="$staged.earlier"
+  if [ -e "$aside" ] || ! mkdir "$staged"; then
+    echo "hud-golden: the new baseline could not be staged at $staged (remove what an earlier run left there): $GOLDEN/baseline is as it was" >&2
+    rm -rf "$tmp"
+    return 1
+  fi
+  if mkdir "$staged/pages" && cp "$EXPLAIN"/pages/[0-9]*.html "$staged/pages/"; then
+    copied=1
+    for page in "$EXPLAIN"/pages/[0-9]*.html; do
+      cmp -s "$page" "$staged/pages/$(basename "$page")" || copied=0
+    done
+  fi
+  if [ "$copied" = 0 ]; then
+    echo "hud-golden: the new baseline could not be written whole beside $GOLDEN/baseline, which is as it was" >&2
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  # The earlier baseline steps aside (to a name nothing holds: checked above), and comes back unless
+  # the new one took its place
+  if [ -e "$GOLDEN/baseline" ] && ! mv "$GOLDEN/baseline" "$aside"; then
+    echo "hud-golden: the earlier baseline could not be moved aside: $GOLDEN/baseline is as it was" >&2
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  if ! mv "$staged" "$GOLDEN/baseline"; then
+    if [ -e "$aside" ] && ! mv "$aside" "$GOLDEN/baseline"; then
+      echo "hud-golden: the new baseline could not be put in place, and the earlier one is at $aside: move it back to $GOLDEN/baseline" >&2
+    else
+      echo "hud-golden: the new baseline could not be put in place: $GOLDEN/baseline is as it was" >&2
+    fi
+    rm -rf "$staged" "$tmp"
+    return 1
+  fi
+  rm -rf "$aside" "$tmp"
+  echo "hud-golden: $count page(s) built into $GOLDEN/baseline/pages"
 }
 
 case "${1:-}" in

@@ -34,7 +34,7 @@
  * | HANDOUT_TEMPLATE | builder | page.html lacks the markers around the CSS the Handout takes |
  * | HANDOUT_VERIFY | builder | the finished file, reopened under its own CSP, lost labels or its controller did not run |
  * | HANDOUT_RENDERER | host, dw | the host is unavailable, a time limit passed, its web content ended or the builder threw |
- * | HANDOUT_OUT_EXISTS | dw, host | the output path is a folder, or holds a file that is not a Handout |
+ * | HANDOUT_OUT_EXISTS | dw, host | the output path is a folder, holds a file that is not a Handout, or cannot be written |
  */
 import { z } from 'zod'
 
@@ -58,14 +58,14 @@ export const handoutCodeSchema = z.enum([
 export type HandoutCode = z.infer<typeof handoutCodeSchema>
 
 /**
- * The tag that makes a file a Handout. The builder writes it in the head; before replacing a file,
- * dw and the host look for {@link HANDOUT_MARKER_ATTRIBUTE} in its first bytes and never replace a
- * file without it (DX D11, D16; eng D7). scripts/check requires the host to carry the same literal.
+ * The first bytes of every Handout, ending with the tag that makes a file one
+ * (`<meta name="dw-handout" content="1">`, DX D11, D16). Before replacing a file, dw and the host
+ * require it to start with exactly these bytes and never replace one that does not (eng D7): the
+ * marker's text elsewhere near the top (a page about Handouts, a form field, a source file) is not a
+ * Handout. scripts/check requires scripts/dw and handout/main.swift to carry the same literal.
  */
-export const HANDOUT_MARKER_META = '<meta name="dw-handout" content="1">'
-
-/** The part of {@link HANDOUT_MARKER_META} a guard looks for, whatever the attribute order around it. */
-export const HANDOUT_MARKER_ATTRIBUTE = 'name="dw-handout"'
+export const HANDOUT_HEAD =
+  '<!doctype html>\n<html lang="ja">\n<head>\n<meta charset="utf-8">\n<meta name="dw-handout" content="1">'
 
 /** A position in the Record that a message points at; every field the cause knows, nothing more. */
 const locationShape = {
@@ -77,7 +77,10 @@ const locationShape = {
   diagram: z.number().int().positive().optional(),
 }
 
-/** One reason an export stopped. Its message never contains a secret value or an unmasked file name. */
+/**
+ * One reason an export stopped. Its message names a page by its number (`page 7:12`), never by its
+ * file name, which dw makes from the page's title; it never contains a secret value.
+ */
 export const diagnosticSchema = z.object({
   code: handoutCodeSchema,
   message: z.string().min(1),
@@ -101,8 +104,6 @@ export const handoutPageSchema = z.object({
   title: z.string(),
   /** Section name from sections.tsv column 2; empty when the page has none. */
   section: z.string(),
-  /** Record-relative path of the source, the one messages name: `pages/07-設計.md`. */
-  source: z.string().min(1),
   /**
    * The page's original source, both audiences: what the secret scan reads and where an image's line
    * is found. Line numbers in every message count lines of this text.
@@ -117,10 +118,15 @@ export type HandoutPage = z.infer<typeof handoutPageSchema>
 export const handoutLimitsSchema = z.object({
   pageMs: z.number().int().positive(),
   runMs: z.number().int().positive(),
+  /**
+   * How often the host looks whether dw's process is still there (1000 when absent). A fixture
+   * lengthens it so only the look right before publishing can stop the export.
+   */
+  parentMs: z.number().int().positive().optional(),
 })
 export type HandoutLimits = z.infer<typeof handoutLimitsSchema>
 
-/** The limits dw sets on a real export. */
+/** The limits dw sets on a real export (scripts/check compares them with scripts/dw's HANDOUT_PAGE_LIMIT_MS and HANDOUT_RUN_LIMIT_MS). */
 export const DEFAULT_LIMITS: HandoutLimits = { pageMs: PAGE_RENDER_LIMIT_MS, runMs: RUN_LIMIT_MS }
 
 /**
@@ -146,6 +152,11 @@ export const handoutInputSchema = z.object({
   /** The host's log; HANDOUT_RENDERER names it. */
   log: z.string().min(1),
   limits: handoutLimitsSchema,
+  /**
+   * dw's process. The host stops without publishing once it is gone (dw killed, its terminal closed):
+   * nobody waits for that export. Absent when the host is run by hand or by a check.
+   */
+  parentPid: z.number().int().positive().optional(),
   /** At least one page: dw stops an empty Record with HANDOUT_EMPTY before the host starts. */
   pages: z.array(handoutPageSchema).min(1),
 })
@@ -224,7 +235,7 @@ export type HostReply = z.infer<typeof hostReplySchema>
 export const buildOutcomeSchema = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),
-    /** The whole Handout, verified under its own CSP, carrying {@link HANDOUT_MARKER_META}. */
+    /** The whole Handout, verified under its own CSP, starting with {@link HANDOUT_HEAD}. */
     html: z.string().min(1),
     pages: z.number().int().positive(),
     diagrams: z.number().int().nonnegative(),

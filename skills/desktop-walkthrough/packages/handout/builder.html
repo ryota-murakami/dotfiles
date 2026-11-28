@@ -1,0 +1,22 @@
+<!doctype html>
+<!--
+  The builder page: the renderer host loads dist/builder.html (this page, built into one file) into
+  its builder view and calls window.dwHandout.build(input).
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <!--
+      The builder handles pages' HTML and holds the host channel that reads files: it loads nothing
+      from anywhere and sends nothing anywhere. Its one script is inline, built into this file.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:"
+    />
+    <title>dw handout builder</title>
+  </head>
+  <body>
+    <script type="module" src="/src/builder/main.ts"></script>
+  </body>
+</html>
