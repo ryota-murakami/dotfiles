@@ -527,6 +527,27 @@ record_restore_aside() {
 # WORD as one shell word, single-quoted, for a command a message tells the user to run
 shell_word() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 
+# The part of a file name that comes from TITLE: no path separators, code-span backticks or control
+# characters (tabs, line breaks, a terminal's escapes), spaces as hyphens, and 200 bytes at most, cut
+# at a character's end. A file name has a limit (255 characters on APFS, 255 bytes on most other file
+# systems; the number and .md come on top) and past it the file can never be written: without the
+# cut a page with a long title would be missing from the record, and from every Handout, for good.
+# The title itself is kept whole where it is kept (sections.tsv, the page's heading). Called by
+# record_page and cmd_note
+title_slug() {
+  printf '%s' "$1" | tr -d '`' | tr '/:\t' '---' | tr -d '\000-\037\177' | tr -s ' ' '-' | perl -e '
+    binmode STDIN; binmode STDOUT;
+    local $/;
+    my $slug = <STDIN> // "";
+    my $cut = 200;
+    if (length($slug) > $cut) {
+      # Back to the first byte of the character the cut falls in (a byte 10xxxxxx continues one)
+      $cut-- while $cut > 0 && (ord(substr($slug, $cut, 1)) & 0xC0) == 0x80;
+      $slug = substr($slug, 0, $cut || 200);
+    }
+    print $slug;'
+}
+
 # Keep an explainer page in the record as pages/NN-title.md and rebuild the handbook. GIVEN is the
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
@@ -534,15 +555,25 @@ record_page() {
   local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i base number status
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
+  # A page number is a whole number from 1 with nine digits at most, as record_pages reads them: any
+  # other is refused before the record is touched (a longer one would wrap around in the arithmetic
+  # and name another page). The number itself is not printed: it may come from an index edited by hand
+  case "$n" in
+    ''|*[!0-9]*)
+      echo "dw: a page whose number is not a whole number cannot be kept in the record: the record was left as it was" >&2
+      return 1 ;;
+  esac
+  if [ "${#n}" -gt 9 ] || [ "$((10#$n))" -lt 1 ]; then
+    echo "dw: a page whose number is not between 1 and 999999999 cannot be kept in the record: the record was left as it was" >&2
+    return 1
+  fi
   # The number as decimal once (--page 01 or 08 is page 1 or 8): file names, rows and the files it
   # replaces all compare the same number, and printf never reads 08 as octal
-  case "$n" in ''|*[!0-9]*) ;; *) n=$((10#$n)) ;; esac
+  n=$((10#$n))
   record_pages_writable "$dir" || return 1
   mkdir -p "$dir/pages"
   nn=$(printf '%02d' "$n")
-  # A file name from the title: no path separators, code-span backticks or control characters (tabs,
-  # line breaks, a terminal's escapes); spaces as hyphens
-  slug=$(printf '%s' "$title" | tr -d '`' | tr '/:\t' '---' | tr -d '\000-\037\177' | tr -s ' ' '-')
+  slug=$(title_slug "$title")
   page="$dir/pages/$nn-${slug}.md"
   sections="$dir/pages/sections.tsv"
   rows="$dir/pages/.sections.rows.$$"
@@ -763,7 +794,7 @@ record_clear() {
 
 # Name the record of the running walkthrough, or start recording it; pages already shown are kept too
 cmd_record() {
-  local name="${1:-}" dir old n title file src given heading rows missing=""
+  local name="${1:-}" dir old n title entry src given heading rows missing="" lost="" unnumbered=0
   if [ -z "$name" ]; then
     dir=$(record_dir)
     if [ -n "$dir" ]; then echo "recording: $dir"; else echo "not recording: dw record <name>"; fi
@@ -786,16 +817,32 @@ cmd_record() {
       echo "dw record: the pages of the panel could not be saved in the record yet (see above): run dw record $name again to save them" >&2
       return 1
     fi
-    rows=$(jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json")
-    while IFS=$'\t' read -r n title file; do
-      [ -n "$n" ] || continue
+    # One entry of the index per line, as JSON: a tab or a line break in a title stays inside its
+    # entry (rows split on them would put part of a title where the next field is read)
+    if ! rows=$(jq -c '.pages[]?' "$EXPLAIN/index.json" 2>/dev/null); then
+      release_lock 7
+      echo "recording: $dir"
+      echo "dw record: the panel's index ($EXPLAIN/index.json) could not be read, so its pages were not saved in the record: show a page again (dw explain <file> --page N) or clear the panel, then run dw record $name" >&2
+      return 1
+    fi
+    while IFS= read -r entry; do
+      [ -n "$entry" ] || continue
+      # The number is used only when it is a page number (a whole number from 1, nine digits at most):
+      # an index edited by hand can hold anything, and arithmetic on it would stop dw part way
+      n=$(jq -r '.n | if type == "number" and . == floor and . >= 1 and . <= 999999999 then floor else empty end' <<< "$entry" 2>/dev/null)
+      if [ -z "$n" ]; then unnumbered=$((unnumbered + 1)); continue; fi
       # A page the record holds already, however its file is spelt, is never replaced by the panel's copy
       record_has_page "$dir" "$n" && continue
-      src="$EXPLAIN/${file%.html}.md"
-      [ -f "$src" ] || continue
+      # The source is where dw explain writes page N: the index's own "file" is not followed
+      src="$EXPLAIN/$(printf 'pages/%03d.md' "$n")"
+      # A page without its source cannot be saved, and saying nothing would pass for a full record
+      if [ ! -f "$src" ]; then lost="$lost $n"; continue; fi
+      title=$(jq -r '(.title // "") | tostring' <<< "$entry" 2>/dev/null)
+      heading=$(filtered_h1 hud "$src")
+      # An entry without a title is titled as dw explain titles a page: by its heading, else 解説 N
+      [ -n "$title" ] || title="${heading:-解説 $n}"
       # A title the page's own heading does not give was given with --title
       # (the panel's fallback 解説 N for a page with no HUD heading was given by nobody)
-      heading=$(filtered_h1 hud "$src")
       given=""
       if [ "$title" != "$heading" ] && { [ -n "$heading" ] || [ "$title" != "解説 $n" ]; }; then given="$title"; fi
       # A page the record cannot keep now is said; dw record again saves it (pages kept are skipped)
@@ -806,8 +853,14 @@ cmd_record() {
   echo "recording: $dir"
   if [ -n "$missing" ]; then
     echo "dw record: page(s)$missing of the panel could not be saved in the record yet (see above): run dw record $name again to save them" >&2
-    return 1
   fi
+  if [ -n "$lost" ]; then
+    echo "dw record: page(s)$lost of the panel have no source left in $EXPLAIN/pages, so the record does not hold them: show each again (dw explain <file> --page N), then run dw record $name" >&2
+  fi
+  if [ "$unnumbered" -gt 0 ]; then
+    echo "dw record: $unnumbered of the entries in the panel's index ($EXPLAIN/index.json) carry no page number (a whole number from 1): they were not saved" >&2
+  fi
+  [ -z "$missing" ] && [ -z "$lost" ] && [ "$unnumbered" = 0 ]
 }
 
 cmd_records() {
@@ -1523,6 +1576,14 @@ cmd_explain() {
       *)         src="$1"; shift ;;
     esac
   done
+  # --page as a number once, before anything reads it: a whole number from 1 with nine digits at most,
+  # taken as decimal. jq reads 010 as page 10 and printf as octal 8, so the page looked up and the
+  # files written would otherwise be two different pages
+  if [ -n "$page" ]; then
+    case "$page" in *[!0-9]*) die "--page needs a page number (digits only, from 1): nothing changed" ;; esac
+    if [ "${#page}" -gt 9 ] || [ "$((10#$page))" -lt 1 ]; then die "--page needs a page number between 1 and 999999999: nothing changed"; fi
+    page=$((10#$page))
+  fi
   if [ -z "$src" ] && [ -n "$request" ]; then
     mkdir -p "$EXPLAIN"; printf '%s' "$request" > "$EXPLAIN/visibility-request"
     [ "$request" = show ] && hidden_note "the panel"
@@ -1668,9 +1729,13 @@ cmd_note() {
   if [ -n "$dir" ]; then
     mkdir -p "$dir/notes"
     n=$(printf '%03d' $(( $(find "$dir/notes" -name '*.md' | wc -l) + 1 )))
-    slug=$(printf '%s' "${title:-note}" | tr -d '`' | tr '/:' '--' | tr -s ' ' '-')
-    cp "$md" "$dir/notes/$n-${slug}.md"
-    journal "💡 メモ「${title:-$(head -1 "$md")}」 → notes/$n-${slug}.md"
+    slug=$(title_slug "${title:-note}")
+    # A note the record cannot keep is said, not passed over (the popup is shown either way)
+    if cp "$md" "$dir/notes/$n-${slug}.md" 2>/dev/null; then
+      journal "💡 メモ「${title:-$(head -1 "$md")}」 → notes/$n-${slug}.md"
+    else
+      echo "dw: the note is shown, but the record could not keep it ($dir/notes): check that folder's permissions" >&2
+    fi
   fi
   # The popup reports back once it is on screen
   for ((i = 0; i < 16; i++)); do

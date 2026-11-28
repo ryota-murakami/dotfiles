@@ -281,6 +281,51 @@ if [ "$code" = 0 ] && [ ! -e "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/
 else
   fail "zero-padded page number: exit $code: $out / $(ls "$dir/pages" | tr '\n' ' ')"
 fi
+# A page number past nine digits, or one that is no whole number, is refused before the record is
+# touched: a twenty-digit one (2^64 + 1, worked out here) would wrap around to 1 and replace page 1
+dir=$(two_page_record odd-number)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+before=$(ls -A "$dir/pages" | tr '\n' ' ')
+in_dw record_page "$(perl -Mbigint -e 'print 2**64 + 1')" "桁あふれ" "$scratch/fixed.md" "" quiet
+wrapped="$code/$out"
+in_dw record_page 1.5 "小数" "$scratch/fixed.md" "" quiet
+if [[ "$wrapped" == 1/*"not between 1 and 999999999"* ]] && [ "$code" = 1 ] && grep -q 'not a whole number' <<< "$out" \
+  && [ "$(ls -A "$dir/pages" | tr '\n' ' ')" = "$before" ] && grep -q '本文 1' "$dir/pages/01-一枚目.md"; then
+  pass "a page number of twenty digits, or one that is no whole number, is refused: page 1 and the record stay as they were"
+else
+  fail "page numbers out of range ($wrapped / $code: $out): $(ls -A "$dir/pages" | tr '\n' ' ')"
+fi
+# A title longer than a file name may be (311 characters here; this file system takes 255) is cut to
+# 200 bytes for the file name and kept whole in sections.tsv: the page is saved, where the write
+# failed every time
+dir=$(two_page_record long-title)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+long_title=$(printf 'a long title %.0s' $(seq 1 24))
+long_title="${long_title% }"
+in_dw record_page 3 "$long_title" "$scratch/fixed.md" "$long_title" quiet
+saved=$(find "$dir/pages" -maxdepth 1 -name '03-*.md')
+name=$(basename "$saved" .md)
+if [ "$code" = 0 ] && [ -f "$saved" ] && [ "$(printf '%s' "${name#03-}" | wc -c | tr -d ' ')" = 200 ] \
+  && [ "$(awk -F '\t' '$1 == 3 { print $3 }' "$dir/pages/sections.tsv")" = "$long_title" ]; then
+  pass "a page with a title longer than a file name may be is saved under a cut name, its whole title kept in sections.tsv"
+else
+  fail "long title (exit $code: $out): name of $(printf '%s' "${name#03-}" | wc -c | tr -d ' ') bytes"
+fi
+# The cut falls at a character's end: 40 times 長い題 (360 bytes) keeps 66 whole characters, 198 bytes
+long_title=$(printf '長い題%.0s' $(seq 1 40))
+in_dw title_slug "$long_title"
+if [ "$(printf '%s' "$out" | wc -c | tr -d ' ')" = 198 ] && [ "$out" = "$(printf '長い題%.0s' $(seq 1 22))" ]; then
+  pass "a long title of three-byte characters is cut for the file name at a character's end, never inside one"
+else
+  fail "title_slug on a long title: $(printf '%s' "$out" | wc -c | tr -d ' ') bytes"
+fi
+# The file name's part from a title: separators, backticks and control characters never reach it
+in_dw title_slug "$(printf 'a\tb/c:d`e\nf  g')"
+if [ "$out" = "a-b-c-def-g" ]; then
+  pass "a title's tab, slash and colon become hyphens in the file name, its backtick and line break go, its spaces become one hyphen"
+else
+  fail "title_slug: $out"
+fi
 # handbook.md rebuilt keeps its own permissions (a private one stays 0600), and one that is a link to
 # a folder is replaced by the file itself: nothing is written into that folder
 dir=$(two_page_record private-handbook)
@@ -1040,6 +1085,94 @@ fi
 mv "$scratch/panel-001.md" "$DW_HOME/explain/pages/001.md"
 printf '%s\n' "$panel" > "$DW_HOME/explain/index.json"
 rm -f "$DW_HOME/record_dir"
+
+# A tab or a line break in a panel title stays inside its entry: both pages are saved, the file names
+# hold neither, and each row keeps the title on one line
+panel=$(cat "$DW_HOME/explain/index.json")
+jq -n '{current: 2, pages: [{n: 1, title: "前\t後", step: "", file: "pages/001.html"}, {n: 2, title: "上\n下", step: "", file: "pages/002.html"}]}' > "$DW_HOME/explain/index.json"
+in_dw cmd_record odd-titles
+if [ "$code" = 0 ] && [ "$(ls "$RECORDS/odd-titles/pages" | tr '\n' ' ')" = "01-前-後.md 02-上下.md sections.tsv " ] \
+  && [ "$(cat "$RECORDS/odd-titles/pages/sections.tsv")" = "$(printf '1\t\t前 後\n2\t\t上 下')" ]; then
+  pass "dw record saves a panel page whose title holds a tab or a line break, under a file name and a row without them"
+else
+  fail "panel titles with a tab or a line break (exit $code: $out): $(ls "$RECORDS/odd-titles/pages" 2>&1 | tr '\n' ' ') / $(cat "$RECORDS/odd-titles/pages/sections.tsv" 2>&1)"
+fi
+rm -f "$DW_HOME/record_dir"
+# A page the index lists without its source cannot be saved: dw record says which, and fails
+jq -n '{current: 3, pages: [{n: 1, title: "一枚目", step: "", file: "pages/001.html"}, {n: 3, title: "三枚目", step: "", file: "pages/003.html"}]}' > "$DW_HOME/explain/index.json"
+in_dw cmd_record no-source
+if [ "$code" = 1 ] && grep -q 'page(s) 3 of the panel have no source left' <<< "$out" \
+  && [ "$(ls "$RECORDS/no-source/pages" | tr '\n' ' ')" = "01-一枚目.md sections.tsv " ]; then
+  pass "dw record says which panel page has no source left and fails; the pages it has are saved"
+else
+  fail "panel page without its source (exit $code: $out): $(ls "$RECORDS/no-source/pages" 2>&1 | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+# An entry whose number is no page number (an index edited by hand) is counted and left out; the
+# others are saved, where arithmetic on such a number stopped dw record part way
+jq -n '{current: 2, pages: [{n: 1.5, title: "小数", step: "", file: "pages/001.html"}, {n: "二", title: "文字", step: "", file: "pages/002.html"}, {n: 2, title: "二枚目", step: "", file: "pages/002.html"}]}' > "$DW_HOME/explain/index.json"
+in_dw cmd_record index-numbers
+if [ "$code" = 1 ] && grep -q "2 of the entries in the panel's index" <<< "$out" \
+  && [ "$(ls "$RECORDS/index-numbers/pages" | tr '\n' ' ')" = "02-二枚目.md sections.tsv " ]; then
+  pass "dw record leaves out index entries without a page number, says how many, and saves the others"
+else
+  fail "index entries without a page number (exit $code: $out): $(ls "$RECORDS/index-numbers/pages" 2>&1 | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+# An entry without a title is saved under the page's own heading, as dw explain titles a page, and
+# no title is recorded as given
+jq -n '{current: 1, pages: [{n: 1, step: "", file: "pages/001.html"}]}' > "$DW_HOME/explain/index.json"
+in_dw cmd_record untitled-entry
+if [ "$code" = 0 ] && [ "$(ls "$RECORDS/untitled-entry/pages" | tr '\n' ' ')" = "01-一枚目.md sections.tsv " ] \
+  && [ "$(cat "$RECORDS/untitled-entry/pages/sections.tsv")" = "$(printf '1\t')" ]; then
+  pass "dw record saves an index entry without a title under the page's own heading, with no title given"
+else
+  fail "index entry without a title (exit $code: $out): $(ls "$RECORDS/untitled-entry/pages" 2>&1 | tr '\n' ' ') / $(cat "$RECORDS/untitled-entry/pages/sections.tsv" 2>&1)"
+fi
+rm -f "$DW_HOME/record_dir"
+# An index that cannot be read at all is said: dw record does not pass for having saved every page
+printf '{"current":1,"pages":[{"n":1,' > "$DW_HOME/explain/index.json"
+in_dw cmd_record broken-index
+if [ "$code" = 1 ] && grep -q "the panel's index (.*) could not be read" <<< "$out" && grep -q '^recording: ' <<< "$out"; then
+  pass "dw record says when the panel's index cannot be read, and fails"
+else
+  fail "unreadable panel index (exit $code: $out)"
+fi
+rm -f "$DW_HOME/record_dir"
+
+# --page is read as a decimal number once: 010 is page 10 (printf would read it as octal 8 and write
+# page 8's files), and 08 is page 8
+printf '# 八枚目\n' > "$DW_HOME/explain/pages/008.md"
+printf '# 十枚目\n' > "$DW_HOME/explain/pages/010.md"
+jq -n '{current: 8, pages: [{n: 8, title: "八枚目", step: "", file: "pages/008.html"}, {n: 10, title: "十枚目", step: "", file: "pages/010.html"}]}' > "$DW_HOME/explain/index.json"
+printf '# 直した十枚目\n' > "$scratch/page-ten.md"
+printf '# 直した八枚目\n' > "$scratch/page-eight.md"
+in_dw cmd_explain "$scratch/page-ten.md" --page 010
+ten="$code/$(cat "$DW_HOME/explain/pages/008.md")/$(cat "$DW_HOME/explain/pages/010.md")"
+in_dw cmd_explain "$scratch/page-eight.md" --page 08
+if [ "$ten" = "0/# 八枚目/# 直した十枚目" ] && [ "$(cat "$DW_HOME/explain/pages/008.md")" = '# 直した八枚目' ] \
+  && [ "$(jq -c '[.pages[] | [.n, .title, .file]]' "$DW_HOME/explain/index.json")" = '[[8,"直した八枚目","pages/008.html"],[10,"直した十枚目","pages/010.html"]]' ] \
+  && [ ! -e "$DW_HOME/explain/pages/000.md" ]; then
+  pass "dw explain --page 010 rewrites page 10 and --page 08 page 8: no other page's files are written"
+else
+  fail "--page with leading zeros ($ten; then exit $code: $out): $(ls "$DW_HOME/explain/pages" | tr '\n' ' ') / $(jq -c '[.pages[] | [.n, .title, .file]]' "$DW_HOME/explain/index.json" 2>&1)"
+fi
+# A --page that is no page number changes nothing
+before=$(cat "$DW_HOME/explain/index.json"; ls "$DW_HOME/explain/pages")
+in_dw cmd_explain "$scratch/page-ten.md" --page 1x
+not_digits="$code/$out"
+in_dw cmd_explain "$scratch/page-ten.md" --page 0
+zero="$code/$out"
+in_dw cmd_explain "$scratch/page-ten.md" --page "1$(printf '%09d' 0)"
+if [[ "$not_digits" == 1/*"--page needs a page number"* ]] && [[ "$zero" == 1/*"--page needs a page number"* ]] \
+  && [ "$code" = 1 ] && grep -q -- '--page needs a page number' <<< "$out" \
+  && [ "$(cat "$DW_HOME/explain/index.json"; ls "$DW_HOME/explain/pages")" = "$before" ]; then
+  pass "dw explain --page with letters, 0 or ten digits is refused and nothing changes"
+else
+  fail "--page that is no page number ($not_digits / $zero / $code: $out)"
+fi
+rm -f "$DW_HOME/explain/pages/008.md" "$DW_HOME/explain/pages/010.md" "$DW_HOME/explain/pages/008.html" "$DW_HOME/explain/pages/010.html"
+printf '%s\n' "$panel" > "$DW_HOME/explain/index.json"
 
 # dw explain --rebuild holds the explainer's lock: a page added meanwhile is never dropped
 before=$(cat "$DW_HOME/explain/index.json")
