@@ -243,6 +243,41 @@ if [ "$code" = 0 ] && [ "$acl" = 1 ] && grep -q '直した' "$dir/handbook.md"; 
 else
   fail "handbook ACL: exit $code, acl entries $acl: $out"
 fi
+# A pages/ that is a link to another Record's pages is never written or cleared through
+other=$(two_page_record link-target)
+dir="$RECORDS/linked-writer"
+mkdir -p "$dir"
+printf '# 記録：linked-writer\n' > "$dir/journal.md"
+ln -s "$other/pages" "$dir/pages"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+before=$(cat "$other/pages/01-一枚目.md")
+in_dw record_page 1 "上書き" "$scratch/fixed.md" "" quiet
+saved="$code/$out"
+in_dw record_clear
+if [[ "$saved" == 1/*"is a symbolic link"* ]] && [ "$code" = 1 ] && grep -q 'is a symbolic link' <<< "$out" \
+  && [ "$(cat "$other/pages/01-一枚目.md")" = "$before" ] && [ ! -e "$other/pages/01-上書き.md" ] \
+  && [ -z "$(find "$other/pages" -maxdepth 1 -name 'cleared-*')" ]; then
+  pass "a pages/ that is a link to another Record is refused by saves and clears, the other Record untouched"
+else
+  fail "linked pages/ writer (save $saved; clear $code: $out): $(ls "$other/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+
+# A journal.md that is a link is not written through: the line is not written, its target unchanged
+dir=$(two_page_record linked-journal-line)
+printf '{"kept": true}\n' > "$scratch/journal-target.json"
+rm -f "$dir/journal.md"
+ln -s "$scratch/journal-target.json" "$dir/journal.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw journal "一行"
+if [ "$code" = 0 ] && grep -q 'not a plain file: the journal line was not written' <<< "$out" \
+  && [ "$(cat "$scratch/journal-target.json")" = '{"kept": true}' ]; then
+  pass "a journal.md that is a link takes no line: a warning, and its target unchanged"
+else
+  fail "linked journal line (exit $code: $out): $(cat "$scratch/journal-target.json")"
+fi
+rm -f "$DW_HOME/record_dir"
+
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
 mkfifo "$dir/pages/.dw-lock"

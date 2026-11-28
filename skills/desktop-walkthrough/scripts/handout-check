@@ -723,6 +723,16 @@ if [ "$code" = 0 ] && grep -q 'journal.md could not be written' <<< "$out" && [ 
 else
   fail "linked journal: $out"
 fi
+# A handout.log left as a link is replaced by dw's own log: its target is never emptied
+new_record linked-log
+printf 'keep me\n' > "$scratch/log-target.txt"
+rm -f "$DW_HOME/handout.log" && ln -s "$scratch/log-target.txt" "$DW_HOME/handout.log"
+export_record linked-log
+if [ "$code" = 0 ] && [ "$(cat "$scratch/log-target.txt")" = 'keep me' ] && [ -f "$DW_HOME/handout.log" ] && [ ! -L "$DW_HOME/handout.log" ]; then
+  pass "a handout.log that is a link is replaced by a fresh log, its target unchanged"
+else
+  fail "linked handout.log: $out / $(cat "$scratch/log-target.txt")"
+fi
 # A page that is a link would publish the file it points to, from outside the Record
 new_record linked-page
 printf '# 外の文書\n' > "$scratch/outside.md"
