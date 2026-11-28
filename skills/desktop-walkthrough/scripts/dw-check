@@ -507,13 +507,14 @@ printf '%s' "$dir" > "$DW_HOME/record_dir"
 umask_before=$(umask)
 umask 022
 in_dw staged_index_mode_seen record_page 1 "一枚目" "$scratch/plain-body.md" "" quiet
+saved="$code/$out"
 in_dw private_file "$scratch/private-file"
 umask "$umask_before"
-if [ "$code" = 0 ] && [ "$(cat "$scratch/staged-mode")" = 600 ] && [ "$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")" = 644 ] \
-  && [ "$(/usr/bin/stat -f %Lp "$scratch/private-file")" = 600 ]; then
+if [ "$saved" = "0/" ] && [ "$(cat "$scratch/staged-mode")" = 600 ] && [ "$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")" = 644 ] \
+  && [ "$code" = 0 ] && [ "$(/usr/bin/stat -f %Lp "$scratch/private-file")" = 600 ]; then
   pass "the index is staged in a file others cannot read; a new index is published with the usual permissions"
 else
-  fail "staged index permissions (exit $code: $out): staged $(cat "$scratch/staged-mode" 2>/dev/null), published $(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv" 2>/dev/null)"
+  fail "staged index permissions (the save $saved; private_file exit $code: $out): staged $(cat "$scratch/staged-mode" 2>/dev/null), published $(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv" 2>/dev/null)"
 fi
 # A handbook.md that is a second name of another file is replaced, never written through, and the new
 # file takes the permission bits it had: a handbook made private stays private
@@ -769,7 +770,7 @@ umask_before=$(umask)
 umask 022
 in_dw sections_copy_mode_seen explain_restore "$dir"
 umask "$umask_before"
-if [ "$(cat "$scratch/sections-copy-mode" 2>/dev/null)" = 600 ] && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ] \
+if [ "$code" = 0 ] && [ "$(cat "$scratch/sections-copy-mode" 2>/dev/null)" = 600 ] && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ] \
   && [ -z "$(find "$DW_HOME/explain/pages" -name '.sections.*')" ]; then
   pass "on resume the copy of a private sections.tsv is unreadable to others, and gone once the pages are back"
 else
@@ -788,7 +789,7 @@ started=$(date +%s)
 in_dw explain_restore "$dir"
 waited=$(($(date +%s) - started))
 kill "$watchdog" 2> /dev/null
-if [ "$waited" -lt 8 ] && grep -q 'sections.tsv is not a plain file or cannot be read' <<< "$out" \
+if [ "$code" = 0 ] && [ "$waited" -lt 8 ] && grep -q 'sections.tsv is not a plain file or cannot be read' <<< "$out" \
   && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ]; then
   pass "on resume a pipe where sections.tsv goes is never read: the pages come back and dw says their sections did not"
 else
