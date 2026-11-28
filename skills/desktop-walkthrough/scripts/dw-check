@@ -228,6 +228,21 @@ if [ "$mode" = 600 ] && [ "$code" = 0 ] && [ -f "$dir/handbook.md" ] && [ ! -L "
 else
   fail "handbook replacement: mode $mode, exit $code: $out / $(ls -A "$scratch/handbook-folder" | tr '\n' ' ')"
 fi
+# A rebuilt handbook.md keeps an access list (ACL) set on it: written in place, never a new file
+dir=$(two_page_record acl-handbook)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 古い\n' > "$dir/handbook.md"
+chmod +a "everyone deny read" "$dir/handbook.md"
+in_dw record_page 1 "一枚目" "$scratch/fixed.md" "" quiet
+# ls -le prints the ACL of the one file named (no file name is matched against the pattern)
+# shellcheck disable=SC2010
+acl=$(ls -le "$dir/handbook.md" | grep -c 'everyone deny read')
+chmod -a "everyone deny read" "$dir/handbook.md"
+if [ "$code" = 0 ] && [ "$acl" = 1 ] && grep -q '直した' "$dir/handbook.md"; then
+  pass "a rebuilt handbook.md keeps the access list set on it"
+else
+  fail "handbook ACL: exit $code, acl entries $acl: $out"
+fi
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
 mkfifo "$dir/pages/.dw-lock"
@@ -552,6 +567,17 @@ if [ "$code" = 0 ] && [ "$(cat "$RECORDS/backfill/pages/001-一枚目.md" 2>/dev
   pass "dw record keeps a page the record holds as 001-, edited there, and does not replace it with the panel's copy"
 else
   fail "dw record over a page spelt 001- (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ')"
+fi
+# A page of an older record whose file name has a line break (record_pages leaves it out) still counts
+# as held: dw record never replaces it with the panel's copy
+legacy="$RECORDS/backfill/pages/"$'02-古い\n題.md'
+mv "$RECORDS/backfill/pages/02-二枚目.md" "$legacy"
+printf '# 二枚目（記録で直した）\n' > "$legacy"
+in_dw cmd_record backfill
+if [ "$code" = 0 ] && [ "$(cat "$legacy" 2>/dev/null)" = '# 二枚目（記録で直した）' ] && [ ! -e "$RECORDS/backfill/pages/02-二枚目.md" ]; then
+  pass "dw record keeps a page whose file name has a line break, and does not replace it with the panel's copy"
+else
+  fail "dw record over a page with a line break in its name (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ')"
 fi
 rm -f "$DW_HOME/record_dir"
 

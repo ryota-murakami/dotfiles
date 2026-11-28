@@ -152,6 +152,21 @@ test('an HTTP trace with a tab after Authorization: or before the credential has
   expect(masked).toBe('> Authorization:\tBasic •••\n')
 })
 
+test('a short padded Basic credential that ends a sentence is found and masked', () => {
+  // Arrange
+  // base64 of a short user:password with its padding, assembled at run time
+  const credential = ['dTpw', 'YXNzMQ=='].join('')
+  const sentence = `Send Authorization: Basic ${credential}. Then reload.`
+
+  // Act
+  const findings = findSecrets(sentence)
+  const masked = maskSecrets(sentence)
+
+  // Assert
+  expect(findings).toEqual([{ pattern: 'authorization-header', index: 5, line: 1 }])
+  expect(masked).toBe('Send Authorization: Basic •••. Then reload.')
+})
+
 test('an unpadded or base64url Basic credential of sixteen characters or more is still found and masked', () => {
   // Arrange
   // base64 without its padding, and base64url (with - and _), assembled at run time

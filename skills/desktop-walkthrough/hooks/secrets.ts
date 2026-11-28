@@ -59,14 +59,15 @@ const machineMade = `(?:(?=${CREDENTIAL}*\\d)|(?=${CREDENTIAL}*?[A-Z][a-z]?[A-Z]
 
 /**
  * The credential of an explicit `Authorization: Basic` header, at any length: base64 of
- * `user:password`, whole groups of four with their padding, and not followed by more of a word.
+ * `user:password`, whole groups of four with their padding, and not followed by more of a word (a
+ * full stop that ends the sentence may follow).
  * `a:b` encodes to four characters, so no length floor applies. It must look encoded (a digit, `+`,
  * `/` or `=`, or, letters alone, two capitals at most one small letter apart beside small letters):
  * a word of prose (`Basic auth`, `Basic Auth`, `Basic AuthData`) does not.
  */
 const BASIC_CREDENTIAL =
   '(?:(?=[A-Za-z]*[0-9+/=])|(?=[A-Za-z0-9+/]*?[A-Z][a-z]?[A-Z])(?=[A-Z0-9+/=]*[a-z]))' +
-  '(?:[A-Za-z0-9+/]{4}){1,256}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9._~+/=-])'
+  '(?:[A-Za-z0-9+/]{4}){1,256}(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?(?![A-Za-z0-9_~+/=-]|\\.[A-Za-z0-9._~+/=-])'
 
 /** A word as a pattern that matches it in any case (HTTP header names and schemes are case-insensitive). */
 const anyCase = (word: string) =>
