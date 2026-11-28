@@ -305,6 +305,8 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
   function setTocOpen(open: boolean): void {
     tocPanel.hidden = !open
     tocButton.setAttribute('aria-expanded', String(open))
+    // Opened on a late page of a long walkthrough, the contents show the reader's own page at once
+    if (open) tocPanel.querySelector('button[aria-current="page"]')?.scrollIntoView({ block: 'nearest' })
   }
   tocButton.addEventListener('click', () => setTocOpen(tocPanel.hidden !== false))
 
@@ -342,6 +344,8 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
       return
     }
     if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return
+    // Shift with an arrow extends a selection of the text (caret browsing): it never turns the page
+    if (event.shiftKey) return
     // Arrow keys belong to a field, to a code block, table or diagram they were typed in, and to one the
     // reader pressed into that scrolls sideways; anywhere else they turn the page
     if (event.defaultPrevented || keepsArrowKeys(event.target, view) || scrollsSideways(pressedIn)) return

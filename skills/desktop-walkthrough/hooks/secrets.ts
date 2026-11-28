@@ -50,9 +50,11 @@ const CREDENTIAL = '[A-Za-z0-9._~+/=-]'
 
 /**
  * A credential that looks made by a machine: it has a digit, or upper- and lower-case letters both
- * (base64 of `user:password` often has no digit). A word of prose after `Bearer` has neither.
+ * (base64 of `user:password` often has no digit). A word of prose after `Bearer` has neither. Each
+ * look runs once along the credential (the classes before `[A-Z]` and `[a-z]` cannot hold the letter
+ * looked for), so a long run of letters costs as much as reading it, never its square.
  */
-const machineMade = `(?=${CREDENTIAL}*\\d|${CREDENTIAL}*[A-Z]${CREDENTIAL}*[a-z]|${CREDENTIAL}*[a-z]${CREDENTIAL}*[A-Z])`
+const machineMade = `(?:(?=${CREDENTIAL}*\\d)|(?=[a-z0-9._~+/=-]*[A-Z])(?=[A-Z0-9._~+/=-]*[a-z]))`
 
 /** A word as a pattern that matches it in any case (HTTP header names and schemes are case-insensitive). */
 const anyCase = (word: string) =>
@@ -93,7 +95,7 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
   // GitLab, Slack, 1Password service accounts, Sentry, Figma
   [
     'prefixed-api-key-with-dashes',
-    /\b(sk-(?:ant-|proj-|svcacct-)?|github_pat_|glpat-|xox[abeprs]-|ops_eyJ|sntry[su]_|figd_)(?=[A-Za-z0-9_-]*\d)[A-Za-z0-9_-]{20,}/g,
+    /\b(sk-(?:ant-|proj-|svcacct-)?|github_pat_|glpat-|xox[abeprs]-|ops_eyJ|sntry[su]_|figd_)(?=[A-Za-z0-9_-]{0,256}\d)[A-Za-z0-9_-]{20,}/g,
     `$1${MASK}`,
   ],
   // Keys whose prefix is short, so the whole shape is asked for: Google API keys, Google OAuth access
@@ -122,7 +124,7 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
     `$1${MASK}`,
   ],
   // The password of a connection string: `scheme://user:password@host`
-  ['connection-string-password', new RegExp(`(\\b[a-z][a-z0-9+.-]*:\\/\\/[^\\s:@/]+:)${REFERENCE}${mixed('[^\\s@/]')}[^\\s@/]{8,}(@)`, 'gi'), `$1${MASK}$2`],
+  ['connection-string-password', new RegExp(`(\\b[a-z][a-z0-9+.-]{0,31}:\\/\\/[^\\s:@/]+:)${REFERENCE}${mixed('[^\\s@/]')}[^\\s@/]{8,}(@)`, 'gi'), `$1${MASK}$2`],
   // NAME=value where the name says secret, the value ending where the assignment does
   [
     'secret-variable',
@@ -186,7 +188,11 @@ export interface SecretFinding {
  * findSecrets('export TOKEN="$(op read op://vault/api/token)"')     // []
  */
 export function findSecrets(text: string): SecretFinding[] {
-  const claimed: Array<{ start: number; end: number }> = []
+  // Which characters a shape already found, and where each line starts: both read in time that grows
+  // with the text, however many findings it holds (a picture's metadata may hold thousands)
+  const claimed = new Uint8Array(text.length)
+  const lineStarts = [0]
+  for (let index = text.indexOf('\n'); index !== -1; index = text.indexOf('\n', index + 1)) lineStarts.push(index + 1)
   const findings: SecretFinding[] = []
   for (const [name, pattern] of SECRET_PATTERNS) {
     // matchAll works on a copy of the pattern: its lastIndex stays untouched for maskSecrets
@@ -194,13 +200,35 @@ export function findSecrets(text: string): SecretFinding[] {
       const start = match.index ?? 0
       const end = start + match[0].length
       // A shape never counts text an earlier shape already found, as maskSecrets never re-masks it
-      if (claimed.some((span) => start < span.end && end > span.start)) continue
-      claimed.push({ start, end })
-      findings.push({ pattern: name, index: start, line: text.slice(0, start).split('\n').length })
+      if (claimed.subarray(start, end).includes(1)) continue
+      claimed.fill(1, start, end)
+      findings.push({ pattern: name, index: start, line: lineOf(lineStarts, start) })
     }
   }
   // Sorted in place: the array is this call's own, and toSorted is newer than the WebKit the Handout's
   // builder targets (Safari 15)
   findings.sort((first, second) => first.index - second.index)
   return findings
+}
+
+/**
+ * The line (from 1) a position of a text is on, found by halving the list of line starts. Called by
+ * {@link findSecrets} for each finding.
+ *
+ * @param lineStarts - Where each line of the text starts, in order (the first is 0).
+ * @param position - An index into the text.
+ * @returns The number of the line holding it.
+ *
+ * @example
+ * lineOf([0, 4, 9], 5) // 2
+ */
+function lineOf(lineStarts: readonly number[], position: number): number {
+  let low = 0
+  let high = lineStarts.length - 1
+  while (low < high) {
+    const middle = Math.ceil((low + high) / 2)
+    if ((lineStarts[middle] ?? 0) <= position) low = middle
+    else high = middle - 1
+  }
+  return low + 1
 }

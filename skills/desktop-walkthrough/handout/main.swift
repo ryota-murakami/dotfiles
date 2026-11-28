@@ -1027,10 +1027,12 @@ final class Renderer: NSObject, WKScriptMessageHandler, WKScriptMessageHandlerWi
         let pageConfiguration = WKWebViewConfiguration()
         pageView = WKWebView(frame: NSRect(x: 0, y: 0, width: 900, height: 1000), configuration: pageConfiguration)
         super.init()
-        // Opened on the log's own queue, before any line is queued there
+        // Opened on the log's own queue, before any line is queued there. Added to, never made anew: dw
+        // empties it before the run and sends the renderer's standard error to the same file, so a
+        // crash's own words (written there) stay beside these lines
         logQueue.async {
-            FileManager.default.createFile(atPath: self.logPath, contents: nil)
-            self.logHandle = FileHandle(forWritingAtPath: self.logPath)
+            let descriptor = open(self.logPath, O_WRONLY | O_CREAT | O_APPEND | O_CLOEXEC, 0o600)
+            self.logHandle = descriptor >= 0 ? FileHandle(fileDescriptor: descriptor, closeOnDealloc: true) : nil
         }
         builderConfiguration.userContentController.addScriptMessageHandler(self, contentWorld: .page, name: "host")
         pageConfiguration.userContentController.add(self, name: "dw")

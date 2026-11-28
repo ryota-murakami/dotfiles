@@ -1208,6 +1208,20 @@ else
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 
+# The log dw sends the renderer's standard error to is the renderer's own log: the renderer adds to that
+# file, never makes it anew, so a crash's own words (written to standard error) stay where dw points
+handout_input "$RECORDS/direct" "$scratch/logkeep.html" "$scratch/logkeep-explain" "$scratch/logkeep.json"
+log_file=$(jq -r '.log' "$scratch/logkeep.json")
+printf 'dw: before the renderer\n' > "$log_file"
+log_inode=$(/usr/bin/stat -f '%i' "$log_file")
+"$BIN" "$scratch/logkeep.json" "$DIST" > "$scratch/logkeep.out" 2>> "$log_file"
+if [ "$(/usr/bin/stat -f '%i' "$log_file")" = "$log_inode" ] && grep -q '^dw: before the renderer$' "$log_file" \
+  && [ "$(wc -l < "$log_file")" -gt 1 ]; then
+  pass "the renderer adds to the log dw sends its standard error to, so nothing written there is lost"
+else
+  fail "renderer log kept (inode $log_inode → $(/usr/bin/stat -f '%i' "$log_file")): $(head -3 "$log_file")"
+fi
+
 # An earlier Handout whose content could not be read first (larger than the digest's limit, set to
 # 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning
 handout_input "$RECORDS/direct" "$scratch/unread.html" "$scratch/unread-explain" "$scratch/unread.json"

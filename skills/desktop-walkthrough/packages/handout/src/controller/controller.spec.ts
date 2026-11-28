@@ -186,6 +186,40 @@ test('the table of contents jumps to a page and closes; Esc closes it too', () =
   expect(toc?.hidden).toBe(true)
 })
 
+test('opening the table of contents on a late page brings that page’s row into view', () => {
+  // Arrange
+  location.hash = '#3'
+  loadHandout()
+  startHandout(document, memoryStore())
+  const scrolled: string[] = []
+  const scrollIntoView = vi.fn(function (this: Element) {
+    scrolled.push(this.getAttribute('data-page') ?? '')
+  })
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: scrollIntoView,
+  })
+
+  // Act
+  document.querySelector<HTMLButtonElement>('.btn[aria-label="目次"]')?.click()
+
+  // Assert
+  expect(scrolled).toEqual(['3'])
+  expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest' })
+})
+
+test('Shift with an arrow key extends a selection and leaves the page where it is', () => {
+  // Arrange
+  loadHandout()
+  startHandout(document, memoryStore())
+
+  // Act
+  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', shiftKey: true }))
+
+  // Assert
+  expect(visiblePages()).toEqual(['page-1'])
+})
+
 test('a page title that spells markup shows as text in the table of contents', () => {
   // Arrange
   loadHandout()

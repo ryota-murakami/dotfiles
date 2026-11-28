@@ -1811,6 +1811,8 @@ LIST
     handout_fail HANDOUT_RENDERER "the renderer could not be built: see $DW_HOME/handout-build.log (dw doctor checks swiftc)"; exit 1
   fi
   echo "handout: checking and rendering $(grep -c . "$tmp/pages.jsonl") page(s)…" >&2
+  # One run's log: emptied here, then added to by the renderer's lines and its standard error alike
+  : > "$DW_HOME/handout.log"
   result=$("$HANDOUT_BIN" "$tmp/input.json" "$HANDOUT_DIST" 2>> "$DW_HOME/handout.log")
   status=$?
   if ! printf '%s' "$result" | jq -e '.v == 1' >/dev/null 2>&1; then

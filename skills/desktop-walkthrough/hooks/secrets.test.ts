@@ -147,3 +147,48 @@ test('a signed link whose signature begins with an escaped + is found; a %s plac
   expect(inSigned.map((finding) => finding.pattern)).toEqual(['signed-url-parameter'])
   expect(inPlaceholder).toEqual([])
 })
+
+test('a long run of letters after Bearer is read in about the time it takes to read it, not its square', () => {
+  // Arrange
+  const text = `Authorization: Bearer ${'a'.repeat(120_000)}`
+  const started = performance.now()
+
+  // Act
+  const findings = findSecrets(text)
+
+  // Assert
+  expect(findings).toEqual([])
+  // gstack-timing-ok: the bound is the contract; the quadratic lookahead took about 7 s here, a linear read takes milliseconds
+  expect(performance.now() - started).toBeLessThan(1500)
+})
+
+test('long dotted, hyphenated and sk- runs are read without rescanning the run at every boundary', () => {
+  // Arrange
+  const runs = ['a-'.repeat(150_000), 'a.'.repeat(150_000), 'sk-'.repeat(70_000)]
+  const started = performance.now()
+
+  // Act
+  const findings = runs.flatMap((run) => findSecrets(run))
+
+  // Assert
+  expect(findings).toEqual([])
+  // gstack-timing-ok: the bound is the contract; the unbounded scheme run and key lookahead took seconds per run
+  expect(performance.now() - started).toBeLessThan(1500)
+})
+
+test('a text quoting thousands of keys reports each on its own line, in time that grows with the text', () => {
+  // Arrange
+  const lines = Array.from({ length: 40_000 }, () => `key: ${AWS_KEY_ID}`)
+  const text = lines.join('\n')
+  const started = performance.now()
+
+  // Act
+  const findings = findSecrets(text)
+
+  // Assert
+  expect(findings.length).toBe(40_000)
+  expect(findings[0]).toEqual({ pattern: 'aws-access-key-id', index: 5, line: 1 })
+  expect(findings[39_999]?.line).toBe(40_000)
+  // gstack-timing-ok: the bound is the contract; checking every earlier finding and re-splitting the prefix took about 10 s here
+  expect(performance.now() - started).toBeLessThan(1500)
+})
