@@ -187,6 +187,31 @@ record_pages() {
   done | sort -n -k1,1
 }
 
+# Whether PATH can be a file of dw's own: nothing there yet, or a plain file that is no link. A link, a
+# pipe or a folder under one of dw's names is not what dw wrote: a link would have dw write elsewhere,
+# and opening a pipe waits for its other end. Called before dw opens or replaces such a file
+plain_or_absent() { [ ! -L "$1" ] && { [ ! -e "$1" ] || [ -f "$1" ]; }; }
+
+# The bytes of FILE on standard output when it is a plain file: opened once, without following a link
+# and without waiting (a pipe's writer may never come), and judged by what is open, as handout_marked
+# does, so a pipe or a link put there after a look at the path is never read as the file. Exit 0: read;
+# 1: no such file; 2: not a plain file (a link, a pipe, a folder); 3: it cannot be read. Called where
+# dw reads a record's sections.tsv (record_page, explain_restore, cmd_handout)
+read_plain() {
+  perl -MFcntl -e '
+    sysopen(my $file, $ARGV[0], O_RDONLY | O_NONBLOCK | O_NOFOLLOW)
+      or exit($!{ENOENT} ? 1 : $!{ELOOP} ? 2 : 3);
+    -f $file or exit 2;
+    binmode STDOUT;
+    while (1) {
+      my $read = sysread($file, my $chunk, 65536);
+      defined $read or exit 3;
+      $read or last;
+      print $chunk or exit 3;
+    }
+    close STDOUT or exit 3;' "$1"
+}
+
 # The section page N of the record in DIR was filed under (sections.tsv column 2). A blank one, as
 # records kept before the first dw step had it, is no section. SECTIONS is the copy of sections.tsv
 # to read (dw handout reads one copy per reading); the record's own by default
@@ -236,7 +261,7 @@ journal() {
 # Called by every writer of journal.md; says once on stderr why a line was not written.
 journal_writable() {
   local file="$1/journal.md"
-  if [ -L "$file" ] || { [ -e "$file" ] && [ ! -f "$file" ]; }; then
+  if ! plain_or_absent "$file"; then
     echo "dw: $file is a link or not a plain file: the journal line was not written (put the record's own journal.md there)" >&2
     return 1
   fi
@@ -321,27 +346,69 @@ desktop-walkthrough が記録したウォークスルーです（開始 $(date '
 EOF
 }
 
-# Put the staged file STAGED in place of DEST, the record's file dw rewrites (handbook.md, sections.tsv).
-# A plain file with one name is written in place, so its owner, permissions and ACL stay exactly as
-# they were (a private handbook stays private). A link (symbolic, or a second name of another file) is
-# replaced by the staged file itself, never followed; so is a missing DEST. Fails when DEST is a folder
-# or cannot be written; the caller removes STAGED either way.
+# Put the staged file STAGED in place of DEST by writing DEST itself, for the record's handbook.md. A
+# plain file with one name keeps its owner, permissions and ACL exactly as they were (a private
+# handbook stays private), which a new file renamed over it would not. DEST is opened once, without
+# following a link and without waiting, and judged by what is open: a link put there after a look at
+# the path is never written through. The write is not atomic, and need not be: handbook.md is rebuilt
+# from the pages every time, so one cut short is repaired by the next. A link (symbolic, or a second
+# name of another file), a pipe or a missing DEST is replaced by the staged file itself, never
+# followed. Fails when DEST is a folder, or a plain file that cannot be written (it keeps what it
+# held); the caller removes STAGED either way
 replace_entry() {
-  local staged="$1" dest="$2" links
-  if [ -f "$dest" ] && [ ! -L "$dest" ]; then
-    links=$(perl -e 'print +(stat shift)[3]' "$dest" 2>/dev/null)
-    if [ "$links" = 1 ]; then
-      cat "$staged" > "$dest" || return 1
-      rm -f "$staged"
-      return 0
-    fi
-  fi
+  local staged="$1" dest="$2"
+  # 0: written in place; 2: no plain file with one name (the staged file takes the name, below);
+  # 3: a plain file that cannot be written, or a write that failed
+  perl -MFcntl=:DEFAULT,:mode -e '
+    my ($staged, $dest) = @ARGV;
+    sysopen(my $out, $dest, O_WRONLY | O_NONBLOCK | O_NOFOLLOW)
+      or exit($!{ENOENT} || $!{ELOOP} || $!{ENXIO} || $!{EISDIR} ? 2 : 3);
+    my @open = stat($out);
+    exit 2 unless @open && S_ISREG($open[2]) && $open[3] == 1;
+    open(my $in, "<", $staged) or exit 3;
+    binmode $in;
+    truncate($out, 0) or exit 3;
+    while (1) {
+      my $read = sysread($in, my $chunk, 65536);
+      defined $read or exit 3;
+      $read or last;
+      my $done = 0;
+      while ($done < $read) {
+        my $wrote = syswrite($out, $chunk, $read - $done, $done);
+        defined $wrote or exit 3;
+        $done += $wrote;
+      }
+    }
+    close $out or exit 3;' "$staged" "$dest"
+  case $? in
+    0) rm -f "$staged"; return 0 ;;
+    2) ;;
+    *) return 1 ;;
+  esac
   # A new name: the permissions a plain write would give it (STAGED may have been made private)
   chmod "$(printf '%o' $((0666 & ~$(umask))))" "$staged" 2>/dev/null
   # A link goes first: mv onto a link to a folder would move the file inside that folder
   if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
   [ -d "$dest" ] && return 1
   mv -f "$staged" "$dest"
+}
+
+# Put the staged file STAGED in place of DEST by a rename, for the record's sections.tsv: a reader
+# sees the old index or the new one, never half of one, and a write that fails leaves the old one as
+# it was. The new file takes DEST's permission bits when DEST is a plain file, so a private index
+# stays private whichever command rewrote it (an ACL set on the file itself is not carried: set it on
+# the folder). A DEST that is a link is replaced by the file itself, never followed. Fails when DEST
+# is a folder or cannot be replaced; the caller removes STAGED either way. Called by record_page and
+# record_clear with the record's lock held
+install_entry() {
+  local staged="$1" dest="$2" mode
+  if [ -f "$dest" ] && [ ! -L "$dest" ]; then
+    mode=$(/usr/bin/stat -f %Lp "$dest" 2>/dev/null) && chmod "$mode" "$staged" 2>/dev/null
+  fi
+  # A link goes first: mv onto a link to a folder would move the file inside that folder
+  if [ -L "$dest" ]; then rm -f "$dest" || return 1; fi
+  [ -d "$dest" ] && return 1
+  mv -f "$staged" "$dest" 2>/dev/null
 }
 
 # Whether the record holds a page numbered N under any spelling of the number (1-, 01-, 001-), read
@@ -373,8 +440,10 @@ record_handbook() {
       printf '\n\n---\n\n'
       cat "$page"
     done < <(record_pages "$dir")
-  } > "$dir/.handbook.md.$$" ) && replace_entry "$dir/.handbook.md.$$" "$dir/handbook.md"
-  # Written beside and renamed: a handbook.md that is a link is replaced, its target never written
+  } > "$dir/.handbook.md.$$" ) && replace_entry "$dir/.handbook.md.$$" "$dir/handbook.md" \
+    || echo "dw: $dir/handbook.md could not be rebuilt (check its permissions): it does not show the pages as they are now; the pages themselves are saved" >&2
+  # Staged beside it, then written into handbook.md itself (replace_entry): one that is a link is
+  # replaced, its target never written
   rm -f "$dir/.handbook.md.$$"
 }
 
@@ -389,26 +458,41 @@ hold_lock() {
   local lock="$1" fd="$2" wait="${DW_LOCK_WAIT:-10}"
   # Whole seconds; 0 does not wait at all (perl's alarm 0 would wait forever), anything else is 10
   case "$wait" in ''|*[!0-9]*) wait=10 ;; esac
-  # A link or a pipe is no lock dw made: opening a pipe would wait for a reader before any timeout
-  if [ -L "$lock" ] || { [ -e "$lock" ] && [ ! -f "$lock" ]; }; then
+  # A link or a pipe is no lock dw made (a link would have dw open, or make, a file elsewhere)
+  if ! plain_or_absent "$lock"; then
     echo "dw: $lock is not a plain file (dw makes it): remove it, then run the command again" >&2
     return 1
   fi
-  if ! eval "exec $fd>>\"\$lock\"" 2>/dev/null; then
+  # Opened for reading and writing: unlike an open for appending, that never waits for a pipe's other
+  # end, so a pipe put there after the look above cannot hold dw before any timeout starts
+  if ! eval "exec $fd<>\"\$lock\"" 2>/dev/null; then
     echo "dw: $lock cannot be opened (check the folder's permissions): nothing changed" >&2
     return 1
   fi
-  if ! perl -MFcntl=:flock -e '
-      open(my $held, ">&=", $ARGV[0]) or exit 2;
+  # What is open is judged itself before it is locked: a plain file, and the one the path names now
+  # (not a pipe, nor the file a link put there since points to). 3: it is not; 1: another dw holds it
+  perl -MFcntl=:flock,:mode -e '
+      open(my $held, "+<&=", $ARGV[0]) or exit 2;
+      my @open = stat($held);
+      my @named = lstat($ARGV[2]);
+      exit 3 unless @open && S_ISREG($open[2]) && @named && S_ISREG($named[2])
+        && $open[0] == $named[0] && $open[1] == $named[1];
       if ($ARGV[1] == 0) { flock($held, LOCK_EX | LOCK_NB) or exit 1; exit 0 }
       $SIG{ALRM} = sub { exit 1 };
       alarm($ARGV[1]);
       flock($held, LOCK_EX) or exit 1;
-      exit 0' "$fd" "$wait"; then
-    eval "exec $fd>&-"
-    echo "dw: $(dirname "$lock") is being changed by another dw: nothing changed; run the command again" >&2
-    return 1
-  fi
+      exit 0' "$fd" "$wait" "$lock"
+  case $? in
+    0) ;;
+    3)
+      eval "exec $fd>&-"
+      echo "dw: $lock is not a plain file (dw makes it): remove it, then run the command again" >&2
+      return 1 ;;
+    *)
+      eval "exec $fd>&-"
+      echo "dw: $(dirname "$lock") is being changed by another dw: nothing changed; run the command again" >&2
+      return 1 ;;
+  esac
 }
 release_lock() { eval "exec $1>&-"; }
 
@@ -431,7 +515,7 @@ shell_word() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
 record_page() {
-  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i base number
+  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i base number status
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   # The number as decimal once (--page 01 or 08 is page 1 or 8): file names, rows and the files it
@@ -448,22 +532,35 @@ record_page() {
   rows="$dir/pages/.sections.rows.$$"
   hold_lock "$dir/pages/.dw-lock" 8 || return 1
   # A folder or a link at the page's name would take the page inside it, or write elsewhere
-  if [ -L "$page" ] || { [ -e "$page" ] && [ ! -f "$page" ]; }; then
+  if ! plain_or_absent "$page"; then
     release_lock 8
     echo "dw: page $n: $page is not a plain file: move it away, then save the page again; the record was left as it was" >&2
     return 1
   fi
   # The other pages' rows, read before anything changes: a sections.tsv that cannot be read would
-  # otherwise be replaced by this page's row alone (grep: 1 is no other row, 2 an error)
-  if [ -e "$sections" ]; then
-    grep -v "^$n	" "$sections" > "$rows" 2>/dev/null
-    case $? in
-      0|1) ;;
-      *) rm -f "$rows"; release_lock 8; echo "dw: page $n: $sections cannot be read: the record was left as it was" >&2; return 1 ;;
-    esac
-  else
-    : > "$rows"
+  # otherwise be replaced by this page's row alone. It is read as a plain file only (read_plain): a
+  # pipe there would hold dw, and both locks it holds, waiting for a writer, and a link is not dw's.
+  # The scratch file for those rows is made first: one that cannot be made (a folder under its name)
+  # would otherwise pass for "no other row", and this page's row alone would replace the index
+  if ! : > "$rows" 2>/dev/null; then
+    release_lock 8
+    echo "dw: page $n: the record's sections.tsv could not be written: the record was left as it was" >&2
+    return 1
   fi
+  read_plain "$sections" 2>/dev/null | grep -v "^$n	" >> "$rows" 2>/dev/null
+  status="${PIPESTATUS[0]}/${PIPESTATUS[1]}"
+  case "$status" in
+    # Read, or no sections.tsv yet; grep: 1 is no other row
+    [01]/[01]) ;;
+    2/*)
+      rm -f "$rows"; release_lock 8
+      echo "dw: page $n: $sections is not a plain file (a link, a pipe or a folder): put the file dw wrote back, or remove it; the record was left as it was" >&2
+      return 1 ;;
+    *)
+      rm -f "$rows"; release_lock 8
+      echo "dw: page $n: $sections cannot be read: the record was left as it was" >&2
+      return 1 ;;
+  esac
   # The section each page was filed under and the title given with --title ("N<TAB>section[<TAB>title]"),
   # so a resumed walkthrough and a Handout list the page the same way. A tab or a line break in either
   # would break the row: they become spaces (jq -j adds no line break of its own, which would become one).
@@ -520,7 +617,7 @@ record_page() {
   # The page and its row are saved together: a page whose row cannot be saved goes again, and what
   # was there before comes back, so saving it again (dw record, dw explain --page) starts from the
   # record as it was and never skips a page that has no row
-  if ! mv "$sections.part.$$" "$sections" 2>/dev/null; then
+  if ! install_entry "$sections.part.$$" "$sections"; then
     rm -f "$page" "$sections.part.$$"
     record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
     release_lock 8
@@ -533,12 +630,21 @@ record_page() {
   [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
 }
 
+# Empty the sections.tsv of the record in DIR (an index without rows): staged beside it and renamed
+# (install_entry). Called by record_clear, with the record's lock held, once no page is left
+record_sections_empty() {
+  local staged="$1/pages/.sections.tsv.$$" failed=0
+  { : > "$staged" && install_entry "$staged" "$1/pages/sections.tsv"; } 2>/dev/null || failed=1
+  rm -f "$staged"
+  return $failed
+}
+
 # `dw explain --clear` during a recording: the record's pages move to pages/cleared-<time>/ and its
 # sections empty, so resume, the handbook and a Handout hold only the pages shown since (eng D8). The
 # archive is complete (every page and sections.tsv copied and compared) before anything leaves the
 # record: a clear that fails part way has removed nothing
 record_clear() {
-  local dir base archive tries=0 n page moved=0 listed stayed
+  local dir base archive tries=0 n page moved=0 listed stayed out reset=0
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   record_pages_writable "$dir" || return 1
@@ -600,25 +706,40 @@ record_clear() {
     fi
   done <<< "$listed"
   if [ -n "$stayed" ]; then
-    # Written beside and renamed: a sections.tsv that is a link is replaced, its target never written
-    awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" 2>/dev/null \
-      && replace_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
-    rm -f "$dir/pages/.sections.tsv.$$"
+    # The rows of the pages that stayed are kept and the others go, staged beside the index and renamed
+    # (install_entry): a reader never sees half an index, and a sections.tsv that is a link is
+    # replaced, its target never written
+    if [ -f "$archive/sections.tsv" ]; then
+      if ! { awk -F '\t' -v keep="$stayed " 'index(keep, " " $1 " ")' "$archive/sections.tsv" > "$dir/pages/.sections.tsv.$$" \
+        && install_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"; } 2>/dev/null; then
+        reset=1
+      fi
+      rm -f "$dir/pages/.sections.tsv.$$"
+    fi
     record_handbook "$dir"
     release_lock 8
     echo "dw: explain --clear: page(s)$stayed could not be removed from pages/, or were saved again meanwhile (they stay, with their sections; pages/$(basename "$archive")/ holds every page as it was archived)" >&2
+    [ "$reset" = 0 ] || echo "dw: explain --clear: sections.tsv could not be rewritten (check its permissions): it still lists the archived pages as well" >&2
     # 2: part of the record was cleared (the caller says so; 1 means nothing was removed)
     [ "$moved" -gt 0 ] && return 2
     return 1
   fi
-  # An empty index renamed into place: a link or a second name of sections.tsv is never emptied
-  : > "$dir/pages/.sections.tsv.$$" && replace_entry "$dir/pages/.sections.tsv.$$" "$dir/pages/sections.tsv"
-  rm -f "$dir/pages/.sections.tsv.$$"
+  # Every page is archived and gone: the index is emptied (renamed into place: a link or a second name
+  # of sections.tsv is never emptied through)
+  record_sections_empty "$dir" || reset=1
   record_handbook "$dir"
   release_lock 8
   # The pages are archived and gone: a journal that cannot be written is said, and the clear stands
   journal "🧹 解説をすべて消去：${moved} 枚を pages/$(basename "$archive")/ に移した" \
     || echo "dw: explain --clear: the journal could not be written; the pages are in pages/$(basename "$archive")/" >&2
+  # An index that could not be emptied (its permissions, a folder under its name) still lists the
+  # archived pages: the clear is said as one that did not finish (2) and the panel is left as it was.
+  # The rows left do no harm (a page saved again takes its own row, and no list reads a row without
+  # its page), so clearing again, with the pages gone, clears the panel
+  if [ "$reset" = 1 ]; then
+    echo "dw: explain --clear: the pages are in pages/$(basename "$archive")/, but sections.tsv could not be emptied (check its permissions): it still lists them, and the panel is left as it was; empty sections.tsv, then clear again" >&2
+    return 2
+  fi
   return 0
 }
 
@@ -1315,7 +1436,7 @@ explain_build() {
 # Show a long explanation as a page in the HUD's explainer panel. Pages are numbered and kept, so the
 # user can page back; --replace rewrites the newest page (to fix a diagram) instead of adding one.
 cmd_explain() {
-  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label built retry
+  local src="" title="" given replace=0 n file md step data i errors diagrams page="" shown request="" staged problems label built retry kept
   while [ $# -gt 0 ]; do
     case "$1" in
       --title)   title="${2:?--title needs a value}"; shift 2 ;;
@@ -1332,25 +1453,50 @@ cmd_explain() {
         # the last one (no new page takes an old one's number and replaces it)
         mkdir -p "$EXPLAIN"
         hold_lock "$EXPLAIN/.dw-lock" 7 || exit 1
+        # The panel's empty index is staged before anything changes, in the record too: when it cannot
+        # be written (the folder's permissions, a full disk) the clear stops with everything as it was
+        if ! printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json.part.$$" 2>/dev/null; then
+          rm -f "$EXPLAIN/index.json.part.$$"
+          release_lock 7
+          die "explain --clear: nothing was removed: the panel's index could not be written in $EXPLAIN (check its permissions): the panel and the record keep every page"
+        fi
         record_clear
         case $? in
           0) ;;
-          # Some pages left the record and others stayed: the panel is left as it was, and the
-          # message above names the pages that stayed
-          2) die "explain --clear: only part of the record was cleared (see above): the panel keeps every page; clear again once the pages that stayed can go" ;;
-          *) die "explain --clear: nothing was removed: the panel and the record keep every page" ;;
+          # Some pages left the record and others stayed, or its index could not be emptied: the panel
+          # is left as it was, and the message above says what stayed
+          2)
+            rm -f "$EXPLAIN/index.json.part.$$"
+            die "explain --clear: only part of the record was cleared (see above): the panel keeps every page; clear again once what stayed can go" ;;
+          *)
+            rm -f "$EXPLAIN/index.json.part.$$"
+            die "explain --clear: nothing was removed: the panel and the record keep every page" ;;
         esac
         # The panel's sources are kept aside, not deleted: a page the record could not keep (dw explain
         # said so, with a retry naming its file here) can still be recovered after a clear
+        kept=""
         if [ -d "$EXPLAIN/pages" ]; then
-          # One that cannot be moved stays where it is (never deleted): the panel keeps its pages
-          if ! { mkdir -p "$EXPLAIN/cleared" && mv "$EXPLAIN/pages" "$EXPLAIN/cleared/pages-$(date +%Y%m%d-%H%M%S)-$$"; } 2>/dev/null; then
+          # One that cannot be moved stays where it is (never deleted): the panel keeps its pages. The
+          # name is this clear's alone (mv onto a folder already there would move the pages inside it)
+          kept="$EXPLAIN/cleared/pages-$(date +%Y%m%d-%H%M%S)-$$"
+          if ! { mkdir -p "$EXPLAIN/cleared" && [ ! -e "$kept" ] && [ ! -L "$kept" ] && mv "$EXPLAIN/pages" "$kept"; } 2>/dev/null; then
+            rm -f "$EXPLAIN/index.json.part.$$"
             release_lock 7
             die "explain --clear: the record was cleared, but the panel's pages could not be kept aside in $EXPLAIN/cleared (check its permissions): the panel keeps them; clear again once that folder can be written"
           fi
         fi
+        # The index is renamed into place (one that is only read-only is replaced). When that fails the
+        # pages come back, so the panel never lists pages that are gone
+        if [ -d "$EXPLAIN/index.json" ] || ! mv -f "$EXPLAIN/index.json.part.$$" "$EXPLAIN/index.json" 2>/dev/null; then
+          rm -f "$EXPLAIN/index.json.part.$$"
+          if [ -n "$kept" ] && ! mv "$kept" "$EXPLAIN/pages" 2>/dev/null; then
+            release_lock 7
+            die "explain --clear: the record was cleared, but the panel's index ($EXPLAIN/index.json) could not be replaced, and its pages are now in $kept: move that folder back to $EXPLAIN/pages, check the index's permissions, then clear again"
+          fi
+          release_lock 7
+          die "explain --clear: the record was cleared, but the panel's index ($EXPLAIN/index.json) could not be replaced (check its permissions): the panel keeps every page; clear again once it can be replaced"
+        fi
         rm -f "$EXPLAIN/rendered.json"
-        printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
         release_lock 7
         echo "explainer: every page removed"; return 0 ;;
       --progress) explain_progress; return 0 ;;
@@ -1370,7 +1516,11 @@ cmd_explain() {
   # The source is read once (standard input too) and its audience markers checked before anything
   # changes: a marker without its partner, or written another way, leaves the page, its build and
   # the record as they were
-  staged=$(mktemp); problems=$(mktemp)
+  # Without its two scratch files nothing is read or built: an empty name would be written to as a path
+  if ! staged=$(mktemp) || ! problems=$(mktemp); then
+    [ -z "${staged:-}" ] || rm -f "$staged"
+    die "no scratch file could be made (mktemp failed: is the disk full?): nothing changed"
+  fi
   # Removed however dw ends from here (a stop, a lock it cannot take): the files are this call's alone
   # Two names, each quoted: a TMPDIR with a space in it never splits a path into others
   DW_EXPLAIN_STAGED="$staged"; DW_EXPLAIN_PROBLEMS="$problems"
@@ -1656,18 +1806,29 @@ cmd_start() {
 # Put the pages of the record in DIR back into the explainer under their numbers, the newest one
 # current. Sets RESTORED_COUNT and RESTORED_LAST. Called by start (for resume) before the HUD launches.
 explain_restore() {
-  local dir="$1" page n title step problems stand_in
+  local dir="$1" page n title step problems stand_in sections
   RESTORED_COUNT=0; RESTORED_LAST=0
   explain_vendor
   mkdir -p "$EXPLAIN/pages"
   printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
   problems="$EXPLAIN/pages/.problems.$$"
   stand_in="$EXPLAIN/pages/.stand-in.$$"
+  # The record's sections and given titles, read once and as a plain file only (read_plain): a pipe
+  # there would hold the resume waiting for a writer, and a link is not followed. Without them the
+  # pages come back all the same, under their own headings
+  sections="$EXPLAIN/pages/.sections.$$"
+  read_plain "$dir/pages/sections.tsv" > "$sections" 2>/dev/null
+  case $? in
+    0|1) ;;
+    *)
+      : > "$sections"
+      echo "dw: resume: $dir/pages/sections.tsv is not a plain file or cannot be read: the pages come back without their sections and given titles" >&2 ;;
+  esac
   while IFS=$'\t' read -r n page; do
     RESTORED_LAST=$n
     cp "$page" "$EXPLAIN/$(printf 'pages/%03d.md' "$n")"
-    title=$(record_title "$dir" "$n" "$page" hud)
-    step=$(record_section "$dir" "$n")
+    title=$(record_title "$dir" "$n" "$page" hud "$page" "$sections")
+    step=$(record_section "$dir" "$n" "$sections")
     : > "$problems"
     if ! explain_build "$n" "$title" "$step" "$EXPLAIN/$(printf 'pages/%03d.md' "$n")" "$n" hud "$problems"; then
       # Named by number: the file name comes from the page's title, which is not printed unchecked
@@ -1688,7 +1849,7 @@ explain_restore() {
     fi
     RESTORED_COUNT=$((RESTORED_COUNT + 1))
   done < <(record_pages "$dir")
-  rm -f "$problems" "$stand_in"
+  rm -f "$problems" "$stand_in" "$sections"
   # What was marked as read, the notes understood and the achievements come back with the pages
   [ -f "$dir/progress.json" ] && cp "$dir/progress.json" "$EXPLAIN/progress.json"
   return 0
@@ -1902,7 +2063,10 @@ cmd_handout() (
   # Every library present and as digested, copied into the scratch folder (a script reached through a
   # symlink out of the renderer's read-access folder does not load)
   explain_vendor 2>/dev/null
-  tmp=$(mktemp -d)
+  # Without its scratch folder nothing is staged: an empty name would have dw write under /
+  if ! tmp=$(mktemp -d) || [ ! -d "$tmp" ]; then
+    handout_fail HANDOUT_RENDERER "no scratch folder could be made (mktemp -d failed: is the disk full?): nothing was read or written"; exit 1
+  fi
   trap 'rm -rf "$tmp"' EXIT
   mkdir -p "$tmp/explain/pages" "$tmp/explain/vendor"
   while IFS='|' read -r vendor_name vendor_url vendor_sum; do
@@ -1940,16 +2104,19 @@ LIST
       release_lock 8
       handout_fail HANDOUT_RECORD "a page of $name was being replaced or cleared when a dw stopped (pages/$(basename "$file")): rename it back to pages/NN-title.md or delete it, then export again"; exit 1
     done
-    if [ ! -e "$dir/pages/sections.tsv" ] && [ ! -L "$dir/pages/sections.tsv" ]; then
-      : > "$tmp/sections.tsv"
-    elif [ -L "$dir/pages/sections.tsv" ] || [ ! -f "$dir/pages/sections.tsv" ]; then
-      # A link, a pipe or a folder: dw wrote none of these (a pipe would hold the export and its lock)
-      release_lock 8
-      handout_fail HANDOUT_RECORD "$name's pages/sections.tsv is not a plain file: replace it with the file dw wrote, then export again"; exit 1
-    elif ! cp "$dir/pages/sections.tsv" "$tmp/sections.tsv" 2>/dev/null; then
-      release_lock 8
-      handout_fail HANDOUT_RECORD "$name's pages/sections.tsv could not be read (check its permissions): the pages' sections and titles would be lost"; exit 1
-    fi
+    # Read once and as a plain file only (read_plain), judged by what was opened: a link, a pipe or a
+    # folder is none dw wrote (a pipe would hold the export and its lock), also when it was put there
+    # after a look at the path
+    read_plain "$dir/pages/sections.tsv" > "$tmp/sections.tsv" 2>/dev/null
+    case $? in
+      0|1) ;;
+      2)
+        release_lock 8
+        handout_fail HANDOUT_RECORD "$name's pages/sections.tsv is not a plain file: replace it with the file dw wrote, then export again"; exit 1 ;;
+      *)
+        release_lock 8
+        handout_fail HANDOUT_RECORD "$name's pages/sections.tsv could not be read (check its permissions): the pages' sections and titles would be lost"; exit 1 ;;
+    esac
     # Two files of one number would both become page N: which one the colleague reads is not guessed.
     # A page being rewritten by a dw from before the lock has both for a moment: the first reading
     # tries again, the second stops
@@ -2056,6 +2223,24 @@ LIST
   exit 0
 )
 
+# What dw explain --clear has kept aside and nothing removes, as dw doctor prints it: the panel's
+# pages ($EXPLAIN/cleared) and the records' archives (pages/cleared-*). dw never deletes them itself
+# (a page the record could not keep is recovered from there), so they are said here instead of
+# piling up unseen: each copy can hold drafts. Prints nothing when there is none
+doctor_cleared() {
+  local panel archives size
+  panel=$(find "$EXPLAIN/cleared" -mindepth 1 -maxdepth 1 -type d -name 'pages-*' 2>/dev/null | grep -c .)
+  if [ "$panel" -gt 0 ]; then
+    size=$(du -sk "$EXPLAIN/cleared" 2>/dev/null | cut -f1)
+    echo "• $panel folder(s) of cleared panel pages (${size:-?} KB) in $EXPLAIN/cleared: kept by dw explain --clear for recovery; delete them once no page is needed"
+  fi
+  archives=$(find "$RECORDS" -mindepth 3 -maxdepth 3 -type d -path '*/pages/cleared-*' 2>/dev/null | grep -c .)
+  if [ "$archives" -gt 0 ]; then
+    echo "• $archives archive(s) of cleared pages in the records under $RECORDS (pages/cleared-<time>/): kept by dw explain --clear; delete the ones no longer needed"
+  fi
+  return 0
+}
+
 cmd_doctor() {
   need jq
   local bin real ok=0
@@ -2072,6 +2257,7 @@ cmd_doctor() {
   if command -v swiftc >/dev/null 2>&1; then echo "✓ swiftc (the HUD and the Handout renderer can be built)"; else echo "✗ swiftc missing: install Xcode Command Line Tools"; ok=1; fi
   if [ -f "$HANDOUT_DIST/builder.html" ] && [ -f "$HANDOUT_DIST/purify.js" ]; then echo "✓ handout builder (packages/handout/dist)"; else echo "✗ handout builder missing: run pnpm build in the skill folder"; ok=1; fi
   if command -v python3 >/dev/null 2>&1; then echo "✓ python3 (sound effects can be rendered)"; else echo "• python3 missing: the HUD works, without its sound effects"; fi
+  doctor_cleared
   return $ok
 }
 

@@ -51,6 +51,30 @@ hold_like_another_dw() {
   printf '%s' "$holder"
 }
 
+# A watchdog for a case that puts the pipe PIPE where dw reads a file: a dw that opens it to read
+# would wait for a writer forever. After 10 s, and for the 10 s that follow, it opens and closes the
+# pipe's writing end again and again (nonblocking: that succeeds only while a reader waits), so each
+# such read ends and the case fails instead of hanging. Prints its process id; the caller kills it
+feed_stuck_readers() {
+  # Its output goes nowhere: a $(…) around this function waits for every holder of its pipe
+  perl -MFcntl -e 'sleep 10; for (1 .. 200) { sysopen(my $h, $ARGV[0], O_WRONLY | O_NONBLOCK) and close $h; select(undef, undef, undef, 0.05) }' "$1" > /dev/null 2>&1 &
+  printf '%s' "$!"
+}
+
+# A pipe put in a lock file's place after dw looked at the path: the look (plain_or_absent) saw a plain
+# file, as it does here whatever is there. Then "$@"
+swapped_in_after_the_look() {
+  plain_or_absent() { return 0; }
+  "$@"
+}
+
+# mktemp as it is when no scratch file or folder can be made (a full disk): it fails and names none.
+# Then "$@"
+without_scratch() {
+  mktemp() { return 1; }
+  "$@"
+}
+
 # Hold the lock file LOCK as another dw would, in the background; a second after it is held, make LINK
 # a link to a file that does not exist, and let the lock go. A dw started meanwhile has looked at the
 # folder before the link is there and waits for the lock: it takes the lock with the link in place.
@@ -371,6 +395,80 @@ else
   fail "piped lock: exit $code: $out"
 fi
 rm -f "$DW_HOME/record_dir"
+# The same for a pipe put there after dw looked at the path: the open does not wait for the pipe's
+# other end, and what was opened is judged itself before it is locked
+dir=$(two_page_record swapped-lock)
+mkfifo "$dir/pages/.dw-lock"
+perl -MFcntl -e 'sleep 10; sysopen(my $h, $ARGV[0], O_RDONLY | O_NONBLOCK); sleep 2' \
+  "$dir/pages/.dw-lock" > /dev/null 2>&1 &
+watchdog=$!
+in_dw swapped_in_after_the_look hold_lock "$dir/pages/.dw-lock" 8
+kill "$watchdog" 2> /dev/null
+wait "$watchdog" 2> /dev/null
+if [ "$code" = 1 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
+  pass "a pipe put in the lock file's place after dw looked at it is not waited on: what was opened is refused"
+else
+  fail "lock swapped for a pipe after the look: exit $code: $out"
+fi
+
+# A pipe where sections.tsv goes would hold a save, and both locks it holds, waiting for a writer: the
+# save refuses it at once and leaves the record as it was
+printf '# 本文\n\n保存する本文\n' > "$scratch/plain-body.md"
+dir=$(two_page_record piped-sections-save)
+rm -f "$dir/pages/sections.tsv"
+mkfifo "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+watchdog=$(feed_stuck_readers "$dir/pages/sections.tsv")
+in_dw record_page 1 "新しい題" "$scratch/plain-body.md" "" quiet
+kill "$watchdog" 2> /dev/null
+if [ "$code" = 1 ] && grep -q 'sections.tsv is not a plain file' <<< "$out" && [ -p "$dir/pages/sections.tsv" ] \
+  && [ -f "$dir/pages/01-一枚目.md" ] && [ ! -e "$dir/pages/01-新しい題.md" ]; then
+  pass "a pipe where sections.tsv goes is refused by a save at once, never read: the record stays as it was"
+else
+  fail "piped sections.tsv on a save (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+# A sections.tsv that is a link is not the record's: a save neither reads its target as the record's
+# rows nor puts a file in its place
+dir=$(two_page_record linked-sections-save)
+printf '1\t外の章\n' > "$scratch/sections-target.tsv"
+rm -f "$dir/pages/sections.tsv"
+ln -s "$scratch/sections-target.tsv" "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 1 "新しい題" "$scratch/plain-body.md" "" quiet
+if [ "$code" = 1 ] && grep -q 'sections.tsv is not a plain file' <<< "$out" && [ -L "$dir/pages/sections.tsv" ] \
+  && [ "$(cat "$scratch/sections-target.tsv")" = "$(printf '1\t外の章')" ] && [ ! -e "$dir/pages/01-新しい題.md" ]; then
+  pass "a sections.tsv that is a link is refused by a save: its target is not read as the record's, and the link stays"
+else
+  fail "linked sections.tsv on a save (exit $code: $out): $(ls -l "$dir/pages" | tr '\n' ' ')"
+fi
+# sections.tsv keeps its permission bits whichever command rewrites it: a save and a clear both put a
+# new file in its place (renamed, so no reader sees half an index)
+dir=$(two_page_record private-sections)
+chmod 600 "$dir/pages/sections.tsv"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 1 "一枚目" "$scratch/plain-body.md" "" quiet
+after_save="$code/$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")"
+in_dw record_clear
+if [ "$after_save" = "0/600" ] && [ "$code" = 0 ] && [ "$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv")" = 600 ] \
+  && [ ! -s "$dir/pages/sections.tsv" ]; then
+  pass "a sections.tsv made private stays private when a save rewrites it and when a clear empties it"
+else
+  fail "sections.tsv permissions (after the save $after_save; after the clear $code/$(/usr/bin/stat -f %Lp "$dir/pages/sections.tsv"))"
+fi
+# A handbook.md dw cannot write keeps what it held, and dw says it was not rebuilt (the page is saved)
+dir=$(two_page_record readonly-handbook)
+printf '# 古い\n' > "$dir/handbook.md"
+chmod 444 "$dir/handbook.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 1 "一枚目" "$scratch/plain-body.md" "" quiet
+if [ "$code" = 0 ] && grep -q 'handbook.md could not be rebuilt' <<< "$out" && [ "$(cat "$dir/handbook.md")" = '# 古い' ] \
+  && grep -q '保存する本文' "$dir/pages/01-一枚目.md"; then
+  pass "a handbook.md that cannot be written keeps what it held and dw says it was not rebuilt; the page is saved"
+else
+  fail "read-only handbook.md (exit $code: $out): $(cat "$dir/handbook.md")"
+fi
+chmod 644 "$dir/handbook.md"
+rm -f "$DW_HOME/record_dir"
 
 dir="$RECORDS/controls"
 mkdir -p "$dir/pages"
@@ -417,6 +515,19 @@ if [ "$code" = 1 ] && [ "$after" = "$before" ] && [ "$(cat "$dir/pages/sections.
   pass "a sections.tsv that cannot be written stops a page write before the page changes"
 else
   fail "unwritable sections index (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+# The scratch file the other pages' rows are copied to cannot be made (a folder under its name): the
+# save stops there. It is not taken for "no other row", which would leave this page's row alone
+mkdir "$dir/pages/.sections.rows.$$"
+before=$(ls -A "$dir/pages")
+in_dw record_page 5 "行を写せない" "$scratch/body.md" "" quiet
+after=$(ls -A "$dir/pages")
+rmdir "$dir/pages/.sections.rows.$$"
+if [ "$code" = 1 ] && grep -q 'sections.tsv could not be written' <<< "$out" && [ "$after" = "$before" ] \
+  && [ "$(cat "$dir/pages/sections.tsv")" = "$(printf '1\t')" ]; then
+  pass "a save that cannot copy the other pages' rows stops before the page changes: the index keeps every row"
+else
+  fail "rows scratch file under a folder (exit $code: $out): $(ls -A "$dir/pages" | tr '\n' ' ') / $(cat "$dir/pages/sections.tsv")"
 fi
 chmod 000 "$dir/pages/sections.tsv"
 before=$(ls "$dir/pages")
@@ -573,6 +684,112 @@ if [ "$(jq '[.pages[].n]' -c "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2
   pass "a broken page whose given title holds a marker still keeps its number and a stand-in on resume"
 else
   fail "stand-in with a marked title (exit $code: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
+fi
+rm -rf "$DW_HOME/explain"
+
+# On resume a pipe where sections.tsv goes is not read (it would hold the resume waiting for a writer):
+# the pages come back, and dw says their sections and given titles did not
+dir=$(two_page_record piped-sections-resume)
+rm -f "$dir/pages/sections.tsv"
+mkfifo "$dir/pages/sections.tsv"
+rm -rf "$DW_HOME/explain"
+watchdog=$(feed_stuck_readers "$dir/pages/sections.tsv")
+in_dw explain_restore "$dir"
+kill "$watchdog" 2> /dev/null
+if grep -q 'sections.tsv is not a plain file or cannot be read' <<< "$out" \
+  && [ "$(jq -c '[.pages[].n]' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[1,2]" ]; then
+  pass "on resume a pipe where sections.tsv goes is never read: the pages come back and dw says their sections did not"
+else
+  fail "piped sections.tsv on resume (exit $code: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
+fi
+rm -rf "$DW_HOME/explain"
+
+# A clear whose record cannot empty its sections.tsv (the file is locked) is a clear that did not
+# finish: dw says where the pages are, the panel is left as it was, and clearing again clears it
+dir=$(two_page_record locked-index)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 一枚目\n\n表示中\n' > "$scratch/shown.md"
+in_dw cmd_explain "$scratch/shown.md"
+chflags uchg "$dir/pages/sections.tsv"
+in_dw cmd_explain --clear
+first="$code/$out"
+panel_pages=$(jq '.pages | length' "$DW_HOME/explain/index.json" 2>/dev/null)
+chflags nouchg "$dir/pages/sections.tsv"
+in_dw cmd_explain --clear
+if [[ "$first" == 1/*"sections.tsv could not be emptied"*"only part of the record was cleared"* ]] \
+  && [[ "$first" == *"the pages are in pages/cleared-"* ]] && [ "$panel_pages" = 1 ] \
+  && [ "$code" = 0 ] && grep -q 'every page removed' <<< "$out" \
+  && [ "$(jq '.pages | length' "$DW_HOME/explain/index.json" 2>/dev/null)" = 0 ] && [ ! -e "$dir/pages/01-一枚目.md" ]; then
+  pass "a clear that cannot empty the record's sections.tsv says so and keeps the panel; clearing again clears it"
+else
+  fail "clear with a locked sections.tsv (first $first; then $code: $out; panel pages $panel_pages)"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
+# The panel's index is replaced, not written into: a clear that cannot replace it (the file is locked)
+# puts the panel's pages back, so the panel never lists pages that are gone; one that is only
+# read-only is replaced
+dir=$(two_page_record locked-panel-index)
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw cmd_explain "$scratch/shown.md"
+chflags uchg "$DW_HOME/explain/index.json"
+in_dw cmd_explain --clear
+locked="$code/$out"
+chflags nouchg "$DW_HOME/explain/index.json"
+if [[ "$locked" == 1/*"the panel's index"*"could not be replaced"*"the panel keeps every page"* ]] \
+  && [ "$(jq '.pages | length' "$DW_HOME/explain/index.json" 2>/dev/null)" = 1 ] && [ -f "$DW_HOME/explain/pages/001.md" ] \
+  && [ -z "$(find "$DW_HOME/explain" -maxdepth 1 -name 'index.json.part.*')" ] \
+  && [ -z "$(find "$DW_HOME/explain/cleared" -mindepth 1 -maxdepth 1 2>/dev/null)" ]; then
+  pass "a clear that cannot replace the panel's index puts the panel's pages back and says the panel keeps them"
+else
+  fail "clear with a locked panel index ($locked): $(ls -A "$DW_HOME/explain" "$DW_HOME/explain/cleared" 2>&1 | tr '\n' ' ')"
+fi
+chmod 444 "$DW_HOME/explain/index.json"
+in_dw cmd_explain --clear
+if [ "$code" = 0 ] && grep -q 'every page removed' <<< "$out" && [ "$(jq -c '.pages' "$DW_HOME/explain/index.json" 2>/dev/null)" = "[]" ] \
+  && [ ! -e "$DW_HOME/explain/pages/001.md" ]; then
+  pass "a clear replaces a panel index that is only read-only: the panel lists no page afterwards"
+else
+  fail "clear with a read-only panel index (exit $code: $out): $(cat "$DW_HOME/explain/index.json" 2>/dev/null)"
+fi
+rm -rf "$DW_HOME/explain"
+# The panel's empty index is staged before anything changes: when it cannot be written, the clear
+# stops with the panel and the record as they were (the record's page is not archived either)
+in_dw cmd_explain "$scratch/shown.md"
+chmod 555 "$DW_HOME/explain"
+in_dw cmd_explain --clear
+chmod 755 "$DW_HOME/explain"
+if [ "$code" = 1 ] && grep -q "nothing was removed: the panel's index could not be written" <<< "$out" \
+  && [ "$(jq '.pages | length' "$DW_HOME/explain/index.json" 2>/dev/null)" = 1 ] && [ -f "$DW_HOME/explain/pages/001.md" ] \
+  && [ -f "$dir/pages/01-一枚目.md" ]; then
+  pass "a clear that cannot stage the panel's empty index removes nothing: the panel and the record keep the page"
+else
+  fail "clear in a panel folder that cannot be written (exit $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+rm -f "$DW_HOME/record_dir"
+rm -rf "$DW_HOME/explain"
+
+# dw doctor says what clears have kept aside (nothing removes it): the panel's pages and the records'
+# archives; nothing when there is none
+mkdir -p "$DW_HOME/explain/cleared/pages-20261128-010000-1" "$RECORDS/doctor-archives/pages/cleared-20261128-010000"
+in_dw doctor_cleared
+kept="$out"
+DW_HOME="$scratch/empty-state" DW_CONFIG="$scratch/empty-config" in_dw doctor_cleared
+if grep -q '^• 1 folder(s) of cleared panel pages' <<< "$kept" && grep -Eq '^• [0-9]+ archive\(s\) of cleared pages in the records' <<< "$kept" \
+  && [ -z "$out" ]; then
+  pass "dw doctor says how many cleared copies the panel and the records keep, and nothing when there is none"
+else
+  fail "doctor on cleared copies ($kept / $out)"
+fi
+rm -rf "$DW_HOME/explain"
+
+# Without a scratch file dw explain reads and builds nothing, and says why
+in_dw without_scratch cmd_explain "$scratch/shown.md"
+if [ "$code" = 1 ] && grep -q 'no scratch file could be made' <<< "$out" && [ ! -e "$DW_HOME/explain/pages/001.md" ]; then
+  pass "dw explain without a scratch file (mktemp fails) changes nothing and says so"
+else
+  fail "dw explain without a scratch file (exit $code: $out)"
 fi
 rm -rf "$DW_HOME/explain"
 
@@ -1163,6 +1380,17 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 3 of odd-reading is a link wh
   pass "an entry that is no page file, put there while the export reads the pages, stops it before the renderer starts"
 else
   fail "odd entry while the export reads the pages (exit $code: $out)"
+fi
+
+# Without a scratch folder the export stages nothing (an empty name would have dw write under /)
+dir=$(two_page_record no-scratch)
+rm -f "$DW_CHECK_SEEN"
+in_dw without_scratch cmd_handout no-scratch
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RENDERER no scratch folder could be made' <<< "$out" && [ ! -e "$DW_CHECK_SEEN" ] \
+  && [ ! -e "$dir/handout.html" ]; then
+  pass "an export without a scratch folder (mktemp -d fails) stops with HANDOUT_RENDERER: nothing read or written"
+else
+  fail "export without a scratch folder (exit $code: $out)"
 fi
 
 in_dw cmd_handout ../escape
