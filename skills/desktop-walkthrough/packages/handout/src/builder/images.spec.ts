@@ -992,3 +992,192 @@ test('a screenshot an SVG carries counts among the pictures to look at before sh
   expect(result.diagnostics).toEqual([])
   expect(ledger.rasterPictures).toBe(1)
 })
+
+test('a screenshot an SVG style loads is checked however CSS spells it: an escaped url, a style sheet, an image-set', async () => {
+  // Arrange
+  const png = pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]])
+  const data = `data:image/png;base64,${bytesToBase64(png)}`
+  const escaped = `<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" style="background-image:u\\72l(${data})"/></svg>`
+  const sheet = `<svg xmlns="http://www.w3.org/2000/svg"><style>rect { fill: \\75 rl("${data}") }</style><rect width="10" height="10"/></svg>`
+  const set = `<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" style="mask-image: image-set('${data}' 1x)"/></svg>`
+  const host = hostWithFiles({
+    '/r/pages/escaped.svg': toBase64(escaped),
+    '/r/pages/sheet.svg': toBase64(sheet),
+    '/r/pages/set.svg': toBase64(set),
+  })
+  const html = '<p><img src="escaped.svg"><img src="sheet.svg"><img src="set.svg"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](escaped.svg)\n![二](sheet.svg)\n![三](set.svg)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.message])).toEqual([
+    [
+      'HANDOUT_SECRET',
+      'page 3:1: the image escaped.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    ],
+    [
+      'HANDOUT_SECRET',
+      'page 3:2: the image sheet.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    ],
+    [
+      'HANDOUT_SECRET',
+      'page 3:3: the image set.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    ],
+  ])
+})
+
+test('a screenshot an SVG carries under another type’s name is checked by its bytes, as a browser shows it', async () => {
+  // Arrange
+  const png = bytesToBase64(pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]]))
+  const mistyped = `<svg xmlns="http://www.w3.org/2000/svg"><image href="data:application/octet-stream;base64,${png}" width="10" height="10"/></svg>`
+  const spaced = `<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" style="fill: url(data: image/png;base64,${png})"/></svg>`
+  const poster = `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="10" height="10"><video xmlns="http://www.w3.org/1999/xhtml" poster="data:;base64,${png}"/></foreignObject></svg>`
+  const host = hostWithFiles({
+    '/r/pages/mistyped.svg': toBase64(mistyped),
+    '/r/pages/spaced.svg': toBase64(spaced),
+    '/r/pages/poster.svg': toBase64(poster),
+  })
+  const html = '<p><img src="mistyped.svg"><img src="spaced.svg"><img src="poster.svg"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](mistyped.svg)\n![二](spaced.svg)\n![三](poster.svg)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image mistyped.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    'page 3:2: the image spaced.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+    'page 3:3: the image poster.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+test('a font an SVG carries for its text does not stop the export, and is no picture to look at', async () => {
+  // Arrange: how a WOFF2 font starts
+  const font = bytesToBase64(new Uint8Array([0x77, 0x4f, 0x46, 0x32, 0x00, 0x01, 0x00, 0x00]))
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><style>@font-face { font-family: Hand; src: url(data:font/woff2;base64,${font}) }</style><text font-family="Hand">図</text></svg>`
+  const host = hostWithFiles({ '/r/pages/lettered.svg': toBase64(svg) })
+  const ledger = createImageLedger()
+
+  // Act
+  const result = await embedImages(
+    page('![図](lettered.svg)\n'),
+    '<p><img src="lettered.svg"></p>',
+    '/r',
+    host,
+    ledger,
+  )
+
+  // Assert
+  expect(result.diagnostics).toEqual([])
+  expect(ledger.rasterPictures).toBe(0)
+})
+
+test('data an SVG carries that is neither a picture nor a font stops the export: a style sheet imported as data could load pictures unchecked', async () => {
+  // Arrange
+  const sheet = toBase64('rect { fill: red }')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><style>@import url("data:text/css;base64,${sheet}");</style><rect width="10" height="10"/></svg>`
+  const host = hostWithFiles({ '/r/pages/imported.svg': toBase64(svg) })
+  const html = '<p><img src="imported.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](imported.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.message])).toEqual([
+    [
+      'HANDOUT_IMAGE',
+      'page 3:1: the image imported.svg carries data that is neither a picture (png, jpeg, gif, webp, avif or svg) nor a font, which cannot be checked: take it out of the SVG',
+    ],
+  ])
+})
+
+test('an SVG whose style loads a file stops the export however CSS spells it: an escaped url, an @import', async () => {
+  // Arrange
+  const escaped =
+    '<svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10" style="fill: u\\72l(texture.png)"/></svg>'
+  const imported =
+    '<svg xmlns="http://www.w3.org/2000/svg"><style>@import "theme.css";</style><rect width="10" height="10"/></svg>'
+  const host = hostWithFiles({
+    '/r/pages/escaped.svg': toBase64(escaped),
+    '/r/pages/imported.svg': toBase64(imported),
+  })
+  const html = '<p><img src="escaped.svg"><img src="imported.svg"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![一](escaped.svg)\n![二](imported.svg)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image escaped.svg draws a picture it links to (texture.png), which it cannot show inside the Handout: embed that picture in the SVG',
+    'page 3:2: the image imported.svg draws a picture it links to (theme.css), which it cannot show inside the Handout: embed that picture in the SVG',
+  ])
+})
+
+test('a screenshot whose data URI an SVG breaks across lines is still checked: a browser drops the line feeds', async () => {
+  // Arrange
+  const png = bytesToBase64(pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]]))
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="10" height="10"><video xmlns="http://www.w3.org/1999/xhtml" poster="da&#10;ta:image/png;base64,${png}"/></foreignObject></svg>`
+  const host = hostWithFiles({ '/r/pages/broken.svg': toBase64(svg) })
+  const html = '<p><img src="broken.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](broken.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image broken.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+test('a screenshot in a srcset whose candidates are split by a comma alone is still checked', async () => {
+  // Arrange
+  const png = bytesToBase64(pngWith([['tEXt', new TextEncoder().encode(`Comment\0${ACCESS_KEY_ID}`)]]))
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg"><foreignObject width="10" height="10"><img xmlns="http://www.w3.org/1999/xhtml" srcset="data:image/gif;base64,R0lGODlhAQABAAAAACw= 1x,data:image/png;base64,${png} 2x"/></foreignObject></svg>`
+  const host = hostWithFiles({ '/r/pages/dense.svg': toBase64(svg) })
+  const html = '<p><img src="dense.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](dense.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => diagnostic.message)).toEqual([
+    'page 3:1: the image dense.svg carries a picture that carries a secret shape (aws-access-key-id) in its metadata; save the picture again without it',
+  ])
+})
+
+test('an SVG that links a style sheet before its root stops the export: the sheet is neither loaded nor checked', async () => {
+  // Arrange
+  const sheet = toBase64('rect { fill: red }')
+  const svg = `<?xml-stylesheet type="text/css" href="data:text/css;base64,${sheet}"?><svg xmlns="http://www.w3.org/2000/svg"><rect width="10" height="10"/></svg>`
+  const host = hostWithFiles({ '/r/pages/styled.svg': toBase64(svg) })
+  const html = '<p><img src="styled.svg"></p>'
+
+  // Act
+  const result = await embedImages(page('![図](styled.svg)\n'), html, '/r', host, createImageLedger())
+
+  // Assert
+  expect(result.diagnostics.map((diagnostic) => [diagnostic.code, diagnostic.message])).toEqual([
+    [
+      'HANDOUT_IMAGE',
+      'page 3:1: the image styled.svg links a style sheet (<?xml-stylesheet?>), which a Handout neither loads nor checks: write its rules in a <style> of the SVG',
+    ],
+  ])
+})

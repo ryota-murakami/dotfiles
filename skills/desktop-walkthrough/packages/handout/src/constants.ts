@@ -62,6 +62,20 @@ export const IMAGE_SIGNATURES = [
   { mime: 'image/avif', parts: [{ offset: 4, bytes: [0x66, 0x74, 0x79, 0x70, 0x61, 0x76, 0x69, 0x73] }] },
 ] as const
 
+/**
+ * What the bytes of a font start with: WOFF2 (`wOF2`), WOFF (`wOFF`), OpenType with CFF outlines
+ * (`OTTO`), TrueType as Windows and as Apple write it (`true`), and a collection of them (`ttcf`). An
+ * SVG may carry a font as data for its text; no picture a browser shows starts like one of these.
+ */
+export const FONT_SIGNATURES = [
+  [0x77, 0x4f, 0x46, 0x32],
+  [0x77, 0x4f, 0x46, 0x46],
+  [0x4f, 0x54, 0x54, 0x4f],
+  [0x00, 0x01, 0x00, 0x00],
+  [0x74, 0x72, 0x75, 0x65],
+  [0x74, 0x74, 0x63, 0x66],
+] as const
+
 /** How far into a file an SVG's `<svg` element is looked for, after its XML declaration, comments and doctype. */
 export const SVG_SNIFF_BYTES = 4_096
 

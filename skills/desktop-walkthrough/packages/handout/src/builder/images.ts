@@ -9,11 +9,13 @@ import type { Diagnostic, HandoutPage } from '../contract'
 import { base64DecodedLength } from '../utils/base64DecodedLength'
 import { byteTexts } from '../utils/byteTexts'
 import { collectReadableText } from '../utils/collectReadableText'
+import { cssLoads } from '../utils/cssLoads'
 import { decodeBase64 } from '../utils/decodeBase64'
 import { decodeXmlEntities } from '../utils/decodeXmlEntities'
 import { encodeBase64 } from '../utils/encodeBase64'
 import { excerpt } from '../utils/excerpt'
 import { inflateLimited } from '../utils/inflateLimited'
+import { isFont } from '../utils/isFont'
 import { gifExtensionTexts } from '../utils/gifExtensionTexts'
 import { jpegSegments } from '../utils/jpegSegments'
 import { pngChunks } from '../utils/pngChunks'
@@ -358,18 +360,20 @@ function tooLarge(): EmbedFailure {
 }
 
 /**
- * Whether some bytes may go into a Handout as an image: what image they are, or why not. A picture
- * an SVG carries as data is checked the same way, one level deeper. Whether a picture decodes is
- * checked where it is shown, once: the finished Handout is opened in the browser before it is
- * published, and a broken or cut-off picture stops the export there ({@link judgeVerification}).
+ * Whether some bytes may go into a Handout as an image: what image they are, or why not. What an SVG
+ * carries as data is told by its bytes, whatever type its URI declares: a font is carried as it is,
+ * and anything else has to be a picture, checked the same way one level deeper. Whether a picture
+ * decodes is checked where it is shown, once: the finished Handout is opened in the browser before
+ * it is published, and a broken or cut-off picture stops the export there ({@link judgeVerification}).
  *
  * @param bytes - A file's contents, or the data written into a page.
  * @param depth - How deep inside other pictures these bytes sit (0 for the picture a page names).
  * @returns
  * - `{ ok: true, mime, rasters }` for png, jpeg, gif, webp, avif and svg that carry no secret shape;
  *   `rasters` counts the raster pictures among them (an SVG's nested screenshots included)
- * - `{ ok: false, failure }` for other bytes and a malformed SVG (HANDOUT_IMAGE), and for a picture
- *   whose text holds a secret shape or cannot be read to check (HANDOUT_SECRET, HANDOUT_IMAGE)
+ * - `{ ok: false, failure }` for other bytes and a malformed SVG (HANDOUT_IMAGE), for an SVG that
+ *   carries data that is neither a picture nor a font (HANDOUT_IMAGE), and for a picture whose text
+ *   holds a secret shape or cannot be read to check (HANDOUT_SECRET, HANDOUT_IMAGE)
  *
  * @example
  * await inspectImage(new TextEncoder().encode('{"error":"expired"}')) // { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'is not an image: …' } }
@@ -416,19 +420,47 @@ async function inspectImage(
         },
       }
     }
-    // A picture the drawing carries (a screenshot as data) is checked like one of its own
+    // A style sheet the document links (`<?xml-stylesheet … ?>`, read from the text: it is no element)
+    // is not loaded where the drawing is shown as an image, and one given as data could load
+    // pictures that no check here reads
+    if (/<\?xml-stylesheet[\s?]/.test(text)) {
+      return {
+        ok: false,
+        failure: {
+          code: 'HANDOUT_IMAGE',
+          reason:
+            'links a style sheet (<?xml-stylesheet?>), which a Handout neither loads nor checks: write its rules in a <style> of the SVG',
+        },
+      }
+    }
+    // What the drawing carries as data is told by its bytes, as a browser shows a picture whatever
+    // type its URI declares: a font (for the drawing's text) is carried as it is, and anything else
+    // has to be a picture, checked like one of its own (a screenshot's metadata)
     // The raster pictures the drawing carries count among those to look at before sharing
     let rasters = 0
-    for (const nested of nestedPictures(parsed)) {
-      if (depth >= NESTED_PICTURE_DEPTH) {
-        return { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'nests pictures too deeply to check' } }
-      }
-      const data = dataUriBytes(nested)
+    for (const carried of carriedData(parsed)) {
+      const data = dataUriBytes(carried)
       if (!data.ok)
         return {
           ok: false,
           failure: { code: 'HANDOUT_IMAGE', reason: `carries a picture that ${data.reason}` },
         }
+      if (isFont(data.bytes)) continue
+      // A style sheet imported as data could load pictures of its own, and other data is read by
+      // no check here
+      if (sniffImage(data.bytes) === null) {
+        return {
+          ok: false,
+          failure: {
+            code: 'HANDOUT_IMAGE',
+            reason:
+              'carries data that is neither a picture (png, jpeg, gif, webp, avif or svg) nor a font, which cannot be checked: take it out of the SVG',
+          },
+        }
+      }
+      if (depth >= NESTED_PICTURE_DEPTH) {
+        return { ok: false, failure: { code: 'HANDOUT_IMAGE', reason: 'nests pictures too deeply to check' } }
+      }
       const inspected = await inspectImage(data.bytes, depth + 1)
       if (!inspected.ok) {
         return {
@@ -514,6 +546,33 @@ function metadataSecretShape(raster: Uint8Array): string | null {
 }
 
 /**
+ * A link as a browser's URL reader takes it: without the tabs and line feeds it drops, trimmed.
+ *
+ * @param written - An attribute's value as written.
+ * @returns The link the browser follows.
+ *
+ * @example
+ * asUrl(' da\nta:image/png;base64,iVBOR ') // 'data:image/png;base64,iVBOR'
+ */
+function asUrl(written: string): string {
+  return written.replace(/[\t\n\r]/g, '').trim()
+}
+
+/**
+ * Whether a link is data written into the document itself.
+ *
+ * @param target - A link as {@link asUrl} or {@link cssLoads} gives it.
+ * @returns Whether it is a `data:` URI, whatever type it declares.
+ *
+ * @example
+ * isDataUri('DATA:image/png;base64,iVBOR') // true
+ * isDataUri('shot.png')                    // false
+ */
+function isDataUri(target: string): boolean {
+  return /^data:/i.test(target)
+}
+
+/**
  * Whether an SVG's link points at a file: neither data nor a reference within the drawing (`#id`).
  *
  * @param target - An href, a src or a url(…) target as written.
@@ -523,36 +582,58 @@ function metadataSecretShape(raster: Uint8Array): string | null {
  * isFileLink('shot.png')  // true
  * isFileLink('#gradient') // false
  */
-/**
- * Whether an attribute of a standalone SVG names a picture by href: SVG 2's (no namespace) or
- * XLink's, whatever prefix the drawing gives XLink (an XML prefix is only a name for its namespace).
- * Called by {@link nestedPictures} for every attribute of the drawing.
- *
- * @param attribute - An attribute of an element of the SVG's document.
- * @returns Whether a browser reads it as the element's picture link.
- *
- * @example
- * isSvgHref(attributeOf('<image xmlns:x="http://www.w3.org/1999/xlink" x:href="a.png"/>')) // true
- * isSvgHref(attributeOf('<image src="a.png"/>'))                                          // false
- */
-function isSvgHref(attribute: Attr): boolean {
-  return (
-    attribute.localName === 'href' &&
-    (attribute.namespaceURI === null || attribute.namespaceURI === XLINK_NAMESPACE)
-  )
+function isFileLink(target: string): boolean {
+  return target !== '' && !target.startsWith('#') && !isDataUri(target)
 }
 
-function isFileLink(target: string): boolean {
-  return target !== '' && !target.startsWith('#') && !/^data:/i.test(target)
+/**
+ * What the styles of one element of an SVG load, read as CSS reads them ({@link cssLoads}): each
+ * attribute's value, and a `<style>`'s text. Every attribute is read as CSS: a presentation attribute
+ * (`fill`, `filter`) loads like a style, and one that holds no CSS loads nothing.
+ *
+ * @param element - An element of the SVG's document.
+ * @returns The targets its styles load, references within the drawing (`#id`) left out.
+ *
+ * @example
+ * styleLoads(elementOf('<rect style="fill: u\\72l(texture.png)"/>')) // ['texture.png']
+ */
+function styleLoads(element: Element): string[] {
+  return [
+    ...Array.from(element.attributes, (attribute) => attribute.value),
+    element.localName === 'style' ? (element.textContent ?? '') : '',
+  ].flatMap(cssLoads)
+}
+
+/**
+ * The data an attribute names: its value when that is a `data:` URI, or each one among the
+ * candidates of a `srcset`, up to the next space and without the comma that ends a candidate.
+ *
+ * @param attribute - An attribute of an element of the SVG's document.
+ * @returns The data URIs as a browser's URL reader takes them; empty for an attribute that names none.
+ *
+ * @example
+ * attributeData(attributeOf('<image href=" data:image/png;base64,iVBOR"/>'))            // ['data:image/png;base64,iVBOR']
+ * attributeData(attributeOf('<img srcset="a.png 1x,data:image/png;base64,iVBOR 2x"/>')) // ['data:image/png;base64,iVBOR']
+ */
+function attributeData(attribute: Attr): string[] {
+  // A candidate of a srcset ends at the next space (HTML's: tab, line feed, form feed, return, space)
+  if (attribute.localName === 'srcset') {
+    return Array.from(attribute.value.matchAll(/data:[^\t\n\f\r ]+/gi), (match) =>
+      match[0].replace(/,+$/, ''),
+    )
+  }
+  const link = asUrl(attribute.value)
+  return isDataUri(link) ? [link] : []
 }
 
 /**
  * The first picture an SVG loads instead of carrying: an `<image>` or `<feImage>` whose `href` or
  * `xlink:href` is neither data nor a reference within the drawing (`#id`), an HTML `<img>` of a label
- * (foreignObject) whose `src` is not data, or a style's `url(…)` of a file.
+ * (foreignObject) whose `src` is not data, or a file a style loads ({@link styleLoads}: a `url(…)`,
+ * an `image-set(…)`, an `@import`).
  *
  * @param parsed - The SVG's document.
- * @returns The link as written, or null when the drawing loads no picture.
+ * @returns The link as a browser's URL reader takes it, or null when the drawing loads no file.
  *
  * @example
  * linkedPicture(parse('<svg …><image href="shot.png"/></svg>'))              // 'shot.png'
@@ -565,57 +646,35 @@ function linkedPicture(parsed: Document): string | null {
     // whatever prefix); a label's HTML <img> in src
     const linked =
       name === 'image' || name === 'feImage'
-        ? (element.getAttribute('href') ?? element.getAttributeNS(XLINK_NAMESPACE, 'href') ?? '').trim()
+        ? asUrl(element.getAttribute('href') ?? element.getAttributeNS(XLINK_NAMESPACE, 'href') ?? '')
         : name === 'img'
-          ? (element.getAttribute('src') ?? '').trim()
+          ? asUrl(element.getAttribute('src') ?? '')
           : ''
     if (isFileLink(linked)) return linked
-    // A style (an attribute or a <style>) that loads a file by url(…)
-    const styles = [
-      ...Array.from(element.attributes, (attribute) => attribute.value),
-      name === 'style' ? (element.textContent ?? '') : '',
-    ]
-    for (const style of styles) {
-      for (const match of style.matchAll(/url\(\s*["']?([^"')\s]+)/gi)) {
-        if (isFileLink(match[1] ?? '')) return match[1] ?? ''
-      }
-    }
+    // A style (an attribute or a <style>) that loads a file, however CSS spells it (`u\72l(…)`)
+    const linkedByStyle = styleLoads(element).find(isFileLink)
+    if (linkedByStyle !== undefined) return linkedByStyle
   }
   return null
 }
 
 /**
- * The pictures an SVG carries as data: each `data:image/…` an element names in `href` or
- * `xlink:href` (an `<image>`, a filter's `<feImage>`), in `src` or `srcset` (an HTML image in a
- * label), and each one a style's `url(…)` loads.
+ * The data an SVG carries: each `data:` URI an attribute names, whatever the attribute (the `href` of
+ * an `<image>` or of a filter's `<feImage>`, the `src` or `srcset` of an HTML image in a label, a
+ * `poster`, a `background`), and each one a style loads ({@link styleLoads}). Called by
+ * {@link inspectImage}, which tells from the bytes what each one is.
  *
  * @param parsed - The SVG's document.
- * @returns The data URIs, as written.
+ * @returns The data URIs as a browser's URL reader takes them, whatever type they declare.
  *
  * @example
- * nestedPictures(parse('<svg …><image href="data:image/png;base64,iVBOR…"/></svg>')) // ['data:image/png;base64,iVBOR…']
+ * carriedData(parse('<svg …><image href="data:image/png;base64,iVBOR…"/></svg>'))        // ['data:image/png;base64,iVBOR…']
+ * carriedData(parse('<svg …><rect style="fill: u\\72l(data:;base64,iVBOR…)"/></svg>')) // ['data:;base64,iVBOR…']
  */
-function nestedPictures(parsed: Document): string[] {
-  const pictures: string[] = []
-  for (const element of Array.from(parsed.querySelectorAll('*'))) {
-    for (const attribute of Array.from(element.attributes)) {
-      const value = attribute.value.trim()
-      // An <image>'s href, and the src of an HTML image in a label (foreignObject)
-      if ((isSvgHref(attribute) || attribute.name === 'src') && /^data:image\//i.test(value))
-        pictures.push(value)
-      // Each data picture of a srcset, up to the space before its descriptor
-      if (attribute.name === 'srcset') {
-        for (const match of value.matchAll(/data:image\/[^\s"')]+/gi)) pictures.push(match[0])
-      }
-      for (const match of attribute.value.matchAll(/url\(\s*["']?(data:image\/[^"')\s]+)/gi))
-        pictures.push(match[1] ?? '')
-    }
-    if (element.localName === 'style') {
-      for (const match of (element.textContent ?? '').matchAll(/url\(\s*["']?(data:image\/[^"')\s]+)/gi))
-        pictures.push(match[1] ?? '')
-    }
-  }
-  return pictures.filter((picture) => picture !== '')
+function carriedData(parsed: Document): string[] {
+  return Array.from(parsed.querySelectorAll('*')).flatMap((element) =>
+    [...Array.from(element.attributes).flatMap(attributeData), ...styleLoads(element).filter(isDataUri)],
+  )
 }
 
 /**
