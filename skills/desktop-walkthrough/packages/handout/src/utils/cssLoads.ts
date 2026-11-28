@@ -206,7 +206,10 @@ function cssTokens(written: string): CssToken[] {
       index++
       // url( with a quote after optional white space is a function holding a string; else the URL
       // itself follows, unquoted
-      const quoted = /^[ \t\n]*["']/.test(css.slice(index))
+      // Sticky, from `index`: no copy of the rest of the text for each function
+      const afterSpace = /[ \t\n]*["']/y
+      afterSpace.lastIndex = index
+      const quoted = afterSpace.test(css)
       if (word !== 'url' || quoted) {
         tokens.push({ kind: 'function', name: word })
         continue

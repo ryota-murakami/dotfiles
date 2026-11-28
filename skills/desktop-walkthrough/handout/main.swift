@@ -613,11 +613,16 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // stays too (said by `takenOver`)
             var newest = stat()
             guard fstat(theirs, &now) == 0, sameContentStamp(now, replaced), sameChangeTime(now, replaced),
-                  isAtPath(staged, replaced), isAtPath(target, written),
-                  stamped, fstat(descriptor, &newest) == 0, sameContentStamp(newest, checked),
-                  sameChangeTime(newest, checked) else {
+                  isAtPath(staged, replaced) else {
                 return takenOver(earlierKeptAt: staged)
                     ?? .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
+            }
+            // The new Handout was touched since it was read (it may hold the same bytes again, which
+            // `takenOver` then finds): the earlier one stays, and the warning says why
+            guard isAtPath(target, written), stamped, fstat(descriptor, &newest) == 0,
+                  sameContentStamp(newest, checked), sameChangeTime(newest, checked) else {
+                return takenOver(earlierKeptAt: staged)
+                    ?? .published(warnings: ["another program touched \(target) while the earlier Handout was replaced (it still holds the Handout that was checked): the earlier Handout is kept at \(staged)"])
             }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
             // keep what a new export may have been made to remove (a page taken out). A write through a

@@ -1165,6 +1165,36 @@ else
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 
+# Another program only touches the new Handout in that pause (same bytes, a new modification time):
+# the Handout is the one that was checked, so the export succeeds; the earlier one stays, with a warning
+handout_input "$RECORDS/direct" "$scratch/retouch.html" "$scratch/retouch-explain" "$scratch/retouch.json"
+first_export "touch of the target before the earlier Handout goes" "$scratch/retouch.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/retouch.html")
+jq '.limits.writePauseMs = 3000' "$scratch/retouch.json" > "$scratch/retouch-paused.json"
+"$BIN" "$scratch/retouch-paused.json" "$DIST" > "$scratch/retouch.out" &
+writer=$!
+waited=0
+until [ "$(/usr/bin/stat -f '%i' "$scratch/retouch.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/retouch.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+sleep 4.5
+touch -t 203001010000 "$scratch/retouch.html"
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/retouch.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.retouch.html.dw-handout-*/retouch.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "touch of the target before the earlier Handout goes: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg target "$scratch/retouch.html" --arg kept "$kept" '.ok == true
+    and (.warnings | map(.message) | index("another program touched \($target) while the earlier Handout was replaced (it still holds the Handout that was checked): the earlier Handout is kept at \($kept)") != null)' <<< "$result" >/dev/null \
+  && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ]; then
+  pass "another program touching the new Handout just before the earlier one would go keeps the earlier Handout and says so"
+else
+  fail "touch of the target before the earlier Handout goes (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
 # An earlier Handout whose content could not be read first (larger than the digest's limit, set to
 # 1 byte here, test only) cannot be told from a save: it is kept beside with its own warning
 handout_input "$RECORDS/direct" "$scratch/unread.html" "$scratch/unread-explain" "$scratch/unread.json"
