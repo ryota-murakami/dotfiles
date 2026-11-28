@@ -745,15 +745,27 @@ else
   fail "linked page: $out"
 fi
 # A page that is a link whose file is gone is in no list: the export stops instead of publishing the
-# Record a page short
+# Record a page short. It says the page's number, never the entry's name (a page's title, which the
+# builder has not scanned)
 new_record dangling-page
 ln -s "$scratch/no-such-page.md" "$RECORDS/dangling-page/pages/09-消えた.md"
 export_record dangling-page
-if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD pages/09-消えた.md of dangling-page is not a page file dw can read' <<< "$out" \
-  && [ ! -e "$RECORDS/dangling-page/handout.html" ]; then
-  pass "a page that is a link whose file is gone stops the export with HANDOUT_RECORD, nothing published"
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 9 of dangling-page is a link whose file is gone' <<< "$out" \
+  && ! grep -q '消えた' <<< "$out" && [ ! -e "$RECORDS/dangling-page/handout.html" ]; then
+  pass "a page that is a link whose file is gone stops the export with HANDOUT_RECORD by its number, nothing published"
 else
   fail "dangling page link: $out"
+fi
+# The same when that link is the Record's only entry: it is said, not taken for a Record without pages
+new_record only-dangling
+rm -f "$RECORDS/only-dangling/pages/"[0-9]*-*.md
+ln -s "$scratch/no-such-page.md" "$RECORDS/only-dangling/pages/01-消えた.md"
+export_record only-dangling
+if [ "$code" = 1 ] && grep -q 'HANDOUT_RECORD page 1 of only-dangling is a link whose file is gone' <<< "$out" \
+  && ! grep -q 'HANDOUT_EMPTY' <<< "$out"; then
+  pass "a Record whose only page entry is a link whose file is gone stops with HANDOUT_RECORD, not HANDOUT_EMPTY"
+else
+  fail "only a dangling page link: $out"
 fi
 # A pipe as sections.tsv would hold the export (and the Record's lock) waiting for a writer
 new_record piped-sections

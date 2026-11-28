@@ -279,7 +279,8 @@ fi
 rm -f "$DW_HOME/record_dir"
 
 # A clear stops before removing anything when pages/ holds an entry its archive could not keep: a page
-# file with a line break in its name (older records), or a link whose file is gone
+# file with a line break in its name (older records), or a link whose file is gone. It says the
+# entry's page number and kind, never its name (a page's title, which nothing has scanned)
 dir=$(two_page_record odd-newline)
 printf '# 古い\n' > "$dir/pages/"$'03-古い\n題.md'
 printf '%s' "$dir" > "$DW_HOME/record_dir"
@@ -288,15 +289,31 @@ newline="$code/$out"
 rm -f "$dir/pages/"$'03-古い\n題.md'
 ln -s "$scratch/no-such-page.md" "$dir/pages/03-消えた.md"
 in_dw record_clear
-if [[ "$newline" == 1/*"is not a page file dw can keep"*"nothing was removed"* ]] \
-  && [ "$code" = 1 ] && grep -q 'pages/03-消えた.md is not a page file dw can keep' <<< "$out" \
+if [[ "$newline" == 1/*"page 3 in pages/ is a file with a line break in its name"*"nothing was removed"* ]] \
+  && [[ "$newline" != *古い* ]] \
+  && [ "$code" = 1 ] && grep -q 'page 3 in pages/ is a link whose file is gone' <<< "$out" && ! grep -q '消えた' <<< "$out" \
   && [ -f "$dir/pages/01-一枚目.md" ] && [ -f "$dir/pages/02-二枚目.md" ] \
   && [ -z "$(find "$dir/pages" -maxdepth 1 -name 'cleared-*')" ]; then
-  pass "a clear stops, nothing removed, when a page file has a line break in its name or is a link whose file is gone"
+  pass "a clear stops, nothing removed, when a page file has a line break in its name or is a link whose file is gone, said by number"
 else
   fail "clear with an odd page entry (newline $newline; dangling $code: $out): $(ls "$dir/pages" | tr '\n' ' ')"
 fi
 rm -f "$DW_HOME/record_dir"
+# Only the numbers the lists read as pages count: an entry numbered 0 or past nine digits is no page,
+# whatever it is, and a folder is said as one
+dir="$RECORDS/odd-numbers"
+mkdir -p "$dir/pages"
+ln -s "$scratch/no-such-page.md" "$dir/pages/0-零.md"
+ln -s "$scratch/no-such-page.md" "$dir/pages/1234567890-長い.md"
+in_dw record_odd_entry "$dir"
+none="$code/$out"
+mkdir "$dir/pages/07-フォルダ.md"
+in_dw record_odd_entry "$dir"
+if [ "$none" = "1/" ] && [ "$code" = 0 ] && [ "$out" = "$(printf '7\ta folder')" ]; then
+  pass "an entry numbered 0 or past nine digits is no page entry; a folder under a page's name is one, said as page 7"
+else
+  fail "odd entry numbers (none $none; folder $code: $out)"
+fi
 
 # A pipe where the lock file goes would hold dw before any timeout: it is refused at once
 dir=$(two_page_record piped-lock)
