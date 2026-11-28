@@ -282,11 +282,11 @@ else
   fail "zero-padded page number: exit $code: $out / $(ls "$dir/pages" | tr '\n' ' ')"
 fi
 # A page number past nine digits, or one that is no whole number, is refused before the record is
-# touched: a twenty-digit one (2^64 + 1, written in two parts) would wrap around to 1 and replace page 1
+# touched: a twenty-digit one (2^64 + 1, worked out here) would wrap around to 1 and replace page 1
 dir=$(two_page_record odd-number)
 printf '%s' "$dir" > "$DW_HOME/record_dir"
 before=$(ls -A "$dir/pages" | tr '\n' ' ')
-in_dw record_page "184467440$(printf '%s' 73709551617)" "桁あふれ" "$scratch/fixed.md" "" quiet
+in_dw record_page "$(perl -Mbigint -e 'print 2**64 + 1')" "桁あふれ" "$scratch/fixed.md" "" quiet
 wrapped="$code/$out"
 in_dw record_page 1.5 "小数" "$scratch/fixed.md" "" quiet
 if [[ "$wrapped" == 1/*"not between 1 and 999999999"* ]] && [ "$code" = 1 ] && grep -q 'not a whole number' <<< "$out" \
@@ -1163,7 +1163,7 @@ in_dw cmd_explain "$scratch/page-ten.md" --page 1x
 not_digits="$code/$out"
 in_dw cmd_explain "$scratch/page-ten.md" --page 0
 zero="$code/$out"
-in_dw cmd_explain "$scratch/page-ten.md" --page 1000000000
+in_dw cmd_explain "$scratch/page-ten.md" --page "1$(printf '%09d' 0)"
 if [[ "$not_digits" == 1/*"--page needs a page number"* ]] && [[ "$zero" == 1/*"--page needs a page number"* ]] \
   && [ "$code" = 1 ] && grep -q -- '--page needs a page number' <<< "$out" \
   && [ "$(cat "$DW_HOME/explain/index.json"; ls "$DW_HOME/explain/pages")" = "$before" ]; then
