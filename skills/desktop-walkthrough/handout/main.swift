@@ -145,8 +145,9 @@ final class PublicationGate {
         return !stopped && stillWanted()
     }
 
-    /// Asked by the worker before each rename: whether it may rename now. False once a watchdog has
-    /// stopped the run, or when `stillWanted` says dw is gone or the run's time is up.
+    /// Asked by the worker before each rename, and before the last steps of a Handout written in place
+    /// (its permissions, the last look at its path): whether it may go on now. False once a watchdog
+    /// has stopped the run, or when `stillWanted` says dw is gone or the run's time is up.
     func allowCommit(_ stillWanted: () -> Bool) -> Bool {
         lock.lock()
         defer { lock.unlock() }
@@ -478,19 +479,22 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     /// the bytes that were checked (a save made into it in place keeps the file and changes them).
     /// Asked last, after the looks that follow a rename (the digest of a large earlier Handout takes a
     /// while): what another program put or saved there meanwhile stays, and is never called the
-    /// Handout. `kept` is where the file that was there before still lies, when it does.
+    /// Handout. The content is read first and the name looked at last: a file put at the path while
+    /// the content was read (this run's file, still open, would read as before) is seen.
+    /// `kept` is where the file that was there before still lies, when it does.
     func takenOver(earlierKeptAt kept: String? = nil) -> Publication? {
         let earlier = kept.map { ", and the Handout that was there before is kept at \($0)" } ?? ""
+        let whole = holds(descriptor, size: data.count, digest: writtenDigest)
         guard isAtPath(target, written) else {
             return .failed("another program replaced or removed \(target) right after the Handout was put there: what is there now stays (it is not the Handout of this export)\(earlier)")
         }
-        guard holds(descriptor, size: data.count, digest: writtenDigest) else {
+        guard whole else {
             return .failed("another program saved into \(target) right after the Handout was put there: that save stays (it is not the Handout that was checked)\(earlier)")
         }
         return nil
     }
-    /// Test only (input.json limits.writePauseMs): a pause after a rename, standing in for a volume
-    /// that is slow to answer the looks that follow it.
+    /// Test only (input.json limits.writePauseMs): a pause after a rename, and again before the
+    /// earlier Handout goes, standing in for a volume that is slow to answer the looks made there.
     func pauseAfterRename() {
         if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
     }
@@ -531,7 +535,7 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
     if exclusiveError == ENOTSUP || exclusiveError == ENOSYS {
         discard()
         return publishWithoutRenames(data, to: target, writePauseMs: writePauseMs, writingInPlace: writingInPlace,
-                                     mayContinue: mayContinue)
+                                     mayContinue: mayContinue, mayPublish: mayPublish)
     }
     guard exclusiveError == EEXIST else {
         discard()
@@ -597,10 +601,19 @@ func publish(_ data: Data, to target: String, staging: Staging, writePauseMs: In
             // Asked before the earlier Handout goes: when another program put its file at the target
             // while the looks above read the earlier one, both stay
             if let conflict = takenOver(earlierKeptAt: staged) { return conflict }
+            pauseAfterRename()
+            // Looked at once more right before it goes: that check read the whole new Handout, and a
+            // save made into the earlier one meanwhile (through a descriptor opened before the swap)
+            // moved its change time. Such a save stays, where it is
+            guard fstat(theirs, &now) == 0, sameContentStamp(now, replaced), sameChangeTime(now, replaced),
+                  isAtPath(staged, replaced) else {
+                return takenOver(earlierKeptAt: staged)
+                    ?? .published(warnings: ["the earlier Handout was saved while it was replaced: that save is kept at \(staged)"])
+            }
             // The earlier Handout goes, as the export was asked to replace it: a copy kept beside would
             // keep what a new export may have been made to remove (a page taken out). A write through a
-            // descriptor opened before and landing after the look above is lost, as with any file
-            // replaced by a rename
+            // descriptor opened before and landing after the look right above is lost, as with any
+            // file replaced by a rename
             unlink(staged)
             rmdir(staging.folder)
             return takenOver() ?? .published(warnings: [])
@@ -761,9 +774,12 @@ func keepPrivate(_ descriptor: Int32) {
 /// and the run says what may remain there, to be looked at before it is removed: this volume cannot
 /// remove only this run's own file, and nothing in it is erased either (another program may write
 /// into it, or put its own file there, meanwhile). Once whole, the path must still name this file and
-/// the file must hold exactly what was written (`holds`), or nothing is reported as published.
+/// the file must hold exactly what was written (`holds`), or nothing is reported as published. After
+/// that read `mayPublish` is asked, as before a rename: a stop made meanwhile leaves the file its
+/// owner's alone and unpublished, and otherwise the watchdogs leave the last steps (its permissions,
+/// a last look at the path) to this worker, so a stopped run never reports a Handout.
 func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, writingInPlace: (String) -> Void,
-                           mayContinue: (Int) -> Bool) -> Publication {
+                           mayContinue: (Int) -> Bool, mayPublish: () -> Bool) -> Publication {
     var present = stat()
     guard lstat(target, &present) != 0 else {
         return .failed("the volume of \(target) cannot replace a file safely (it has no atomic rename): remove the earlier Handout first, or choose an --out on another volume")
@@ -785,12 +801,14 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     // path nor its content is removed, and the run says what may be there. The path is named for
     // removal only as something to look at first: another program may put its own file there, now
     // (said as such) or after this look
-    func endWithout(stopped: Bool, _ what: String) -> Publication {
+    func endWithout(stopped: Bool, whole: Bool = false, _ what: String) -> Publication {
         var ours = stat()
         let replaced = fstat(created, &ours) == 0 && !isAtPath(target, ours)
+        let remains = whole ? "the Handout written at \(target) was not published: it remains, readable by you alone"
+                            : "a partly written Handout may remain at \(target)"
         let left = replaced
             ? "another program replaced or removed \(target) meanwhile: what is there now stays"
-            : "a partly written Handout may remain at \(target) (this volume cannot remove it safely): \(confirmBeforeRemoving)"
+            : "\(remains) (this volume cannot remove it safely): \(confirmBeforeRemoving)"
         return stopped ? .cancelledLeaving(left) : .failed("\(what); \(left)")
     }
     // An ACL the folder hands down would let others read the file while it is written: it goes before a
@@ -827,9 +845,20 @@ func publishWithoutRenames(_ data: Data, to target: String, writePauseMs: Int, w
     guard holds(created, size: data.count, digest: SHA256.hash(data: data)) else {
         return .failed("another program saved into \(target) while the Handout was written there: that save stays, and nothing was published")
     }
+    // Test only (input.json limits.writePauseMs): a pause standing in for a volume slow to answer that read
+    if writePauseMs > 0 { Thread.sleep(forTimeInterval: Double(writePauseMs) / 1000) }
+    // The run may have been stopped during that read (its time, dw gone): asked last, as before a
+    // rename. A stopped run widens no permissions and reports no Handout
+    guard mayPublish() else {
+        return endWithout(stopped: true, whole: true, "the export stopped once \(target) was written")
+    }
     // Whole: what any new file there gets, the ACL its folder hands down and the usual permissions
     let aclRestored = !inheritedUnread && (inherited.map { acl_set_fd(created, $0) == 0 } ?? true)
     if aclRestored { fchmod(created, newFileMode()) }
+    // The name is looked at last: a file put there during the read or the steps above is not the Handout
+    guard isAtPath(target, ours) else {
+        return .failed("another program replaced \(target) while the Handout was written there: that file stays, and nothing was published")
+    }
     return .published(warnings: aclRestored ? [] : ["the ACL its folder gives its files could not be given to \(target): only you can read it"])
 }
 

@@ -366,12 +366,13 @@ record_page() {
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
-  # A replaced page keeps its number: an earlier file of that number under another title is moved
-  # aside first (a hidden name no reader lists), so one that cannot be moved (locked, its permissions)
-  # leaves the record as it was; the files moved aside go once the new page is in place
+  # A replaced page keeps its number: every earlier file of that number (under this title or another)
+  # is moved aside first (a hidden name no reader lists), so one that cannot be moved (locked, its
+  # permissions) leaves the record as it was; the files moved aside go once the new page and its row
+  # are both in place, and come back when either cannot be saved
   aside=()
   for old in "$dir/pages/$nn-"*.md; do
-    [ -f "$old" ] && [ "$old" != "$page" ] || continue
+    [ -f "$old" ] || continue
     # A short name, whatever the length of the file's own (a long title nears the 255-byte limit)
     if ! mv "$old" "$dir/pages/.$nn.aside.$$.${#aside[@]}" 2>/dev/null; then
       record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
@@ -389,13 +390,17 @@ record_page() {
     echo "dw: page $n could not be kept in the record ($dir/pages): its earlier version stays" >&2
     return 1
   fi
-  for ((i = 0; i < ${#aside[@]}; i++)); do rm -f "$dir/pages/.$nn.aside.$$.$i"; done
-  if ! mv "$sections.part.$$" "$sections"; then
-    rm -f "$sections.part.$$"
+  # The page and its row are saved together: a page whose row cannot be saved goes again, and what
+  # was there before comes back, so saving it again (dw record, dw explain --page) starts from the
+  # record as it was and never skips a page that has no row
+  if ! mv "$sections.part.$$" "$sections" 2>/dev/null; then
+    rm -f "$page" "$sections.part.$$"
+    record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
     release_lock 8
-    echo "dw: page $n is in the record, but its row in sections.tsv could not be saved: show the page again (dw explain <file> --page $n)" >&2
+    echo "dw: page $n: its row in the record's sections.tsv could not be saved (check the file's permissions): the record was left as it was" >&2
     return 1
   fi
+  for ((i = 0; i < ${#aside[@]}; i++)); do rm -f "$dir/pages/.$nn.aside.$$.$i"; done
   record_handbook "$dir"
   release_lock 8
   [ "$quiet" = quiet ] || journal "📖 解説 ${n}「${title}」 → pages/$nn-${slug}.md"
@@ -477,6 +482,14 @@ cmd_record() {
   record_init "$dir"
   set_record_dir "$dir"
   if [ -f "$EXPLAIN/index.json" ]; then
+    # Under the explainer's lock from reading the index to the last page saved, taken before the
+    # record's as dw explain does: a page shown again meanwhile (dw explain --page) is never saved
+    # here under the title it had before
+    if ! hold_lock "$EXPLAIN/.dw-lock" 7; then
+      echo "recording: $dir"
+      echo "dw record: the pages of the panel could not be saved in the record yet (see above): run dw record $name again to save them" >&2
+      return 1
+    fi
     rows=$(jq -r '.pages[] | "\(.n)\t\(.title)\t\(.file)"' "$EXPLAIN/index.json")
     while IFS=$'\t' read -r n title file; do
       [ -n "$n" ] || continue
@@ -488,6 +501,7 @@ cmd_record() {
       # A page the record cannot keep now is said; dw record again saves it (pages kept are skipped)
       record_page "$n" "$title" "$src" "$given" quiet || missing="$missing $n"
     done <<< "$rows"
+    release_lock 7
   fi
   echo "recording: $dir"
   if [ -n "$missing" ]; then

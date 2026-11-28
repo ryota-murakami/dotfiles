@@ -55,12 +55,16 @@ timed_out() { # LABEL
   fail "$1: the renderer still ran after its deadline and was ended (harness timeout)"
 }
 # The first export a case builds on (the Handout its next run replaces), bounded like any run: one
-# that had to be ended fails here as the setup of LABEL
+# that had to be ended, or that published nothing, fails here as the setup of LABEL, with what it said
 first_export() { # LABEL ARGS...
   local label="$1"
   shift
   render_bounded 120 "$@"
-  [ "$harness_timeout" = no ] || fail "$label: setup: the first export still ran after 120 s and was ended (harness timeout)"
+  if [ "$harness_timeout" != no ]; then
+    fail "$label: setup: the first export still ran after 120 s and was ended (harness timeout)"
+  elif ! jq -e '.ok == true' <<< "$result" >/dev/null 2>&1; then
+    fail "$label: setup: the first export published nothing: $result"
+  fi
 }
 # How long one `dw handout` may take: longer than dw's own limit for a whole export (600 s), which
 # says why it stopped
@@ -499,13 +503,14 @@ else
 fi
 export_record acl --out "$scratch/acl-replaced/handout.html"
 first=$code
+first_out=$out
 chmod +a "everyone allow read,file_inherit" "$scratch/acl-replaced"
 export_record acl --out "$scratch/acl-replaced/handout.html"
 replaced=$(ls -le "$scratch/acl-replaced/handout.html" | sed -n 's/^ *[0-9]*: //p')
 if [ "$first" = 0 ] && [ "$code" = 0 ] && [ -z "$replaced" ]; then
   pass "a replaced Handout keeps the earlier one's ACL (none), never the one its folder hands down"
 else
-  fail "ACL on a replaced Handout (exit $first/$code): $replaced / $out"
+  fail "ACL on a replaced Handout (exit $first/$code): $replaced / first: $first_out / then: $out"
 fi
 # Every kind of entry a folder hands down (to files, to files and subfolders, to subfolders only, to
 # its contents only, one generation only): a new Handout gets exactly what a file made there gets
@@ -852,6 +857,37 @@ if hdiutil create -quiet -size 16m -fs MS-DOS -volname DWCHECK -layout NONE "$sc
   else
     fail "stalled write on a FAT volume (ended by itself: $ended): $result"
   fi
+  # dw ends once the file is whole, while the run reads it back (limits.writePauseMs holds the worker
+  # after that read too): the run reports no Handout, leaves the file its owner's alone and says so
+  handout_input "$RECORDS/direct" "$fat/whole.html" "$scratch/fat-whole-explain" "$scratch/fat-whole.json"
+  sleep 60 &
+  parent=$!
+  jq --argjson pid "$parent" '. + {parentPid: $pid} | .limits.parentMs = 200 | .limits.writePauseMs = 3000' \
+    "$scratch/fat-whole.json" > "$scratch/fat-whole-parent.json"
+  "$BIN" "$scratch/fat-whole-parent.json" "$DIST" > "$scratch/fat-whole.out" &
+  writer=$!
+  waited=0
+  until [ -s "$fat/whole.html" ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.05; waited=$((waited + 1))
+  done
+  # Whole once its size has stayed the same for longer than the pause after each write (3 s): the
+  # pause after the read back (3 s to 6 s after the last write) is then under way
+  size=$(/usr/bin/stat -f '%z' "$fat/whole.html" 2>/dev/null); steady=0; waited=0
+  until [ "$steady" -ge 42 ] || [ "$waited" -ge 1200 ]; do
+    sleep 0.1; waited=$((waited + 1))
+    now=$(/usr/bin/stat -f '%z' "$fat/whole.html" 2>/dev/null)
+    if [ "$now" = "$size" ]; then steady=$((steady + 1)); else size=$now; steady=0; fi
+  done
+  kill "$parent"; wait "$parent" 2>/dev/null
+  ended=yes; wait_bounded "$writer" 60 || ended=no
+  result=$(cat "$scratch/fat-whole.out")
+  if [ "$ended" = yes ] && jq -e --arg target "$fat/whole.html" '.diagnostics[0] | .code == "HANDOUT_RENDERER"
+      and (.message | contains("the Handout written at \($target) was not published: it remains, readable by you alone (this volume cannot remove it safely): before removing it, check that the file there is that one, not one another program saved since"))' <<< "$result" >/dev/null \
+    && [ -s "$fat/whole.html" ]; then
+    pass "dw ending while a Handout written in place is read back: no Handout is reported, and the run says the file remains"
+  else
+    fail "dw gone once the file was whole on a FAT volume (ended by itself: $ended): $result"
+  fi
   hdiutil detach -quiet "$fat" || hdiutil detach -quiet -force "$fat"
 else
   fail "dw gone mid-write on a FAT volume: setup: a FAT disk image could not be made and mounted"
@@ -989,6 +1025,40 @@ elif [ "$ended" = yes ] && jq -e --arg target "$scratch/edited.html" --arg kept 
   pass "another program saving into the new Handout right after the swap keeps that save and the earlier Handout, and nothing is called published"
 else
   fail "save into the target after the swap (kept: ${kept:-none}, ended by itself: $ended): $result"
+fi
+[ -n "$kept" ] && rm -rf "${kept%/*}"
+
+# Another program saves into the earlier Handout, through a descriptor it opened before the export,
+# after the run compared it and while it reads the new one a last time (limits.writePauseMs holds the
+# worker before the earlier Handout goes too): that save is kept beside, not deleted
+handout_input "$RECORDS/direct" "$scratch/late.html" "$scratch/late-explain" "$scratch/late.json"
+first_export "late save into the earlier Handout" "$scratch/late.json" "$DIST"
+earlier=$(/usr/bin/stat -f '%i' "$scratch/late.html")
+jq '.limits.writePauseMs = 3000' "$scratch/late.json" > "$scratch/late-paused.json"
+# The other program's descriptor: it follows the file into the run's folder
+exec 9<> "$scratch/late.html"
+"$BIN" "$scratch/late-paused.json" "$DIST" > "$scratch/late.out" 9>&- &
+writer=$!
+waited=0
+until [ "$(/usr/bin/stat -f '%i' "$scratch/late.html" 2>/dev/null)" != "$earlier" ] || [ "$waited" -ge 1200 ]; do
+  sleep 0.05; waited=$((waited + 1))
+done
+swapped=no
+[ "$(/usr/bin/stat -f '%i' "$scratch/late.html" 2>/dev/null)" != "$earlier" ] && swapped=yes
+# The pause after the swap lasts 3 s, the one before the earlier Handout goes the 3 s after it
+sleep 4.5
+printf 'X' >&9
+exec 9>&-
+ended=yes; wait_bounded "$writer" 60 || ended=no
+result=$(cat "$scratch/late.out")
+kept=$(find "$scratch" -maxdepth 2 -path "$scratch/.late.html.dw-handout-*/late.html" | head -1)
+if [ "$swapped" != yes ]; then
+  fail "late save into the earlier Handout: setup: the swap was never seen ($result)"
+elif [ "$ended" = yes ] && jq -e --arg kept "$kept" '.ok == true and (.warnings | map(.message) | index("the earlier Handout was saved while it was replaced: that save is kept at \($kept)") != null)' <<< "$result" >/dev/null \
+  && [ -n "$kept" ] && [ "$(/usr/bin/stat -f '%i' "$kept")" = "$earlier" ] && [ "$(head -c 1 "$kept")" = X ]; then
+  pass "a save made into the earlier Handout just before it would go is kept beside, with its warning"
+else
+  fail "late save into the earlier Handout (kept: ${kept:-none}, ended by itself: $ended): $result"
 fi
 [ -n "$kept" ] && rm -rf "${kept%/*}"
 

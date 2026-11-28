@@ -436,6 +436,54 @@ if [ "$code" = 0 ] && [ "$(ls "$RECORDS/backfill/pages" | tr '\n' ' ')" = "01-�
 else
   fail "second dw record (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ')"
 fi
+
+# A page whose row in sections.tsv cannot be saved (the file is locked: readable, not replaceable) is
+# not left in the record without it: the record stays as it was, so dw record again saves the page
+# with its row instead of skipping it
+panel=$(cat "$DW_HOME/explain/index.json")
+printf '{"current":3,"pages":[{"n":1,"title":"一枚目","step":"","file":"pages/001.html"},{"n":2,"title":"二枚目","step":"","file":"pages/002.html"},{"n":3,"title":"三枚目の題","step":"後半","file":"pages/003.html"}]}\n' > "$DW_HOME/explain/index.json"
+printf '# 三枚目\n' > "$DW_HOME/explain/pages/003.md"
+chflags uchg "$RECORDS/backfill/pages/sections.tsv"
+in_dw cmd_record backfill
+listed=$(ls -A "$RECORDS/backfill/pages" | tr '\n' ' ')
+if [ "$code" = 1 ] && grep -q "page 3: its row in the record's sections.tsv could not be saved" <<< "$out" \
+  && grep -q 'page(s) 3 of the panel could not be saved' <<< "$out" \
+  && [ "$listed" = ".dw-lock 01-一枚目.md 02-二枚目.md sections.tsv " ]; then
+  pass "a page whose row in sections.tsv cannot be saved is not kept without it: the record stays as it was"
+else
+  fail "row that cannot be saved (exit $code: $out): $listed"
+fi
+# The same for a page shown again under another title: its earlier file comes back
+in_dw record_page 1 "新しい題" "$DW_HOME/explain/pages/003.md" "新しい題" quiet
+listed=$(ls -A "$RECORDS/backfill/pages" | tr '\n' ' ')
+if [ "$code" = 1 ] && [ "$listed" = ".dw-lock 01-一枚目.md 02-二枚目.md sections.tsv " ] \
+  && [ "$(cat "$RECORDS/backfill/pages/01-一枚目.md")" = '# 一枚目' ]; then
+  pass "a replaced page whose row cannot be saved keeps its earlier file and title"
+else
+  fail "replaced page whose row cannot be saved (exit $code: $out): $listed"
+fi
+chflags nouchg "$RECORDS/backfill/pages/sections.tsv"
+in_dw cmd_record backfill
+if [ "$code" = 0 ] && [ "$(ls "$RECORDS/backfill/pages" | tr '\n' ' ')" = "01-一枚目.md 02-二枚目.md 03-三枚目の題.md sections.tsv " ] \
+  && grep -q "^3	後半	三枚目の題$" "$RECORDS/backfill/pages/sections.tsv"; then
+  pass "dw record again saves that page with its section and the title it was given"
+else
+  fail "dw record after the row could be saved (exit $code: $out): $(ls "$RECORDS/backfill/pages" | tr '\n' ' ') / $(cat "$RECORDS/backfill/pages/sections.tsv")"
+fi
+printf '%s\n' "$panel" > "$DW_HOME/explain/index.json"
+rm -f "$DW_HOME/explain/pages/003.md" "$DW_HOME/record_dir"
+
+# dw record reads the panel's pages under the explainer's lock: while another dw shows a page again
+# it saves none (the title it read could be the earlier one), says so and fails
+holder=$(hold_like_another_dw "$DW_HOME/explain/.dw-lock")
+DW_LOCK_WAIT=0 in_dw cmd_record serial
+kill "$holder" 2>/dev/null; wait "$holder" 2>/dev/null
+if [ "$code" = 1 ] && grep -q '^recording: ' <<< "$out" && grep -q 'the pages of the panel could not be saved in the record yet' <<< "$out" \
+  && [ -z "$(ls "$RECORDS/serial/pages" 2>/dev/null)" ]; then
+  pass "dw record while another dw changes the panel saves no page under a title that may be stale, and says so"
+else
+  fail "backfill under the explainer lock (exit $code: $out): $(ls "$RECORDS/serial/pages" 2>&1 | tr '\n' ' ')"
+fi
 rm -f "$DW_HOME/record_dir"
 
 # dw explain --rebuild holds the explainer's lock: a page added meanwhile is never dropped
