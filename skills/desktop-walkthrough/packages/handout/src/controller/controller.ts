@@ -345,7 +345,10 @@ export function startHandout(doc: Document, store: WidthStore | null): void {
     // Arrow keys belong to a field, to a code block, table or diagram they were typed in, and to one the
     // reader pressed into that scrolls sideways; anywhere else they turn the page
     if (event.defaultPrevented || keepsArrowKeys(event.target, view) || scrollsSideways(pressedIn)) return
-    show(event.key === 'ArrowRight' ? current + 1 : current - 1)
+    const target = event.key === 'ArrowRight' ? current + 1 : current - 1
+    // Past the first or the last page there is no page to turn to: the reader keeps their place
+    if (target < 1 || target > total) return
+    show(target)
   })
   view.addEventListener('hashchange', () => {
     const requested = pageFromHash()

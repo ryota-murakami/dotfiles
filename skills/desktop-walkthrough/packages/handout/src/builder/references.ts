@@ -9,6 +9,12 @@ const MEDIA_ELEMENTS: ReadonlySet<string> = new Set(['video', 'audio'])
 /** Attributes whose value a browser loads to show the element (an `<img>`'s `src` is embedded, not loaded). */
 const LOADED_ATTRIBUTES: ReadonlySet<string> = new Set(['src', 'poster', 'background', 'data'])
 
+/**
+ * Attributes by which a diagram's element names what it draws: a gradient, pattern or symbol of the
+ * page (`#id`), or else a file it loads (an `<feImage>`, a `<use>` of another file).
+ */
+const SVG_REFERENCE_ATTRIBUTES: ReadonlySet<string> = new Set(['href', 'xlink:href'])
+
 /** Attributes whose value a reader follows: a link. */
 const LINK_ATTRIBUTES: ReadonlySet<string> = new Set([
   'href',
@@ -46,7 +52,8 @@ const CSS_ATTRIBUTES: ReadonlySet<string> = new Set([
  * loads would show as a dead player or a missing picture, carrying the author's paths (their user
  * name) besides, and a style's `url(data:…)` would put bytes in the file that no secret check read.
  * CSS is read where CSS is (style attributes, SVG presentation attributes, a diagram's `<style>`):
- * `url(…)`, the strings of `image-set(…)` and `@import`. Called by {@link buildHandout} for every
+ * `url(…)`, the strings of `image-set(…)` and `@import`; in a diagram, an element that draws a file it
+ * names by `href` (an `<feImage>`, a `<use>` of another file). Called by {@link buildHandout} for every
  * page after sanitizing: what the colleague receives.
  *
  * @param page - The page the content belongs to (its number names it in messages).
@@ -75,11 +82,19 @@ export function unembeddableResources(page: HandoutPage, html: string): Diagnost
     if (element.closest('video, audio')) continue
     // A diagram's own style sheet loads like a style attribute
     if (name === 'style') for (const target of cssLoads(element.textContent ?? '')) stop(styleLoads(target))
-    const embeddedPicture = name === 'img' || (name === 'image' && element.closest('svg') !== null)
+    const inDiagram = element.closest('svg') !== null
+    const embeddedPicture = name === 'img' || (name === 'image' && inDiagram)
+    // In a diagram, an href of anything but a link or an embedded picture draws what it names: a file
+    // unless it is a part of the page (`#id`)
+    const drawsByReference = inDiagram && name !== 'a' && !embeddedPicture
     for (const attribute of Array.from(element.attributes)) {
       if (CSS_ATTRIBUTES.has(attribute.name))
         for (const target of cssLoads(attribute.value)) stop(styleLoads(target))
-      if (LOADED_ATTRIBUTES.has(attribute.name) && !embeddedPicture && attribute.value.trim() !== '') {
+      const value = attribute.value.trim()
+      const loadsFile =
+        (LOADED_ATTRIBUTES.has(attribute.name) && !embeddedPicture) ||
+        (drawsByReference && SVG_REFERENCE_ATTRIBUTES.has(attribute.name) && !value.startsWith('#'))
+      if (loadsFile && value !== '') {
         stop(
           `the ${name} element loads ${quoted(attribute.value)}, which a Handout does not carry: show the picture with an image instead`,
         )
