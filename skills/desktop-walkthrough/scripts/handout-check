@@ -422,6 +422,16 @@ if [ "$code" = 1 ] && grep -q 'HANDOUT_IMAGE page 1: an inline SVG draws a part 
 else
   fail "inline <feImage href=data:>: $out"
 fi
+# An inline SVG's HTML label (foreignObject) reaches the Handout: the page's sanitizer keeps it as the builder's does
+new_record inline-label
+printf '\n<svg viewBox="0 0 120 30" width="120" height="30"><foreignObject width="120" height="30"><div>インライン図のラベル</div></foreignObject></svg>\n' \
+  >> "$RECORDS/inline-label/pages/01-書き出しの流れ.md"
+export_record inline-label
+if [ "$code" = 0 ] && grep -q 'インライン図のラベル' "$RECORDS/inline-label/handout.html"; then
+  pass "an inline SVG's HTML label (foreignObject) is carried into the Handout"
+else
+  fail "inline foreignObject label: $out"
+fi
 
 new_record entity-secret
 printf '\n<a href="https://docs.test/a?expires=1&amp;signature=%s">設計メモ</a>\n' "$SIGNATURE" >> "$RECORDS/entity-secret/pages/01-書き出しの流れ.md"
@@ -664,19 +674,55 @@ printf 'kept\n' > "$scratch/linked-target.tsv"
 rm -f "$RECORDS/cleared-linked/pages/sections.tsv"
 ln -s "$scratch/linked-target.tsv" "$RECORDS/cleared-linked/pages/sections.tsv"
 chmod 444 "$RECORDS/cleared-linked/journal.md"
+printf 'kept\n' > "$scratch/linked-handbook.md"
+ln -sf "$scratch/linked-handbook.md" "$RECORDS/cleared-linked/handbook.md"
 mkdir -p "$DW_HOME/explain/pages" && printf '# 記録できなかった 1 枚\n' > "$DW_HOME/explain/pages/007.md"
 printf '%s' "$RECORDS/cleared-linked" > "$DW_HOME/record_dir"
 clear_out=$(scripts/dw explain --clear 2>&1); clear_code=$?
 rm -f "$DW_HOME/record_dir"
 if [ "$clear_code" = 0 ] && [ "$(cat "$scratch/linked-target.tsv")" = kept ] && [ ! -L "$RECORDS/cleared-linked/pages/sections.tsv" ] \
+  && [ "$(cat "$scratch/linked-handbook.md")" = kept ] && [ ! -L "$RECORDS/cleared-linked/handbook.md" ] \
   && grep -q 'the journal could not be written' <<< "$clear_out" \
   && [ -n "$(find "$DW_HOME/explain/cleared" -name 007.md 2>/dev/null)" ]; then
-  pass "a clear never empties the file a linked sections.tsv points to, stands when the journal is read-only, and keeps the panel's sources"
+  pass "a clear never writes through a linked sections.tsv or handbook.md, stands when the journal is read-only, and keeps the panel's sources"
 else
   fail "clear with a linked sections.tsv: code $clear_code: $clear_out"
 fi
 
+# A panel folder that cannot be kept aside is never deleted: the clear says so and the panel keeps it
+new_record cleared-blocked
+mkdir -p "$DW_HOME/explain/pages" && printf '# 記録できなかった 1 枚\n' > "$DW_HOME/explain/pages/008.md"
+rm -rf "$DW_HOME/explain/cleared" && printf 'not a folder\n' > "$DW_HOME/explain/cleared"
+printf '%s' "$RECORDS/cleared-blocked" > "$DW_HOME/record_dir"
+clear_out=$(scripts/dw explain --clear 2>&1); clear_code=$?
+rm -f "$DW_HOME/record_dir" "$DW_HOME/explain/cleared"
+if [ "$clear_code" != 0 ] && grep -q "the panel's pages could not be kept aside" <<< "$clear_out" && [ -f "$DW_HOME/explain/pages/008.md" ]; then
+  pass "a panel folder that cannot be kept aside stays where it is, and the clear says so"
+else
+  fail "clear with cleared/ blocked: code $clear_code: $clear_out"
+fi
+
 echo "== what a Record holds that dw never wrote"
+# A pages/ that is a link would export another folder's pages under this Record's name
+new_record linked-pages
+mv "$RECORDS/linked-pages/pages" "$scratch/other-pages"
+ln -s "$scratch/other-pages" "$RECORDS/linked-pages/pages"
+export_record linked-pages
+if [ "$code" = 1 ] && grep -q "HANDOUT_RECORD linked-pages's pages/ is a symbolic link" <<< "$out"; then
+  pass "a pages/ folder that is a symbolic link stops the export with HANDOUT_RECORD"
+else
+  fail "linked pages/: $out"
+fi
+# A journal that is a link is not written through: the export says so and its target stays as it was
+new_record linked-journal
+printf '{"kept": true}\n' > "$scratch/linked-journal.json"
+rm -f "$RECORDS/linked-journal/journal.md" && ln -s "$scratch/linked-journal.json" "$RECORDS/linked-journal/journal.md"
+export_record linked-journal
+if [ "$code" = 0 ] && grep -q 'journal.md could not be written' <<< "$out" && [ "$(cat "$scratch/linked-journal.json")" = '{"kept": true}' ]; then
+  pass "a journal that is a symbolic link is not written through: a warning, and its target unchanged"
+else
+  fail "linked journal: $out"
+fi
 # A page that is a link would publish the file it points to, from outside the Record
 new_record linked-page
 printf '# 外の文書\n' > "$scratch/outside.md"

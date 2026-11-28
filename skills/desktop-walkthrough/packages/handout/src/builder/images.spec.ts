@@ -316,6 +316,26 @@ test('a picture without an image extension is embedded by what its bytes are', a
   })
 })
 
+test('a data URL whose base64 padding is percent-escaped (%3D) is read as the picture it is, not refused', async () => {
+  // Arrange
+  const host = hostWithFiles({})
+  const html =
+    '<p><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg%3D%3D"></p>'
+
+  // Act
+  const result = await embedImages(
+    page('![画面](data:image/png;base64,…)\n'),
+    html,
+    '/r',
+    host,
+    createImageLedger(),
+  )
+
+  // Assert
+  expect(result.diagnostics).toEqual([])
+  expect(host.asked).toEqual([])
+})
+
 test('an SVG that spells a key with character references stops the export, as the drawing shows it decoded', async () => {
   // Arrange
   const svg = `<svg xmlns="http://www.w3.org/2000/svg"><text>&#65;${ACCESS_KEY_ID.slice(1)}</text></svg>`

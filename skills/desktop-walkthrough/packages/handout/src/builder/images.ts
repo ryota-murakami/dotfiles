@@ -724,7 +724,14 @@ function dataUriBytes(source: string): { ok: true; bytes: Uint8Array } | { ok: f
   const header = source.slice(0, comma)
   const payload = source.slice(comma + 1)
   const isBase64 = /;base64$/i.test(header)
-  const base64 = isBase64 ? payload.replace(/\s/g, '') : ''
+  // A data URL may percent-escape base64's own characters (`%2B`, `%3D`), restored before decoding
+  const base64 = isBase64
+    ? payload
+        .replace(/%([0-9A-Fa-f]{2})/g, (_escape, hex: string) =>
+          String.fromCharCode(Number.parseInt(hex, 16)),
+        )
+        .replace(/\s/g, '')
+    : ''
   // Sizes known before anything is decoded: base64 holds three bytes in four characters (padding
   // not counted), and URL-encoded text at least one byte in three characters (`%41`)
   if (isBase64 ? base64DecodedLength(base64) > IMAGE_LIMIT_BYTES : payload.length / 3 > IMAGE_LIMIT_BYTES)

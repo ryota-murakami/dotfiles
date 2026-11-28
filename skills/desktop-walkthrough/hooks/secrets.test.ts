@@ -137,6 +137,21 @@ test('a short Basic credential (twelve characters) is found and masked, while pr
   expect(inProse).toEqual([])
 })
 
+test('an HTTP trace with a tab after Authorization: or before the credential has the credential found and masked', () => {
+  // Arrange
+  // base64 of a user and password, assembled at run time
+  const credential = ['dXNlcjpw', 'YXNzd29yZA=='].join('')
+  const trace = `> Authorization:\tBasic\t${credential}\n`
+
+  // Act
+  const findings = findSecrets(trace)
+  const masked = maskSecrets(trace)
+
+  // Assert
+  expect(findings).toEqual([{ pattern: 'authorization-header', index: 2, line: 1 }])
+  expect(masked).toBe('> Authorization:\tBasic •••\n')
+})
+
 test('capitalised prose after Basic and camelCase placeholders after Bearer are not taken for credentials', () => {
   // Arrange
   // The placeholders are assembled at run time, so a scanner reading this file sees no header value

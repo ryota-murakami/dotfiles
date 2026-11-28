@@ -93,8 +93,9 @@ const SECRET_PATTERNS: ReadonlyArray<readonly [name: string, pattern: RegExp, re
   [
     'authorization-header',
     new RegExp(
-      `\\b(?:(${anyCase('Bearer')}) +${REFERENCE}${machineMade}${CREDENTIAL}{16,}` +
-        `|(${anyCase('Authorization')}: *${anyCase('Basic')}) +${REFERENCE}${BASIC_CREDENTIAL})`,
+      // HTTP allows a tab as well as spaces around the scheme (an HTTP trace keeps it)
+      `\\b(?:(${anyCase('Bearer')})[ \\t]+${REFERENCE}${machineMade}${CREDENTIAL}{16,}` +
+        `|(${anyCase('Authorization')}:[ \\t]*${anyCase('Basic')})[ \\t]+${REFERENCE}${BASIC_CREDENTIAL})`,
       'g',
     ),
     `$1$2 ${MASK}`,

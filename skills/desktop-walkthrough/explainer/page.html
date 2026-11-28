@@ -218,6 +218,10 @@
     ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|file|mailto|tel|callto|sms|cid|xmpp|matrix):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
     FORBID_TAGS: ['style', 'source', 'template'],
     FORBID_ATTR: ['srcset'],
+    // An inline SVG's HTML labels, as the builder's sanitizer keeps them (packages/handout/src/builder/sanitize.ts):
+    // removed here, they would be gone before the builder ever measured or checked them
+    ADD_TAGS: ['foreignobject'],
+    HTML_INTEGRATION_POINTS: { foreignobject: true },
   };
 
   if (window.marked && (!handout || window.DOMPurify)) {

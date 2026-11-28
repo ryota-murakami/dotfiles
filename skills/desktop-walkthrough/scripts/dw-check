@@ -178,6 +178,47 @@ else
   fail "tab normalization: $(cat "$dir/pages/sections.tsv") / $(ls "$dir/pages")"
 fi
 
+# A page resumed under another spelling of its number (1-, 001-) is replaced, not kept beside the new
+# one: dw handout reads both as page 1 and would refuse the Record
+dir=$(two_page_record spelt)
+mv "$dir/pages/01-一枚目.md" "$dir/pages/001-一枚目.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+printf '# 直した一枚目\n' > "$scratch/fixed.md"
+in_dw record_page 1 "直した一枚目" "$scratch/fixed.md" "" quiet
+if [ "$code" = 0 ] && [ "$(find "$dir/pages" -maxdepth 1 -name '*-*.md' | grep -c '/0*1-')" = 1 ] && [ -f "$dir/pages/01-直した一枚目.md" ]; then
+  pass "correcting a page spelt 001- replaces it: one file of number 1 stays"
+else
+  fail "page number spelling: exit $code: $out / $(ls "$dir/pages" | tr '\n' ' ')"
+fi
+# A folder at the page's new file name would take the page inside it; the save stops instead
+dir=$(two_page_record dir-at-name)
+mkdir "$dir/pages/01-新しい題.md"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+in_dw record_page 1 "新しい題" "$scratch/fixed.md" "" quiet
+if [ "$code" != 0 ] && grep -q 'is not a plain file' <<< "$out" && [ -f "$dir/pages/01-一枚目.md" ] && [ -z "$(ls -A "$dir/pages/01-新しい題.md")" ]; then
+  pass "a folder at the page's file name stops the save and the earlier page stays"
+else
+  fail "folder at the page name: exit $code: $out"
+fi
+# A pipe where the lock file goes would hold dw before any timeout: it is refused at once
+dir=$(two_page_record piped-lock)
+mkfifo "$dir/pages/.dw-lock"
+printf '%s' "$dir" > "$DW_HOME/record_dir"
+# Watchdog: a dw that opens the pipe would wait for a reader forever; after 10 s open the
+# reading end (nonblocking) so such a dw goes on and this case fails instead of hanging
+perl -MFcntl -e 'sleep 10; sysopen(my $h, $ARGV[0], O_RDONLY | O_NONBLOCK); sleep 2' \
+  "$dir/pages/.dw-lock" > /dev/null 2>&1 &
+watchdog=$!
+in_dw record_page 1 "一枚目" "$scratch/fixed.md" "" quiet
+kill "$watchdog" 2> /dev/null
+wait "$watchdog" 2> /dev/null
+if [ "$code" != 0 ] && grep -q 'is not a plain file (dw makes it)' <<< "$out"; then
+  pass "a pipe at the lock file's name is refused at once, never waited on"
+else
+  fail "piped lock: exit $code: $out"
+fi
+rm -f "$DW_HOME/record_dir"
+
 dir="$RECORDS/controls"
 mkdir -p "$dir/pages"
 printf '# 記録：controls\n' > "$dir/journal.md"

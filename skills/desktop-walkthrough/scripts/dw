@@ -267,7 +267,9 @@ record_handbook() {
       printf '\n\n---\n\n'
       cat "$page"
     done < <(record_pages "$dir")
-  } > "$dir/handbook.md"
+  } > "$dir/.handbook.md.$$" && mv -f "$dir/.handbook.md.$$" "$dir/handbook.md"
+  # Written beside and renamed: a handbook.md that is a link is replaced, its target never written
+  rm -f "$dir/.handbook.md.$$"
 }
 
 # Hold the lock file LOCK on file descriptor FD while the caller changes what it guards: the record's
@@ -281,6 +283,11 @@ hold_lock() {
   local lock="$1" fd="$2" wait="${DW_LOCK_WAIT:-10}"
   # Whole seconds; 0 does not wait at all (perl's alarm 0 would wait forever), anything else is 10
   case "$wait" in ''|*[!0-9]*) wait=10 ;; esac
+  # A link or a pipe is no lock dw made: opening a pipe would wait for a reader before any timeout
+  if [ -L "$lock" ] || { [ -e "$lock" ] && [ ! -f "$lock" ]; }; then
+    echo "dw: $lock is not a plain file (dw makes it): remove it, then run the command again" >&2
+    return 1
+  fi
   if ! eval "exec $fd>>\"\$lock\"" 2>/dev/null; then
     echo "dw: $lock cannot be opened (check the folder's permissions): nothing changed" >&2
     return 1
@@ -318,7 +325,7 @@ shell_word() { printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"; }
 # title given with --title ("" when the title came from the page), kept so resume and handout show it.
 # A fifth argument "quiet" skips the journal line (pages added to a record after the fact).
 record_page() {
-  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i
+  local n="$1" title="$2" md="$3" given="$4" quiet="${5:-}" dir nn slug old step page part sections rows aside i base number
   dir=$(record_dir)
   [ -n "$dir" ] || return 0
   mkdir -p "$dir/pages"
@@ -330,6 +337,12 @@ record_page() {
   sections="$dir/pages/sections.tsv"
   rows="$dir/pages/.sections.rows.$$"
   hold_lock "$dir/pages/.dw-lock" 8 || return 1
+  # A folder or a link at the page's name would take the page inside it, or write elsewhere
+  if [ -L "$page" ] || { [ -e "$page" ] && [ ! -f "$page" ]; }; then
+    release_lock 8
+    echo "dw: page $n: $page is not a plain file: move it away, then save the page again; the record was left as it was" >&2
+    return 1
+  fi
   # The other pages' rows, read before anything changes: a sections.tsv that cannot be read would
   # otherwise be replaced by this page's row alone (grep: 1 is no other row, 2 an error)
   if [ -e "$sections" ]; then
@@ -371,8 +384,12 @@ record_page() {
   # permissions) leaves the record as it was; the files moved aside go once the new page and its row
   # are both in place, and come back when either cannot be saved
   aside=()
-  for old in "$dir/pages/$nn-"*.md; do
+  # Every file of this number, however it is spelt (1-, 01-, 001-): dw handout reads them all as page N
+  for old in "$dir"/pages/[0-9]*-*.md; do
     [ -f "$old" ] || continue
+    base=$(basename "$old"); number="${base%%-*}"
+    case "$number" in ''|*[!0-9]*) continue ;; esac
+    [ "${#number}" -le 9 ] && [ "$((10#$number))" = "$n" ] || continue
     # A short name, whatever the length of the file's own (a long title nears the 255-byte limit)
     if ! mv "$old" "$dir/pages/.$nn.aside.$$.${#aside[@]}" 2>/dev/null; then
       record_restore_aside "$dir/pages" "$nn" ${aside[@]+"${aside[@]}"}
@@ -1205,8 +1222,11 @@ cmd_explain() {
         # The panel's sources are kept aside, not deleted: a page the record could not keep (dw explain
         # said so, with a retry naming its file here) can still be recovered after a clear
         if [ -d "$EXPLAIN/pages" ]; then
-          mkdir -p "$EXPLAIN/cleared"
-          mv "$EXPLAIN/pages" "$EXPLAIN/cleared/pages-$(date +%Y%m%d-%H%M%S)-$$" 2>/dev/null || rm -rf "$EXPLAIN/pages"
+          # One that cannot be moved stays where it is (never deleted): the panel keeps its pages
+          if ! { mkdir -p "$EXPLAIN/cleared" && mv "$EXPLAIN/pages" "$EXPLAIN/cleared/pages-$(date +%Y%m%d-%H%M%S)-$$"; } 2>/dev/null; then
+            release_lock 7
+            die "explain --clear: the record was cleared, but the panel's pages could not be kept aside in $EXPLAIN/cleared (check its permissions): the panel keeps them; clear again once that folder can be written"
+          fi
         fi
         rm -f "$EXPLAIN/rendered.json"
         printf '{"current":0,"pages":[]}\n' > "$EXPLAIN/index.json"
@@ -1707,6 +1727,10 @@ cmd_handout() (
     [ -n "$dir" ] || die "there is no record to export yet (dw records lists them)"
   fi
   name=$(basename "$dir")
+  # A pages/ that is a link would export another folder's pages under this Record's name
+  if [ -L "$dir/pages" ]; then
+    handout_fail HANDOUT_RECORD "$name's pages/ is a symbolic link: put the Record's own pages folder in its place, then export again"; exit 1
+  fi
   [ -n "$out" ] || out="$dir/handout.html"
   case "$out" in /*) ;; *) out="$PWD/$out" ;; esac
   # Paths as printed: no control character reaches the terminal (the record's name and --out are the
@@ -1875,7 +1899,9 @@ LIST
   fi
   printf '%s' "$result" | jq -r '.warnings[] | (if .page then "page \(.page): " else "" end) + .message | gsub("[[:cntrl:]]"; "")' >> "$tmp/warnings.txt"
   # Publication is the success: a journal that cannot be written is a warning, never a failure
-  if ! { printf -- '- %s 📤 Handout → %s\n' "$(date +%H:%M:%S)" "$shown_out" >> "$dir/journal.md"; } 2>/dev/null; then
+  # A journal that is a link (or no plain file) is not written through: the line would land elsewhere
+  if [ -L "$dir/journal.md" ] || [ ! -f "$dir/journal.md" ] \
+    || ! { printf -- '- %s 📤 Handout → %s\n' "$(date +%H:%M:%S)" "$shown_out" >> "$dir/journal.md"; } 2>/dev/null; then
     echo "$dir/journal.md could not be written: the export is not in the journal" >> "$tmp/warnings.txt"
   fi
   pages=$(printf '%s' "$result" | jq -r '.pages')
